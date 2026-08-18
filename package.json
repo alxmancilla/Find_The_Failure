@@ -1,0 +1,12 @@
+{
+  "name": "find-the-failure",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EDI Integration Impact Explorer demo (MongoDB context layer)",
+  "scripts": {
+    "demo": "bash scripts/demo.sh",
+    "start:app": "bash scripts/app.sh",
+    "seed": "cd backend && npm run seed",
+    "stop": "docker compose down"
+  }
+}

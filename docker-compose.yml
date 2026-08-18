@@ -1,0 +1,13 @@
+services:
+  mongo:
+    # Atlas Local bundles mongod + the Atlas Search engine (mongot) and runs as a
+    # single-node replica set, so $search works locally without a cloud account.
+    image: mongodb/mongodb-atlas-local:latest
+    container_name: ftf-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - ftf-atlas-data:/data/db
+
+volumes:
+  ftf-atlas-data:
