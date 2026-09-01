@@ -2,7 +2,16 @@ const base = "/api";
 
 async function json(path, opts) {
   const res = await fetch(base + path, opts);
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    let message = `${res.status} ${res.statusText}`;
+    try {
+      const body = await res.json();
+      if (body?.error) message = body.error;
+    } catch {
+      // Keep the HTTP status fallback if the response is not JSON.
+    }
+    throw new Error(message);
+  }
   return res.json();
 }
 

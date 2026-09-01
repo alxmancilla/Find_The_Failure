@@ -12,11 +12,7 @@ import { scenarios, getScenario } from "./scenarios.js";
 
 const router = Router();
 
-const wrap = (fn) => (req, res) =>
-  fn(req, res).catch((err) => {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  });
+const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
 // Search across systems, interfaces, and owners.
 router.get(

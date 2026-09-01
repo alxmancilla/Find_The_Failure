@@ -19,7 +19,7 @@ async function searchAtlas(q) {
     {
       $search: {
         index: INDEX_NAME,
-        text: { query: q, path: { wildcard: "*" }, fuzzy: { maxEdits: 1 } },
+        text: { query: q, path: { wildcard: "*" }, fuzzy: { maxEdits: 2 } },
       },
     },
     { $limit: 20 },
