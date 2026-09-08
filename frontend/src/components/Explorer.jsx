@@ -17,7 +17,12 @@ export default function Explorer() {
   }, []);
 
   const loadDetail = useCallback(async (key) => {
-    setDetail(await api.interface(key));
+    const [detailResult, impactResult] = await Promise.all([
+      api.interface(key),
+      api.impact(key),
+    ]);
+    setDetail(detailResult);
+    setImpact(impactResult);
   }, []);
 
   const selectFromSearch = useCallback(async (key) => {

@@ -81,7 +81,7 @@ export default function InterfaceDetails({ detail, impact, onSimulate, onReset, 
             </div>
           </div>
           <div className="panel-section">
-            <h3>Business Processes at Risk</h3>
+            <h3>Business Process Context</h3>
             {processes.length === 0 && <span className="muted">No mapped processes.</span>}
             {processes.map((p) => (
               <div key={p.key} className="event process-card">
@@ -91,7 +91,7 @@ export default function InterfaceDetails({ detail, impact, onSimulate, onReset, 
             ))}
           </div>
           <div className="panel-section">
-            <h3>Relationship Evidence</h3>
+            <h3>Canonical Relationship Evidence</h3>
             {quality && (
               <div className="data-quality">
                 {quality.total} typed edges · {quality.confirmed} confirmed · {pct(quality.average_confidence)} confidence
