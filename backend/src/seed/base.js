@@ -13,7 +13,7 @@ export const owners = [
   {
     key: "erp-integration",
     name: "ERP Integration Team",
-    team: "McKesson ERP Integration",
+    team: "Apex ERP Integration",
     email: "erp-integration@example-health.com",
     slack: "#erp-integration",
     on_call: "PagerDuty: erp-primary",
@@ -64,11 +64,11 @@ export const systems = [
     owner: "erp-integration",
   },
   {
-    key: "mckesson-erp",
-    name: "McKesson ERP",
+    key: "apex-erp",
+    name: "Apex ERP",
     kind: "target",
     description: "Core ERP handling procurement, inventory, and order management.",
-    vendor: "McKesson",
+    vendor: "Apex Health Supply",
     owner: "erp-integration",
   },
   {
@@ -88,10 +88,10 @@ export const systems = [
     owner: "erp-integration",
   },
   {
-    key: "customer-notifications",
-    name: "Customer Notifications",
+    key: "partner-notifications",
+    name: "Partner Notifications",
     kind: "service",
-    description: "Sends order confirmations and exception alerts to customers.",
+    description: "Sends order confirmations and exception alerts to trading partners.",
     vendor: "In-house",
     owner: "erp-integration",
   },

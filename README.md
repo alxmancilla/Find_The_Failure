@@ -4,7 +4,7 @@
 layer over an integration landscape. It answers *"What's affected, who owns it,
 and what happens next?"* in seconds instead of hours.
 
-> MongoDB does not replace existing integration engines (e.g. McKesson's). It
+> MongoDB does not replace existing integration engines (e.g. Apex Health Supply's). It
 > gives architects a flexible, searchable context layer **above** them so they
 > can understand how the landscape fits together.
 

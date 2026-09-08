@@ -127,7 +127,7 @@ This lets a typo like `hosptial` still return **Hospital Order 850**.
 
 - "Show the path from the hospital order feed to the ERP."
 - "What interface comes after the EDI gateway?"
-- "Which systems sit between Hospital 123 and McKesson ERP?"
+- "Which systems sit between Hospital 123 and Apex ERP?"
 - "What depends on the X12 translator?"
 
 ### Ownership, search, modernization, and change planning
@@ -136,7 +136,7 @@ This lets a typo like `hosptial` still return **Hospital Order 850**.
 - "Find the hospital order interface even if I type `hosptial`."
 - "Find interfaces related to purchase orders, X12, or ERP."
 - "If we replace the X12 translator, what breaks?"
-- "Which interfaces touch McKesson ERP?"
+- "Which interfaces touch Apex ERP?"
 - "Which interfaces should be regression-tested before an ERP upgrade?"
 
 ---
