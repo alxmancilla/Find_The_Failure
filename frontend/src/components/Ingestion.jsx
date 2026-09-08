@@ -41,8 +41,8 @@ export default function Ingestion() {
       <div className="left page">
         <h2>Federated Metadata Ingestion</h2>
         <p className="muted">
-          Phase 2 shows how raw records from integration inventory, CMDB, and observability
-          become a unified MongoDB context graph with evidence and data-quality signals.
+          See how raw records from integration inventory, CMDB, and observability become
+          a unified MongoDB context graph with evidence and data-quality signals.
         </p>
 
         <div className="sim-controls">
