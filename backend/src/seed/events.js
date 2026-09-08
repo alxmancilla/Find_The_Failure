@@ -10,7 +10,7 @@ export const events = [
     status: "success",
     message_type: "order-create",
     reason: "Order created",
-    detail: "PO#88231 accepted by McKesson ERP.",
+    detail: "PO#88231 accepted by Apex ERP.",
     severity: "info",
   },
   {
@@ -19,7 +19,7 @@ export const events = [
     status: "failed",
     message_type: "order-create",
     reason: "ERP endpoint timeout",
-    detail: "McKesson ERP did not respond within 3 minutes (PO#87990).",
+    detail: "Apex ERP did not respond within 3 minutes (PO#87990).",
     severity: "critical",
   },
   {

@@ -4,7 +4,7 @@
 layer over the integration landscape. Answers *"What's affected, who owns it,
 and what happens next?"* in seconds instead of hours.
 
-> Key message: MongoDB does not replace McKesson's integration engines. It gives
+> Key message: MongoDB does not replace Apex Health Supply's integration engines. It gives
 > architects a flexible, searchable context layer above them.
 
 ---
@@ -46,8 +46,8 @@ SRV string (see the "Using MongoDB Atlas" section in `README.md`), then run
 The graph renders the full flow:
 
 ```
-Hospital 123 → EDI Gateway → X12 Translator → Integration API → McKesson ERP
-      → Inventory Service / Order Status API / Customer Notifications
+Hospital 123 → EDI Gateway → X12 Translator → Integration API → Apex ERP
+      → Inventory Service / Order Status API / Partner Notifications
 ```
 
 - **Click any node (system)** or **edge (interface)** to open the detail panel:

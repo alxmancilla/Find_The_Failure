@@ -5,12 +5,12 @@ export const scenarios = [
     id: "erp-timeout",
     name: "EDI 850 rejected — ERP timeout",
     description:
-      "A hospital purchase order is rejected because the McKesson ERP endpoint times out.",
+      "A hospital purchase order is rejected because the Apex ERP endpoint times out.",
     flow_start: "if-hospital-850",
     interface_key: "if-integration-erp",
     reason: "ERP endpoint timeout",
     detail:
-      "EDI 850 order PO#88231 rejected: McKesson ERP endpoint timed out after 3 minutes.",
+      "EDI 850 order PO#88231 rejected: Apex ERP endpoint timed out after 3 minutes.",
   },
   {
     id: "x12-latency",
