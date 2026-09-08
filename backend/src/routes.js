@@ -9,6 +9,11 @@ import {
 } from "./services/impact.js";
 import { search } from "./services/search.js";
 import { traceInterfaceRelationships } from "./services/relationships.js";
+import {
+  getDataQuality,
+  getIngestionDashboard,
+  runIngestion,
+} from "./services/ingestion.js";
 import { scenarios, getScenario } from "./scenarios.js";
 
 const router = Router();
@@ -126,6 +131,20 @@ router.get(
   wrap(async (req, res) =>
     res.json(await getModernizationImpact(req.params.systemKey))
   )
+);
+
+// Federated metadata ingestion demo: raw source records, normalization, quality.
+router.get(
+  "/ingestion",
+  wrap(async (_req, res) => res.json(await getIngestionDashboard()))
+);
+router.post(
+  "/ingestion/run",
+  wrap(async (_req, res) => res.json(await runIngestion()))
+);
+router.get(
+  "/ingestion/quality",
+  wrap(async (_req, res) => res.json(await getDataQuality()))
 );
 
 // Systems and owners listings (used by modernization picker).

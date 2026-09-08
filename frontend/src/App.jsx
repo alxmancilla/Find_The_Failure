@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Explorer from "./components/Explorer.jsx";
 import Modernization from "./components/Modernization.jsx";
+import Ingestion from "./components/Ingestion.jsx";
 
 export default function App() {
   const [tab, setTab] = useState("explorer");
@@ -24,9 +25,17 @@ export default function App() {
           >
             Modernization
           </button>
+          <button
+            className={tab === "ingestion" ? "active" : ""}
+            onClick={() => setTab("ingestion")}
+          >
+            Ingestion
+          </button>
         </nav>
       </header>
-      {tab === "explorer" ? <Explorer /> : <Modernization />}
+      {tab === "explorer" && <Explorer />}
+      {tab === "modernization" && <Modernization />}
+      {tab === "ingestion" && <Ingestion />}
     </div>
   );
 }

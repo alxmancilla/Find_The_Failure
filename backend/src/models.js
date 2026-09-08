@@ -101,9 +101,34 @@ const eventSchema = new Schema(
     reason: String,
     detail: String,
     severity: String, // info | warning | critical
+    source_system: String,
+    source_record_id: String,
   },
   { collection: "events", timestamps: true }
 );
+
+eventSchema.index({ source_record_id: 1 }, { unique: true, sparse: true });
+
+// Raw records imported from federated enterprise metadata sources.
+const sourceRecordSchema = new Schema(
+  {
+    key: { type: String, required: true, unique: true },
+    source_system: { type: String, required: true },
+    record_type: { type: String, required: true },
+    external_id: String,
+    entity_type: String,
+    entity_key: String,
+    payload: Schema.Types.Mixed,
+    evidence: [String],
+    observed_at: Date,
+    ingested_at: Date,
+    ingestion_status: { type: String, default: "pending" },
+  },
+  { collection: "source_records", timestamps: true, strict: false }
+);
+
+sourceRecordSchema.index({ source_system: 1, record_type: 1 });
+sourceRecordSchema.index({ entity_type: 1, entity_key: 1 });
 
 // Explicit, typed relationship edges with provenance and confidence.
 const relationshipSchema = new Schema(
@@ -136,3 +161,4 @@ export const BusinessProcess = model("BusinessProcess", businessProcessSchema);
 export const Interface = model("Interface", interfaceSchema);
 export const Event = model("Event", eventSchema);
 export const Relationship = model("Relationship", relationshipSchema);
+export const SourceRecord = model("SourceRecord", sourceRecordSchema);
