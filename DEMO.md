@@ -32,47 +32,62 @@ SRV string (see the "Using MongoDB Atlas" section in `README.md`), then run
 
 ---
 
-## 2. Talk track (≈5 minutes)
+## 2. Guided talk track (≈6 minutes)
 
-### Act 1 — Search for an interface (the catalog)
-1. In the search box, type **`Hospital 123`**.
-2. Note the **⚡ Atlas Search** badge — results are fuzzy and relevance-ranked.
-   - Try a typo: **`hosptial`** or **`mckessn`** still finds the right records.
-3. Click **Hospital Order 850**.
+Open **Demo Console**. Use the left-side step rail and the green **Next** action
+to keep the story moving.
 
-> "One search spans systems, interfaces, protocols, business terms, and owners."
+### Act 1 — Start from the business symptom
+1. Choose **EDI 850 rejected — ERP timeout**.
+2. Say: "We are starting where operations starts: a rejected purchase order, not
+   a static architecture diagram."
+3. Click **Next: reveal topology**.
 
-### Act 2 — Show the dependency path (relationships)
-The graph renders the full flow:
+### Act 2 — Reveal the connected topology
+The graph renders the order path:
 
 ```
 Hospital 123 → EDI Gateway → X12 Translator → Integration API → Apex ERP
       → Inventory Service / Order Status API / Partner Notifications
 ```
 
-- **Click any node (system)** or **edge (interface)** to open the detail panel:
-  name, description, protocol/type, source & target, owner + on-call + runbook,
-  version, SLA, last successful transaction, business data, downstream impact.
+- Click a node or edge to show live metadata in the side panel.
+- Point out owner, SLA, business data, recent events, and downstream context.
 
-> "This traversal is a single `$graphLookup` query over the metadata."
+> "MongoDB stores this as a flexible operational context graph, so we can move
+> from a business symptom to technical dependencies without hand-built screens."
 
-### Act 3 — Simulate a failure (impact analysis)
-1. Click the red scenario button **"EDI 850 rejected — ERP timeout"**.
-2. The screen updates instantly:
-   - The failed interface turns **red**, downstream systems turn **orange**.
-   - Panel shows: failed interface, affected order flow, downstream systems at
-     risk, responsible owner + support contact + runbook, similar recent failures.
-3. Optionally run **"X12 translation SLA breach"**.
-4. Click **Reset** to return to a pristine state.
+### Act 3 — Inject the failure and show impact
+1. Click **Next: inject failure**.
+2. The failed interface turns **red** and at-risk dependencies turn **orange**.
+3. Show the side panel: impacted systems, business process context, owner, and
+   similar recent failures.
 
-> "In seconds we know what broke, what's downstream, who owns it, and where the
-> runbook is."
+> "In seconds we know what broke, what's downstream, who owns it, and what
+> business process is exposed."
 
-### Act 4 — Ask a modernization question (what-if)
+### Act 4 — Normalize enterprise metadata
+1. Click **Next: normalize metadata**.
+2. Explain that raw records from integration inventory, CMDB, and observability
+   become normalized relationships/events with source evidence.
+3. Show source-record, typed-edge, and data-quality counters.
+
+> "The recommendation is grounded in existing enterprise data, not presenter
+> notes or a hard-coded diagram."
+
+### Act 5 — Investigate the alert
+1. Click **Next: investigate alert**.
+2. Show the grounded summary, likely fault domains, impacted process, evidence,
+   and safe next actions.
+
+> "This is the agent-ready moment: MongoDB provides the auditable context layer
+> needed for grounded investigation and human-approved remediation."
+
+### Optional — What-if modernization question
 1. Go to the **Modernization** tab.
 2. Select **X12 Translator** → **Analyze**.
-3. Returns affected interfaces (4), owners to coordinate (2), and downstream
-   migration dependencies (4).
+3. Show affected interfaces, owners to coordinate, and downstream migration
+   dependencies.
 
 > "Before touching a component, see everything that depends on it."
 
@@ -85,17 +100,21 @@ Hospital 123 → EDI Gateway → X12 Translator → Integration API → Apex ERP
 | Flexible documents | `interfaces` holds EDI, REST, FHIR, and event types in one collection |
 | Atlas Search | Fuzzy, relevance-ranked search across all fields (⚡ badge) |
 | Relationship traversal | `$graphLookup` builds the upstream/downstream dependency path |
+| Federated ingestion | Raw inventory, CMDB, and observability records normalize into typed relationships |
+| Evidence and provenance | Source records and relationship evidence support trusted investigation |
 | Event history alongside metadata | `events` power "similar recent failures" |
-| Foundation for AI | Same model can later answer "What breaks if this API changes?" |
+| Foundation for AI | Same model can answer "what failed, who owns it, and what should we check next?" |
 
 ---
 
-## 4. Data model (5 collections)
+## 4. Data model
 
-`systems`, `interfaces`, `data_entities`, `owners`, `events`.
+`systems`, `interfaces`, `data_entities`, `owners`, `events`,
+`business_processes`, `relationships`, and `source_records`.
 
 Seeded footprint: **9 systems, 10 interfaces, 3 owners, 4 data entities**,
-plus **2 failure scenarios** and **1 modernization scenario**.
+plus **1 business process, 14 relationships, 5 source records, 2 failure
+scenarios**, and **1 modernization scenario**.
 
 ---
 
@@ -116,6 +135,8 @@ plus **2 failure scenarios** and **1 modernization scenario**.
 | POST | `/api/reset` | Restore pristine demo state |
 | GET | `/api/scenarios` · POST `/api/scenarios/:id/run` | Named failure scenarios |
 | GET | `/api/modernization/:systemKey` | What-if impact of replacing a system |
+| GET/POST | `/api/ingestion` · `/api/ingestion/run` | Raw source records and normalization |
+| GET | `/api/alerts` · `/api/investigation/:sourceRecordKey` | Read-only alert investigation |
 
 ---
 
