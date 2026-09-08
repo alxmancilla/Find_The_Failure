@@ -126,3 +126,6 @@ select { padding: 8px; border-radius: 8px; background: var(--panel-2); color: va
 .finding.critical strong { color: var(--danger); }
 .finding.ok strong { color: var(--healthy); }
 .source-record { font-size: 12px; padding: 10px; border-radius: 8px; background: var(--panel-2); margin-bottom: 8px; border-left: 3px solid var(--accent-dim); }
+.hero-card { border-color: var(--accent-dim); }
+.candidate { padding: 9px; border-radius: 8px; background: var(--panel-2); margin-bottom: 8px; border-left: 3px solid var(--warn); font-size: 12px; }
+.next-action { font-size: 12px; margin-top: 6px; padding: 8px; border-radius: 8px; background: #0f2a1e; color: var(--healthy); }

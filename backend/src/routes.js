@@ -14,6 +14,7 @@ import {
   getIngestionDashboard,
   runIngestion,
 } from "./services/ingestion.js";
+import { investigateAlert, listAlerts } from "./services/correlation.js";
 import { scenarios, getScenario } from "./scenarios.js";
 
 const router = Router();
@@ -145,6 +146,20 @@ router.post(
 router.get(
   "/ingestion/quality",
   wrap(async (_req, res) => res.json(await getDataQuality()))
+);
+
+// Read-only investigation: correlate an observability alert to topology/impact.
+router.get(
+  "/alerts",
+  wrap(async (_req, res) => res.json(await listAlerts()))
+);
+router.get(
+  "/investigation/:sourceRecordKey",
+  wrap(async (req, res) => {
+    const result = await investigateAlert(req.params.sourceRecordKey);
+    if (!result) return res.status(404).json({ error: "alert not found" });
+    res.json(result);
+  })
 );
 
 // Systems and owners listings (used by modernization picker).
