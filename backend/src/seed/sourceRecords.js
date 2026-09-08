@@ -1,0 +1,97 @@
+const now = new Date();
+const daysAgo = (d) => new Date(now.getTime() - d * 24 * 3600 * 1000);
+
+const relationship = (source_system, external_id, rel, evidence, observed_at = daysAgo(1)) => ({
+  key: `${source_system}:${external_id}`,
+  source_system,
+  record_type: "relationship",
+  external_id,
+  entity_type: rel.from_type,
+  entity_key: rel.from_key,
+  observed_at,
+  ingestion_status: "pending",
+  evidence,
+  payload: { relationship: rel },
+});
+
+export const sourceRecords = [
+  relationship(
+    "edi-gateway-inventory",
+    "route-850-gateway",
+    {
+      key: "if-hospital-850->edi-gateway:routes_through",
+      from_type: "interface",
+      from_key: "if-hospital-850",
+      to_type: "system",
+      to_key: "edi-gateway",
+      relationship_type: "routes_through",
+      confidence: 0.98,
+      confirmed: true,
+    },
+    ["Gateway route table maps inbound 850 traffic to edi-gateway."],
+  ),
+  relationship(
+    "integration-catalog",
+    "route-x12-api",
+    {
+      key: "if-x12-integration->integration-api:routes_through",
+      from_type: "interface",
+      from_key: "if-x12-integration",
+      to_type: "system",
+      to_key: "integration-api",
+      relationship_type: "routes_through",
+      confidence: 0.95,
+      confirmed: true,
+    },
+    ["Integration catalog route owner confirms X12 canonical orders use Integration API."],
+  ),
+  relationship(
+    "cmdb-app-inventory",
+    "erp-supports-order-fulfillment",
+    {
+      key: "mckesson-erp->hospital-order-fulfillment:supports_process",
+      from_type: "system",
+      from_key: "mckesson-erp",
+      to_type: "business_process",
+      to_key: "hospital-order-fulfillment",
+      relationship_type: "supports_process",
+      confidence: 0.9,
+      confirmed: true,
+    },
+    ["CMDB business service mapping links McKesson ERP to order fulfillment."],
+  ),
+  relationship(
+    "cmdb-app-inventory",
+    "stale-owner-map",
+    {
+      key: "if-inventory-supplier->hospital-order-fulfillment:supports_process:inferred",
+      from_type: "interface",
+      from_key: "if-inventory-supplier",
+      to_type: "business_process",
+      to_key: "hospital-order-fulfillment",
+      relationship_type: "supports_process",
+      confidence: 0.62,
+      confirmed: false,
+    },
+    ["Inferred from old CMDB service map; requires SME confirmation."],
+    daysAgo(76),
+  ),
+  {
+    key: "observability:alert-erp-timeout-2026-09-08",
+    source_system: "observability-alerts",
+    record_type: "alert",
+    external_id: "alert-erp-timeout-2026-09-08",
+    entity_type: "interface",
+    entity_key: "if-integration-erp",
+    observed_at: daysAgo(0),
+    ingestion_status: "pending",
+    evidence: ["APM alert detected elevated timeout rate on ERP order-create endpoint."],
+    payload: {
+      status: "degraded",
+      severity: "critical",
+      reason: "ERP endpoint timeout spike",
+      detail: "p95 timeout rate exceeded threshold for order-create calls.",
+      message_type: "order-create",
+    },
+  },
+];
