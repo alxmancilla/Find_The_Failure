@@ -104,6 +104,10 @@ button.danger { background: var(--danger); color: #2a0410; border-color: var(--d
 .event.degraded { border-left-color: var(--warn); }
 .event.success { border-left-color: var(--healthy); }
 .event .when { color: var(--muted); font-size: 11px; }
+.process-card { border-left-color: var(--warn); }
+.data-quality { font-size: 11px; color: var(--accent); margin-bottom: 8px; }
+.evidence { font-size: 11px; padding: 8px; border-radius: 8px; background: #10172a; margin-bottom: 6px; border: 1px solid var(--border); }
+.evidence .when { color: var(--muted); margin: 2px 0; }
 .muted { color: var(--muted); }
 .sim-controls { display: flex; gap: 8px; margin-bottom: 12px; }
 .empty { color: var(--muted); padding: 40px; text-align: center; }

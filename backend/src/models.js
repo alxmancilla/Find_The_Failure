@@ -40,6 +40,21 @@ const dataEntitySchema = new Schema(
   { collection: "data_entities", timestamps: true }
 );
 
+// Business processes that integrations support or impact.
+const businessProcessSchema = new Schema(
+  {
+    key: { type: String, required: true, unique: true },
+    name: { type: String, required: true },
+    description: String,
+    criticality: String,
+    owner: { type: String, ref: "Owner" },
+    data_entities: [{ type: String, ref: "DataEntity" }],
+    lifecycle: String,
+    sla: String,
+  },
+  { collection: "business_processes", timestamps: true }
+);
+
 // Interfaces: flexible metadata for EDI, REST, FHIR, events, SFTP, etc.
 // strict:false lets each interface type carry its own extra fields.
 const interfaceSchema = new Schema(
@@ -90,8 +105,34 @@ const eventSchema = new Schema(
   { collection: "events", timestamps: true }
 );
 
+// Explicit, typed relationship edges with provenance and confidence.
+const relationshipSchema = new Schema(
+  {
+    key: { type: String, required: true, unique: true },
+    from_type: { type: String, required: true },
+    from_key: { type: String, required: true },
+    to_type: { type: String, required: true },
+    to_key: { type: String, required: true },
+    relationship_type: { type: String, required: true },
+    source_system: String,
+    source_record_id: String,
+    confidence: { type: Number, default: 1 },
+    confirmed: { type: Boolean, default: true },
+    evidence: [String],
+    environment: { type: String, default: "production" },
+    first_seen_at: Date,
+    last_seen_at: Date,
+  },
+  { collection: "relationships", timestamps: true }
+);
+
+relationshipSchema.index({ from_type: 1, from_key: 1, relationship_type: 1 });
+relationshipSchema.index({ to_type: 1, to_key: 1, relationship_type: 1 });
+
 export const Owner = model("Owner", ownerSchema);
 export const System = model("System", systemSchema);
 export const DataEntity = model("DataEntity", dataEntitySchema);
+export const BusinessProcess = model("BusinessProcess", businessProcessSchema);
 export const Interface = model("Interface", interfaceSchema);
 export const Event = model("Event", eventSchema);
+export const Relationship = model("Relationship", relationshipSchema);

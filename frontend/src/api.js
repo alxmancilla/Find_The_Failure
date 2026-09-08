@@ -20,6 +20,8 @@ export const api = {
   interface: (key) => json(`/interfaces/${key}`),
   flow: (key) => json(`/flow/${key}`),
   impact: (key) => json(`/impact/${key}`),
+  relationshipTrace: (key, direction = "downstream") =>
+    json(`/relationships/trace/${key}?direction=${encodeURIComponent(direction)}`),
   simulate: (key, body) =>
     json(`/simulate/${key}`, {
       method: "POST",

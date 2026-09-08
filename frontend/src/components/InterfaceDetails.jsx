@@ -1,4 +1,5 @@
 const fmt = (d) => (d ? new Date(d).toLocaleString() : "—");
+const pct = (n) => (n == null ? "—" : `${Math.round(n * 100)}%`);
 
 function KV({ k, v }) {
   return (
@@ -15,6 +16,10 @@ export default function InterfaceDetails({ detail, impact, onSimulate, onReset, 
   const owner = detail.owners?.[0];
   const affected = impact?.affected_systems || [];
   const similar = impact?.similar_failures || [];
+  const processes = impact?.business_processes || [];
+  const processRels = impact?.process_relationships || [];
+  const traceRels = impact?.relationship_trace?.relationships || [];
+  const quality = impact?.relationship_trace?.data_quality;
 
   return (
     <div>
@@ -74,6 +79,31 @@ export default function InterfaceDetails({ detail, impact, onSimulate, onReset, 
               {affected.length === 0 && <span className="muted">None downstream.</span>}
               {affected.map((s) => <span key={s.key} className="chip risk">{s.name}</span>)}
             </div>
+          </div>
+          <div className="panel-section">
+            <h3>Business Processes at Risk</h3>
+            {processes.length === 0 && <span className="muted">No mapped processes.</span>}
+            {processes.map((p) => (
+              <div key={p.key} className="event process-card">
+                <div><strong>{p.name}</strong> <span className="badge">{p.criticality}</span></div>
+                <div className="when">{p.sla}</div>
+              </div>
+            ))}
+          </div>
+          <div className="panel-section">
+            <h3>Relationship Evidence</h3>
+            {quality && (
+              <div className="data-quality">
+                {quality.total} typed edges · {quality.confirmed} confirmed · {pct(quality.average_confidence)} confidence
+              </div>
+            )}
+            {[...traceRels, ...processRels].slice(0, 6).map((r) => (
+              <div key={r.key} className="evidence">
+                <div><strong>{r.relationship_type}</strong> <span className="badge">{pct(r.confidence)}</span></div>
+                <div className="when">{r.from_key} → {r.to_key}</div>
+                {r.evidence?.[0] && <div className="muted">“{r.evidence[0]}”</div>}
+              </div>
+            ))}
           </div>
           <div className="panel-section">
             <h3>Similar Recent Failures</h3>

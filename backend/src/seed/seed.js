@@ -1,9 +1,19 @@
 import mongoose from "mongoose";
 import { connectDB } from "../db.js";
-import { Owner, System, DataEntity, Interface, Event } from "../models.js";
+import {
+  Owner,
+  System,
+  DataEntity,
+  BusinessProcess,
+  Interface,
+  Event,
+  Relationship,
+} from "../models.js";
 import { owners, systems, dataEntities } from "./base.js";
+import { businessProcesses } from "./processes.js";
 import { interfaces } from "./interfaces.js";
 import { events } from "./events.js";
+import { relationships } from "./relationships.js";
 
 async function seed() {
   await connectDB();
@@ -12,20 +22,25 @@ async function seed() {
     Owner.deleteMany({}),
     System.deleteMany({}),
     DataEntity.deleteMany({}),
+    BusinessProcess.deleteMany({}),
     Interface.deleteMany({}),
     Event.deleteMany({}),
+    Relationship.deleteMany({}),
   ]);
 
   await Owner.insertMany(owners);
   await System.insertMany(systems);
   await DataEntity.insertMany(dataEntities);
+  await BusinessProcess.insertMany(businessProcesses);
   await Interface.insertMany(interfaces);
   await Event.insertMany(events);
+  await Relationship.insertMany(relationships);
 
   console.log(
     `[seed] inserted: ${owners.length} owners, ${systems.length} systems, ` +
-      `${dataEntities.length} data entities, ${interfaces.length} interfaces, ` +
-      `${events.length} events`
+      `${dataEntities.length} data entities, ${businessProcesses.length} processes, ` +
+      `${interfaces.length} interfaces, ${events.length} events, ` +
+      `${relationships.length} relationships`
   );
 
   await mongoose.disconnect();

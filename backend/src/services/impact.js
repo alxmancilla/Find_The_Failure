@@ -1,5 +1,9 @@
 import { Interface, System, Owner, Event } from "../models.js";
 import { getDownstreamInterfaces } from "./graph.js";
+import {
+  getBusinessProcessContext,
+  traceInterfaceRelationships,
+} from "./relationships.js";
 import { events as seedEvents } from "../seed/events.js";
 
 // Full impact picture for a (possibly failing) interface: which interfaces and
@@ -8,11 +12,16 @@ export async function getImpact(interfaceKey) {
   const iface = await Interface.findOne({ key: interfaceKey }).lean();
   if (!iface) return null;
 
+  const relationshipTrace = await traceInterfaceRelationships(interfaceKey);
+  const typedDownstream = relationshipTrace.interfaces.filter((i) => i.key !== interfaceKey);
   const chain = (await getDownstreamInterfaces(interfaceKey)) || [iface];
   const downstream = chain.filter((i) => i.key !== interfaceKey);
+  const impactedInterfaces = typedDownstream.length ? typedDownstream : downstream;
+  const impactedKeys = [iface.key, ...impactedInterfaces.map((i) => i.key)];
+  const processContext = await getBusinessProcessContext(impactedKeys);
 
   const systemKeys = new Set();
-  downstream.forEach((i) => {
+  impactedInterfaces.forEach((i) => {
     if (i.target) systemKeys.add(i.target);
     (i.downstream_systems || []).forEach((s) => systemKeys.add(s));
   });
@@ -27,11 +36,14 @@ export async function getImpact(interfaceKey) {
 
   return {
     interface: iface,
-    downstream_interfaces: downstream,
+    downstream_interfaces: impactedInterfaces,
     affected_systems: systems,
     owners,
     recent_events: recent,
     similar_failures: similar,
+    business_processes: processContext.business_processes,
+    process_relationships: processContext.relationships,
+    relationship_trace: relationshipTrace,
   };
 }
 
