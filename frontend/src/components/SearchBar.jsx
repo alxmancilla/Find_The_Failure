@@ -27,7 +27,7 @@ export default function SearchBar({ onSelectInterface }) {
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Search by system, interface, protocol, message type, or owner…"
+        placeholder="Search by process, system, interface, protocol, message type, or owner…"
         autoFocus
       />
       {results && (
@@ -71,9 +71,22 @@ export default function SearchBar({ onSelectInterface }) {
               ))}
             </div>
           )}
+          {results.business_processes?.length > 0 && (
+            <div className="result-group">
+              <h4>Business Processes</h4>
+              {results.business_processes.map((p) => (
+                <div key={p.key} className="result">
+                  <span className="badge">{p.criticality}</span>
+                  <strong>{p.name}</strong>
+                  <span className="muted">{p.sla}</span>
+                </div>
+              ))}
+            </div>
+          )}
           {!results.interfaces?.length &&
             !results.systems?.length &&
-            !results.owners?.length && <div className="muted">No matches.</div>}
+            !results.owners?.length &&
+            !results.business_processes?.length && <div className="muted">No matches.</div>}
         </div>
       )}
     </div>

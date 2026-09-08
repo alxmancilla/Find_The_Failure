@@ -8,6 +8,7 @@ import {
   getModernizationImpact,
 } from "./services/impact.js";
 import { search } from "./services/search.js";
+import { traceInterfaceRelationships } from "./services/relationships.js";
 import { scenarios, getScenario } from "./scenarios.js";
 
 const router = Router();
@@ -67,6 +68,16 @@ router.get(
     const impact = await getImpact(req.params.key);
     if (!impact) return res.status(404).json({ error: "interface not found" });
     res.json(impact);
+  })
+);
+
+// Typed relationship trace over the canonical relationships collection.
+router.get(
+  "/relationships/trace/:key",
+  wrap(async (req, res) => {
+    const iface = await Interface.findOne({ key: req.params.key }).lean();
+    if (!iface) return res.status(404).json({ error: "interface not found" });
+    res.json(await traceInterfaceRelationships(req.params.key, req.query.direction));
   })
 );
 

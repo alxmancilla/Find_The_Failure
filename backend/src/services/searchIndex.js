@@ -1,8 +1,8 @@
-import { Interface, System, Owner } from "../models.js";
+import { Interface, System, Owner, BusinessProcess } from "../models.js";
 
 const INDEX_NAME = "default";
 const DEFINITION = { mappings: { dynamic: true } };
-const MODELS = [Interface, System, Owner];
+const MODELS = [Interface, System, Owner, BusinessProcess];
 
 // Create a dynamic Atlas Search index on each searchable collection. Idempotent:
 // ignores "already exists" errors so it is safe to call on every startup.
