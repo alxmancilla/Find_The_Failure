@@ -23,6 +23,16 @@ const SUGGESTED_QUESTIONS = [
   "What should I check first?",
 ];
 
+const CASE_EVENT_TO_STEP = {
+  case_opened: "received",
+  alert_mapped: "mapped",
+  topology_loaded: "topology",
+  impact_assessed: "impact",
+  evidence_collected: "evidence",
+  fault_ranked: "ranked",
+  next_checks_ready: "summary",
+};
+
 function StatusPill({ status }) {
   return <span className={`agent-status ${status}`}>{status}</span>;
 }
@@ -57,6 +67,36 @@ function Timeline({ steps }) {
             <div><strong>{step.label}</strong> <StatusPill status={step.status} /></div>
             <p>{step.detail}</p>
           </div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function CaseMemory({ cases, activeCase, onSelect }) {
+  return (
+    <section className="case-memory">
+      <h3>Case memory</h3>
+      {!cases.length && <p className="muted mini-copy">Investigated alerts will appear here as auditable cases.</p>}
+      {cases.map((item) => (
+        <button key={item.key} className={`case-card ${activeCase?.key === item.key ? "active" : ""}`} onClick={() => onSelect(item.key)}>
+          <strong>{item.alert_snapshot?.reason || "Investigation case"}</strong>
+          <small>{item.top_fault_domain?.name || "Fault domain pending"} · {item.status}</small>
+        </button>
+      ))}
+    </section>
+  );
+}
+
+function CaseTimeline({ caseRecord }) {
+  return (
+    <section className="panel-card case-timeline">
+      <h3>Case timeline</h3>
+      {!caseRecord && <p className="muted">Start or select an investigation to see persisted case history.</p>}
+      {(caseRecord?.timeline || []).map((item, i) => (
+        <div key={`${item.event}-${i}`} className="case-timeline-item">
+          <span>{item.at ? new Date(item.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}</span>
+          <div><strong>{item.label}</strong><p>{item.detail}</p></div>
         </div>
       ))}
     </section>
@@ -126,6 +166,27 @@ function answerQuestion(question, result) {
   return `For this case, ${result.investigation_summary} Recommended next check: ${(result.recommended_next_actions || [])[0] || "review the top fault domain evidence."}`;
 }
 
+function impactedFromInvestigation(investigation) {
+  if (!investigation) return null;
+  return {
+    failedEdges: [investigation.alert?.interface_key].filter(Boolean),
+    failedSystems: (investigation.likely_fault_domains || []).filter((c) => c.type === "system").slice(0, 1).map((c) => c.key),
+    riskEdges: (investigation.topology?.downstream_interfaces || []).map((i) => i.key),
+    riskSystems: (investigation.affected_systems || []).map((s) => s.key),
+  };
+}
+
+function stepsFromCase(caseRecord) {
+  const byStep = Object.fromEntries(
+    (caseRecord?.timeline || [])
+      .map((entry) => [CASE_EVENT_TO_STEP[entry.event], entry])
+      .filter(([id]) => Boolean(id))
+  );
+  return STEP_TEMPLATE.map((step) => byStep[step.id]
+    ? { ...step, status: "complete", detail: byStep[step.id].detail }
+    : { ...step, status: "pending" });
+}
+
 export default function InvestigationWorkbench() {
   const [alerts, setAlerts] = useState([]);
   const [selectedKey, setSelectedKey] = useState("");
@@ -138,6 +199,9 @@ export default function InvestigationWorkbench() {
   const [feedStatus, setFeedStatus] = useState("");
   const [messages, setMessages] = useState([]);
   const [question, setQuestion] = useState("");
+  const [cases, setCases] = useState([]);
+  const [activeCase, setActiveCase] = useState(null);
+  const [caseStatus, setCaseStatus] = useState("");
 
   const selectedAlert = useMemo(() => alerts.find((a) => a.key === selectedKey), [alerts, selectedKey]);
 
@@ -149,9 +213,16 @@ export default function InvestigationWorkbench() {
     return nextAlerts;
   }, []);
 
+  const loadCases = useCallback(async () => {
+    const res = await api.cases();
+    setCases(res.cases || []);
+    return res.cases || [];
+  }, []);
+
   useEffect(() => {
     loadAlerts().catch(() => setFeedStatus("Unable to load alert inbox."));
-  }, [loadAlerts]);
+    loadCases().catch(() => setCaseStatus("Unable to load case memory."));
+  }, [loadAlerts, loadCases]);
 
   useEffect(() => {
     if (!selectedAlert?.interface_key) return;
@@ -172,6 +243,33 @@ export default function InvestigationWorkbench() {
     setSteps((current) => current.map((s) => s.id === id ? { ...s, status, detail: detail || s.detail } : s));
   };
 
+  const selectAlert = (key) => {
+    setSelectedKey(key);
+    setActiveCase(null);
+    setResult(null);
+    setImpacted(null);
+    setMessages([]);
+    setSteps(STEP_TEMPLATE.map((s) => ({ ...s, status: "pending" })));
+  };
+
+  const selectCase = async (caseKey) => {
+    setCaseStatus("Loading saved case…");
+    try {
+      const { case: savedCase } = await api.case(caseKey);
+      const investigation = savedCase.investigation_result;
+      setActiveCase(savedCase);
+      setResult(investigation);
+      setMessages(savedCase.messages || []);
+      setSteps(stepsFromCase(savedCase));
+      setImpacted(impactedFromInvestigation(investigation));
+      setSelectedKey(savedCase.alert_key || "");
+      if (savedCase.alert_snapshot?.interface_key) setFlow(await api.flow(savedCase.alert_snapshot.interface_key));
+      setCaseStatus(`Loaded ${savedCase.key}.`);
+    } catch (err) {
+      setCaseStatus(err.message || "Unable to load case.");
+    }
+  };
+
   const startInvestigation = async () => {
     if (!selectedAlert) return;
     setBusy(true);
@@ -179,6 +277,8 @@ export default function InvestigationWorkbench() {
     setFlow(null);
     setImpacted(null);
     setMessages([]);
+    setActiveCase(null);
+    setCaseStatus("Creating auditable case record…");
     setSteps(STEP_TEMPLATE.map((s) => ({ ...s, status: "pending" })));
     try {
       mark("received", "running", `${selectedAlert.severity.toUpperCase()} alert from ${selectedAlert.source_system}.`);
@@ -186,10 +286,12 @@ export default function InvestigationWorkbench() {
       mark("received", "complete", `Alert ${selectedAlert.external_id} received.`);
 
       mark("mapped", "running", "Resolving alert entity to canonical interface.");
-      const [investigation, graph] = await Promise.all([
-        api.investigation(selectedAlert.key),
+      const [{ case: nextCase, investigation }, graph] = await Promise.all([
+        api.createInvestigationCase(selectedAlert.key),
         api.flow(selectedAlert.interface_key),
       ]);
+      setActiveCase(nextCase);
+      setCaseStatus(`Case ${nextCase.key} opened and stored.`);
       mark("mapped", "complete", `Mapped to ${investigation.topology.alert_interface.name}.`);
       await pause(250);
 
@@ -199,12 +301,7 @@ export default function InvestigationWorkbench() {
       await pause(250);
 
       mark("impact", "running", "Checking business impact and downstream risk.");
-      setImpacted({
-        failedEdges: [investigation.alert.interface_key],
-        failedSystems: investigation.likely_fault_domains.filter((c) => c.type === "system").slice(0, 1).map((c) => c.key),
-        riskEdges: investigation.topology.downstream_interfaces.map((i) => i.key),
-        riskSystems: investigation.affected_systems.map((s) => s.key),
-      });
+      setImpacted(impactedFromInvestigation(investigation));
       mark("impact", "complete", `${investigation.impacted_business_processes.length || 0} process and ${investigation.affected_systems.length} systems at risk.`);
       await pause(250);
 
@@ -219,16 +316,29 @@ export default function InvestigationWorkbench() {
       mark("summary", "running", "Preparing human-reviewable next checks.");
       setResult(investigation);
       mark("summary", "complete", `${investigation.recommended_next_actions.length} recommended checks ready.`);
+      setSteps(stepsFromCase(nextCase));
+      loadCases().catch(() => {});
     } finally {
       setBusy(false);
     }
   };
 
-  const ask = (q) => {
+  const ask = async (q) => {
     const trimmed = q.trim();
     if (!trimmed || !result) return;
-    setMessages((current) => [...current, { role: "user", text: trimmed }, { role: "agent", text: answerQuestion(trimmed, result) }]);
+    const answer = answerQuestion(trimmed, result);
+    const optimistic = [{ role: "user", text: trimmed }, { role: "agent", text: answer }];
+    setMessages((current) => [...current, ...optimistic]);
     setQuestion("");
+    if (!activeCase?.key) return;
+    try {
+      const { case: savedCase } = await api.appendCaseMessages(activeCase.key, { question: trimmed, answer });
+      setActiveCase(savedCase);
+      setMessages(savedCase.messages || []);
+      loadCases().catch(() => {});
+    } catch {
+      setCaseStatus("Follow-up was answered locally but not saved to case memory.");
+    }
   };
 
   const ingestLatestAlerts = async () => {
@@ -262,8 +372,10 @@ export default function InvestigationWorkbench() {
           <button disabled={feedBusy || busy} onClick={ingestLatestAlerts}>{feedBusy ? "Ingesting…" : "Ingest latest alerts"}</button>
         </div>
         <p className="feed-status">{feedStatus || "Simulates a targeted observability feed ingest without resetting demo data."}</p>
-        {alerts.map((alert) => <AlertCard key={alert.key} alert={alert} active={alert.key === selectedKey} onClick={() => setSelectedKey(alert.key)} />)}
+        {alerts.map((alert) => <AlertCard key={alert.key} alert={alert} active={alert.key === selectedKey} onClick={() => selectAlert(alert.key)} />)}
         <button className="primary full" disabled={busy || !selectedAlert} onClick={startInvestigation}>{busy ? "Investigating…" : "Investigate selected alert"}</button>
+        <p className="feed-status">{caseStatus || "Case memory stores investigation history and grounded follow-up."}</p>
+        <CaseMemory cases={cases} activeCase={activeCase} onSelect={selectCase} />
       </aside>
 
       <main className="workbench-main">
@@ -291,6 +403,7 @@ export default function InvestigationWorkbench() {
 
           <aside className="workbench-right">
             <SummaryPanel result={result} />
+            <CaseTimeline caseRecord={activeCase} />
             <EvidencePanel result={result} />
             <FollowUpPanel result={result} messages={messages} question={question} setQuestion={setQuestion} onAsk={ask} />
           </aside>

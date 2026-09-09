@@ -1,4 +1,4 @@
-import { Interface, Owner, SourceRecord, System } from "../models.js";
+import { Interface, InvestigationCase, Owner, SourceRecord, System } from "../models.js";
 import { demoFeedAlerts } from "../seed/sourceRecords.js";
 import { getImpact } from "./impact.js";
 import { traceInterfaceRelationships } from "./relationships.js";
@@ -41,6 +41,68 @@ export async function ingestDemoAlerts() {
     upserted_alerts: keys.length,
     alerts: listed.alerts,
   };
+}
+
+export async function listInvestigationCases() {
+  const cases = await InvestigationCase.find()
+    .sort({ updatedAt: -1 })
+    .limit(12)
+    .lean();
+  return { cases: cases.map(formatCase) };
+}
+
+export async function getInvestigationCase(caseKey) {
+  const doc = await InvestigationCase.findOne({ key: caseKey }).lean();
+  return doc ? formatCase(doc) : null;
+}
+
+export async function createInvestigationCase(sourceRecordKey) {
+  const investigation = await investigateAlert(sourceRecordKey);
+  if (!investigation || investigation.error) return investigation ? { investigation } : null;
+
+  const now = new Date();
+  const key = `case-${now.toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)}-${Math.random().toString(36).slice(2, 7)}`;
+  const doc = await InvestigationCase.create({
+    key,
+    alert_key: sourceRecordKey,
+    alert_snapshot: investigation.alert,
+    status: "open",
+    summary: investigation.investigation_summary,
+    top_fault_domain: investigation.likely_fault_domains?.[0],
+    investigation_result: investigation,
+    evidence: investigation.evidence || [],
+    recommended_next_actions: investigation.recommended_next_actions || [],
+    timeline: buildCaseTimeline(now, investigation),
+    messages: [],
+  });
+
+  return { case: formatCase(doc.toObject()), investigation };
+}
+
+export async function appendCaseMessages(caseKey, question, answer) {
+  const now = new Date();
+  const doc = await InvestigationCase.findOneAndUpdate(
+    { key: caseKey },
+    {
+      $push: {
+        messages: {
+          $each: [
+            { at: now, role: "user", text: question },
+            { at: now, role: "agent", text: answer, grounded_in: ["investigation_result", "evidence", "topology"] },
+          ],
+        },
+        timeline: {
+          at: now,
+          event: "follow_up_answered",
+          label: "Grounded follow-up answered",
+          detail: question,
+          status: "complete",
+        },
+      },
+    },
+    { new: true }
+  ).lean();
+  return doc ? formatCase(doc) : null;
 }
 
 export async function investigateAlert(sourceRecordKey) {
@@ -155,4 +217,38 @@ function collectEvidence(alert, upstream, downstream, impact) {
     .flatMap((r) => r.evidence || [])
     .slice(0, 8);
   return [...(alert.evidence || []), ...relationshipEvidence];
+}
+
+function buildCaseTimeline(start, investigation) {
+  const at = (minutes) => new Date(start.getTime() + minutes * 60 * 1000);
+  const alert = investigation.alert;
+  const iface = investigation.topology.alert_interface;
+  const top = investigation.likely_fault_domains?.[0];
+  return [
+    { at: at(0), event: "case_opened", label: "Case opened", detail: `Created from ${alert.reason}.`, status: "complete" },
+    { at: at(1), event: "alert_mapped", label: "Alert mapped", detail: `Mapped ${alert.external_id} to ${iface.name}.`, status: "complete" },
+    { at: at(2), event: "topology_loaded", label: "Topology loaded", detail: `${investigation.topology.downstream_interfaces.length} downstream interfaces found.`, status: "complete" },
+    { at: at(3), event: "impact_assessed", label: "Impact assessed", detail: `${investigation.affected_systems.length} affected systems identified.`, status: "complete" },
+    { at: at(4), event: "evidence_collected", label: "Evidence collected", detail: `${investigation.evidence.length} evidence items attached.`, status: "complete" },
+    { at: at(5), event: "fault_ranked", label: "Fault domain ranked", detail: `${top?.name || "Top candidate"} ranked highest.`, status: "complete" },
+    { at: at(6), event: "next_checks_ready", label: "Next checks ready", detail: `${investigation.recommended_next_actions.length} human-reviewable checks prepared.`, status: "complete" },
+  ];
+}
+
+function formatCase(doc) {
+  return {
+    key: doc.key,
+    alert_key: doc.alert_key,
+    alert_snapshot: doc.alert_snapshot,
+    status: doc.status,
+    summary: doc.summary,
+    top_fault_domain: doc.top_fault_domain,
+    investigation_result: doc.investigation_result,
+    evidence_count: doc.evidence?.length || 0,
+    recommended_next_actions: doc.recommended_next_actions || [],
+    timeline: doc.timeline || [],
+    messages: doc.messages || [],
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  };
 }

@@ -90,6 +90,19 @@ Use the follow-up panel to ask:
 > "This is the agent-ready moment: MongoDB provides the auditable context layer
 > needed for grounded investigation and human-approved remediation."
 
+### Act 6 — Show case memory and audit trail
+After the investigation completes, point to **Case memory** in the Alert Inbox
+and **Case timeline** in the right panel.
+
+- Each investigation creates a persisted case record.
+- The case stores the alert snapshot, summary, likely fault domain, evidence,
+  recommended checks, timeline, and grounded follow-up Q&A.
+- Selecting a saved case rehydrates the investigation context without rerunning
+  the whole workflow.
+
+> "The agent is not just answering in the moment. It is building an auditable
+> investigation record that another operator can review later."
+
 ### Optional — Simulate more operational signals
 1. In **Alert inbox**, click **Ingest latest alerts**.
 2. Point out that this is a targeted observability feed ingest, not a demo reset.

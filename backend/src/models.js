@@ -130,6 +130,42 @@ const sourceRecordSchema = new Schema(
 sourceRecordSchema.index({ source_system: 1, record_type: 1 });
 sourceRecordSchema.index({ entity_type: 1, entity_key: 1 });
 
+// Agent investigation cases: auditable memory for supervised investigations.
+const investigationCaseSchema = new Schema(
+  {
+    key: { type: String, required: true, unique: true },
+    alert_key: { type: String, required: true },
+    alert_snapshot: Schema.Types.Mixed,
+    status: { type: String, default: "open" },
+    summary: String,
+    top_fault_domain: Schema.Types.Mixed,
+    investigation_result: Schema.Types.Mixed,
+    evidence: [String],
+    recommended_next_actions: [String],
+    timeline: [
+      {
+        at: Date,
+        event: String,
+        label: String,
+        detail: String,
+        status: String,
+      },
+    ],
+    messages: [
+      {
+        at: Date,
+        role: String,
+        text: String,
+        grounded_in: [String],
+      },
+    ],
+  },
+  { collection: "investigation_cases", timestamps: true, strict: false }
+);
+
+investigationCaseSchema.index({ alert_key: 1, createdAt: -1 });
+investigationCaseSchema.index({ status: 1, updatedAt: -1 });
+
 // Explicit, typed relationship edges with provenance and confidence.
 const relationshipSchema = new Schema(
   {
@@ -162,3 +198,4 @@ export const Interface = model("Interface", interfaceSchema);
 export const Event = model("Event", eventSchema);
 export const Relationship = model("Relationship", relationshipSchema);
 export const SourceRecord = model("SourceRecord", sourceRecordSchema);
+export const InvestigationCase = model("InvestigationCase", investigationCaseSchema);

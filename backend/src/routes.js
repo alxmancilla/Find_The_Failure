@@ -14,7 +14,15 @@ import {
   getIngestionDashboard,
   runIngestion,
 } from "./services/ingestion.js";
-import { ingestDemoAlerts, investigateAlert, listAlerts } from "./services/correlation.js";
+import {
+  appendCaseMessages,
+  createInvestigationCase,
+  getInvestigationCase,
+  ingestDemoAlerts,
+  investigateAlert,
+  listAlerts,
+  listInvestigationCases,
+} from "./services/correlation.js";
 import { scenarios, getScenario } from "./scenarios.js";
 
 const router = Router();
@@ -163,6 +171,39 @@ router.get(
     const result = await investigateAlert(req.params.sourceRecordKey);
     if (!result) return res.status(404).json({ error: "alert not found" });
     res.json(result);
+  })
+);
+
+// Agent case memory: persisted, auditable investigation state.
+router.get(
+  "/cases",
+  wrap(async (_req, res) => res.json(await listInvestigationCases()))
+);
+router.post(
+  "/cases/investigate/:sourceRecordKey",
+  wrap(async (req, res) => {
+    const result = await createInvestigationCase(req.params.sourceRecordKey);
+    if (!result) return res.status(404).json({ error: "alert not found" });
+    if (result.investigation?.error) return res.status(404).json(result.investigation);
+    res.json(result);
+  })
+);
+router.get(
+  "/cases/:caseKey",
+  wrap(async (req, res) => {
+    const result = await getInvestigationCase(req.params.caseKey);
+    if (!result) return res.status(404).json({ error: "case not found" });
+    res.json({ case: result });
+  })
+);
+router.post(
+  "/cases/:caseKey/messages",
+  wrap(async (req, res) => {
+    const { question, answer } = req.body || {};
+    if (!question || !answer) return res.status(400).json({ error: "question and answer are required" });
+    const result = await appendCaseMessages(req.params.caseKey, question, answer);
+    if (!result) return res.status(404).json({ error: "case not found" });
+    res.json({ case: result });
   })
 );
 
