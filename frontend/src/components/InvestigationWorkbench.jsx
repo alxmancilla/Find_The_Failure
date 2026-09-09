@@ -196,6 +196,7 @@ export default function InvestigationWorkbench() {
   const [impacted, setImpacted] = useState(null);
   const [busy, setBusy] = useState(false);
   const [feedBusy, setFeedBusy] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
   const [feedStatus, setFeedStatus] = useState("");
   const [messages, setMessages] = useState([]);
   const [question, setQuestion] = useState("");
@@ -361,6 +362,30 @@ export default function InvestigationWorkbench() {
     }
   };
 
+  const clearDemoState = async () => {
+    setResetBusy(true);
+    setFeedStatus("Clearing simulated feed alerts and case memory…");
+    try {
+      const res = await api.clearWorkbenchDemoState();
+      const nextAlerts = res.alerts || [];
+      setAlerts(nextAlerts);
+      setCases(res.cases || []);
+      setSelectedKey(nextAlerts[0]?.key || "");
+      setActiveCase(null);
+      setResult(null);
+      setImpacted(null);
+      setMessages([]);
+      setQuestion("");
+      setSteps(STEP_TEMPLATE.map((s) => ({ ...s, status: "pending" })));
+      setFeedStatus(`${res.deleted_feed_alerts} feed alerts cleared; ${res.deleted_cases} cases removed.`);
+      setCaseStatus("Case memory cleared for the next rehearsal.");
+    } catch (err) {
+      setFeedStatus(err.message || "Unable to clear rehearsal state.");
+    } finally {
+      setResetBusy(false);
+    }
+  };
+
   return (
     <div className="workbench">
       <aside className="alert-inbox">
@@ -369,7 +394,10 @@ export default function InvestigationWorkbench() {
         <p className="muted">Start from an alert. The agent correlates topology, impact, owners, evidence, and safe next checks.</p>
         <div className="alert-inbox-head">
           <h3>Alert inbox</h3>
-          <button disabled={feedBusy || busy} onClick={ingestLatestAlerts}>{feedBusy ? "Ingesting…" : "Ingest latest alerts"}</button>
+        </div>
+        <div className="alert-inbox-actions">
+          <button disabled={feedBusy || resetBusy || busy} onClick={ingestLatestAlerts}>{feedBusy ? "Ingesting…" : "Ingest latest alerts"}</button>
+          <button className="danger" disabled={feedBusy || resetBusy || busy} onClick={clearDemoState}>{resetBusy ? "Clearing…" : "Clear feed + cases"}</button>
         </div>
         <p className="feed-status">{feedStatus || "Simulates a targeted observability feed ingest without resetting demo data."}</p>
         {alerts.map((alert) => <AlertCard key={alert.key} alert={alert} active={alert.key === selectedKey} onClick={() => selectAlert(alert.key)} />)}

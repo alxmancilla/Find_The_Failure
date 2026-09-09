@@ -110,6 +110,8 @@ and **Case timeline** in the right panel.
    **Partner notification publish failures**.
 4. Click **Investigate selected alert** to show that the topology, likely fault
    domain, evidence, and next checks change with the alert context.
+5. Click **Clear feed + cases** when you want to reset the Workbench rehearsal
+   state back to the original single-alert inbox and empty case memory.
 
 ### Optional — Manual workflow view
 Go to **Demo Console** to manually step through topology reveal, failure

@@ -16,6 +16,7 @@ import {
 } from "./services/ingestion.js";
 import {
   appendCaseMessages,
+  clearWorkbenchDemoState,
   createInvestigationCase,
   getInvestigationCase,
   ingestDemoAlerts,
@@ -164,6 +165,10 @@ router.get(
 router.post(
   "/alerts/demo-feed",
   wrap(async (_req, res) => res.json(await ingestDemoAlerts()))
+);
+router.post(
+  "/workbench/clear-demo-state",
+  wrap(async (_req, res) => res.json(await clearWorkbenchDemoState()))
 );
 router.get(
   "/investigation/:sourceRecordKey",

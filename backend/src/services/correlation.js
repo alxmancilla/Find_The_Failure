@@ -1,4 +1,4 @@
-import { Interface, InvestigationCase, Owner, SourceRecord, System } from "../models.js";
+import { Event, Interface, InvestigationCase, Owner, SourceRecord, System } from "../models.js";
 import { demoFeedAlerts } from "../seed/sourceRecords.js";
 import { getImpact } from "./impact.js";
 import { traceInterfaceRelationships } from "./relationships.js";
@@ -40,6 +40,25 @@ export async function ingestDemoAlerts() {
     inserted_alerts: keys.filter((key) => !existingKeys.has(key)).length,
     upserted_alerts: keys.length,
     alerts: listed.alerts,
+  };
+}
+
+export async function clearWorkbenchDemoState() {
+  const keys = demoFeedAlerts.map((alert) => alert.key);
+  const [sourceRecords, events, cases] = await Promise.all([
+    SourceRecord.deleteMany({ key: { $in: keys } }),
+    Event.deleteMany({ source_record_id: { $in: keys } }),
+    InvestigationCase.deleteMany({}),
+  ]);
+  const [alerts, caseMemory] = await Promise.all([listAlerts(), listInvestigationCases()]);
+
+  return {
+    ok: true,
+    deleted_feed_alerts: sourceRecords.deletedCount,
+    deleted_feed_events: events.deletedCount,
+    deleted_cases: cases.deletedCount,
+    alerts: alerts.alerts,
+    cases: caseMemory.cases,
   };
 }
 
