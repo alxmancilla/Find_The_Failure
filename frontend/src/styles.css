@@ -168,9 +168,50 @@ select { padding: 8px; border-radius: 8px; background: var(--panel-2); color: va
 .investigation-mini > strong { display: block; margin-bottom: 10px; line-height: 1.4; }
 .active-demo-section { border-color: var(--accent-dim); box-shadow: 0 0 0 2px rgba(0, 237, 100, 0.08); transition: border-color 160ms ease, box-shadow 160ms ease; }
 
+.workbench { flex: 1; min-height: 0; display: grid; grid-template-columns: 300px minmax(0, 1fr); overflow: hidden; }
+.alert-inbox { border-right: 1px solid var(--border); background: var(--panel); padding: 18px; overflow-y: auto; }
+.alert-inbox h2 { margin: 4px 0 8px; font-size: 23px; }
+.alert-inbox h3 { color: var(--accent); font-size: 12px; text-transform: uppercase; margin: 20px 0 10px; }
+.alert-card { width: 100%; text-align: left; margin-bottom: 10px; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+.alert-card.active { border-color: var(--accent); background: #0f2a1e; }
+.alert-card small { color: var(--muted); }
+.workbench-main { min-width: 0; overflow-y: auto; padding: 16px; }
+.workbench-header { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 14px; padding: 18px; border: 1px solid var(--border); border-radius: 12px; background: linear-gradient(135deg, #141a2e, #10172a); }
+.workbench-header h2 { margin: 4px 0 6px; }
+.case-stats { display: flex; gap: 10px; min-width: 360px; }
+.workbench-grid { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 14px; }
+.workbench-center, .workbench-right { min-width: 0; }
+.agent-timeline { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.agent-timeline h3 { grid-column: 1 / -1; }
+.timeline-step { display: flex; gap: 10px; padding: 10px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--border); }
+.timeline-step.running { border-color: var(--warn); }
+.timeline-step.complete { border-color: var(--accent-dim); }
+.timeline-dot { width: 10px; height: 10px; margin-top: 5px; border-radius: 50%; background: var(--border); flex: 0 0 auto; }
+.timeline-step.running .timeline-dot { background: var(--warn); box-shadow: 0 0 0 4px rgba(255, 176, 32, 0.12); }
+.timeline-step.complete .timeline-dot { background: var(--accent); }
+.timeline-step p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.35; }
+.agent-status { float: right; font-size: 9px; padding: 2px 6px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); text-transform: uppercase; }
+.agent-status.running { color: var(--warn); border-color: var(--warn); }
+.agent-status.complete { color: var(--accent); border-color: var(--accent-dim); }
+.workbench-graph { min-height: 430px; display: flex; flex-direction: column; }
+.workbench-graph .graph-wrap { min-height: 360px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.fault-callout { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 10px; margin: 12px 0; border-radius: 10px; background: #0f2a1e; border: 1px solid var(--accent-dim); }
+.fault-callout span { color: var(--accent); font-size: 12px; }
+.evidence-panel { max-height: 280px; overflow-y: auto; }
+.followup-panel form { display: flex; gap: 8px; margin-top: 10px; }
+.followup-panel input { flex: 1; min-width: 0; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); }
+.suggested-questions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.suggested-questions button { font-size: 11px; padding: 6px 8px; }
+.chat-log { max-height: 240px; overflow-y: auto; }
+.chat-msg { padding: 8px; border-radius: 8px; margin-bottom: 8px; background: var(--panel-2); font-size: 12px; }
+.chat-msg.agent { border-left: 3px solid var(--accent); }
+.chat-msg.user { border-left: 3px solid var(--warn); }
+.chat-msg p { margin: 4px 0 0; color: var(--muted); line-height: 1.4; }
+
 @media (max-width: 1100px) {
-  .demo-layout, .demo-workspace { grid-template-columns: 1fr; }
+  .demo-layout, .demo-workspace, .workbench, .workbench-grid { grid-template-columns: 1fr; }
   .demo-rail { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .demo-step { margin-bottom: 0; }
   .demo-stats, .demo-hero, .demo-hero-actions { flex-direction: column; min-width: 0; }
+  .workbench-header, .case-stats { flex-direction: column; min-width: 0; }
 }

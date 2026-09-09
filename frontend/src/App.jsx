@@ -1,12 +1,13 @@
 import { useState } from "react";
 import Explorer from "./components/Explorer.jsx";
+import InvestigationWorkbench from "./components/InvestigationWorkbench.jsx";
 import DemoConsole from "./components/DemoConsole.jsx";
 import Modernization from "./components/Modernization.jsx";
 import Ingestion from "./components/Ingestion.jsx";
 import Investigation from "./components/Investigation.jsx";
 
 export default function App() {
-  const [tab, setTab] = useState("demo");
+  const [tab, setTab] = useState("workbench");
 
   return (
     <div className="app">
@@ -15,6 +16,12 @@ export default function App() {
         <h1>Find the Failure</h1>
         <span className="muted">EDI Integration Impact Explorer</span>
         <nav className="tabs">
+          <button
+            className={tab === "workbench" ? "active" : ""}
+            onClick={() => setTab("workbench")}
+          >
+            Investigation Workbench
+          </button>
           <button
             className={tab === "demo" ? "active" : ""}
             onClick={() => setTab("demo")}
@@ -47,6 +54,7 @@ export default function App() {
           </button>
         </nav>
       </header>
+      {tab === "workbench" && <InvestigationWorkbench />}
       {tab === "demo" && <DemoConsole />}
       {tab === "explorer" && <Explorer />}
       {tab === "modernization" && <Modernization />}
