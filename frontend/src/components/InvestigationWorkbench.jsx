@@ -27,6 +27,15 @@ function StatusPill({ status }) {
   return <span className={`agent-status ${status}`}>{status}</span>;
 }
 
+function Stat({ label, value }) {
+  return (
+    <div className="stat compact-stat">
+      <div className="num">{value ?? "—"}</div>
+      <div className="lbl">{label}</div>
+    </div>
+  );
+}
+
 function AlertCard({ alert, active, onClick }) {
   return (
     <button className={`alert-card ${active ? "active" : ""}`} onClick={onClick}>
@@ -57,14 +66,16 @@ function Timeline({ steps }) {
 function SummaryPanel({ result }) {
   if (!result) return <section className="panel-card hero-card"><h3>Investigation summary</h3><p className="muted">Select an alert and start an investigation.</p></section>;
   const top = result.likely_fault_domains?.[0];
+  const processes = result.impacted_business_processes || [];
+  const owners = result.owners || [];
   return (
     <section className="panel-card hero-card">
       <h3>Investigation summary</h3>
       <p>{result.investigation_summary}</p>
       {top && <div className="fault-callout"><strong>{top.name}</strong><span>{pct(top.score)} confidence</span></div>}
       <div className="chip-row">
-        {result.impacted_business_processes.map((p) => <span key={p.key} className="chip risk">{p.name}</span>)}
-        {result.owners.map((o) => <span key={o.key} className="chip">{o.name}</span>)}
+        {processes.map((p) => <span key={p.key} className="chip risk">{p.name}</span>)}
+        {owners.map((o) => <span key={o.key} className="chip">{o.name}</span>)}
       </div>
     </section>
   );
@@ -75,8 +86,8 @@ function EvidencePanel({ result }) {
     <section className="panel-card evidence-panel">
       <h3>Evidence and next checks</h3>
       {!result && <p className="muted">Evidence appears as the agent investigates the alert.</p>}
-      {result?.evidence.map((item, i) => <div key={i} className="evidence">{item}</div>)}
-      {result?.recommended_next_actions.map((action, i) => <div key={i} className="next-action">{action}</div>)}
+      {(result?.evidence || []).map((item, i) => <div key={i} className="evidence">{item}</div>)}
+      {(result?.recommended_next_actions || []).map((action, i) => <div key={i} className="next-action">{action}</div>)}
     </section>
   );
 }
@@ -104,15 +115,15 @@ function FollowUpPanel({ result, messages, question, setQuestion, onAsk }) {
 function answerQuestion(question, result) {
   const q = question.toLowerCase();
   const top = result.likely_fault_domains?.[0];
-  const processes = result.impacted_business_processes.map((p) => p.name).join(", ") || "no mapped business process";
-  const owners = result.owners.map((o) => o.name).join(", ") || "no mapped owner";
-  const actions = result.recommended_next_actions.slice(0, 2).join(" ");
+  const processes = (result.impacted_business_processes || []).map((p) => p.name).join(", ") || "no mapped business process";
+  const owners = (result.owners || []).map((o) => o.name).join(", ") || "no mapped owner";
+  const actions = (result.recommended_next_actions || []).slice(0, 2).join(" ");
   if (q.includes("why") || q.includes("fault")) return `${top?.name || "The top candidate"} is ranked highest because ${top?.reason || "the alert maps directly to this domain"}`;
   if (q.includes("business") || q.includes("process") || q.includes("impact")) return `The impacted business process is ${processes}. Affected systems include ${(result.affected_systems || []).map((s) => s.name).join(", ") || "the mapped downstream systems"}.`;
   if (q.includes("owner") || q.includes("owns")) return `The mapped owner is ${owners}. Use the runbook/contact metadata before taking remediation steps.`;
   if (q.includes("evidence") || q.includes("support")) return `The strongest evidence is: ${(result.evidence || []).slice(0, 3).join(" ")}`;
   if (q.includes("check") || q.includes("next") || q.includes("first")) return actions || "Start by checking the top fault domain health and validating the interface logs for the alert window.";
-  return `For this case, ${result.investigation_summary} Recommended next check: ${result.recommended_next_actions[0]}`;
+  return `For this case, ${result.investigation_summary} Recommended next check: ${(result.recommended_next_actions || [])[0] || "review the top fault domain evidence."}`;
 }
 
 export default function InvestigationWorkbench() {
