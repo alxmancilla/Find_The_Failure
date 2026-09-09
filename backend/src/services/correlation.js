@@ -1,4 +1,5 @@
 import { Interface, Owner, SourceRecord, System } from "../models.js";
+import { demoFeedAlerts } from "../seed/sourceRecords.js";
 import { getImpact } from "./impact.js";
 import { traceInterfaceRelationships } from "./relationships.js";
 
@@ -7,6 +8,39 @@ export async function listAlerts() {
     .sort({ observed_at: -1 })
     .lean();
   return { alerts: alerts.map(formatAlert) };
+}
+
+export async function ingestDemoAlerts() {
+  const now = new Date();
+  const keys = demoFeedAlerts.map((alert) => alert.key);
+  const existing = await SourceRecord.find({ key: { $in: keys } }).select("key").lean();
+  const existingKeys = new Set(existing.map((alert) => alert.key));
+
+  await SourceRecord.bulkWrite(
+    demoFeedAlerts.map((alert, index) => ({
+      updateOne: {
+        filter: { key: alert.key },
+        update: {
+          $set: {
+            ...alert,
+            observed_at: new Date(now.getTime() - index * 20 * 60 * 1000),
+            ingestion_status: "ingested",
+            ingested_at: now,
+          },
+          $setOnInsert: { createdAt: now },
+        },
+        upsert: true,
+      },
+    }))
+  );
+
+  const listed = await listAlerts();
+  return {
+    ok: true,
+    inserted_alerts: keys.filter((key) => !existingKeys.has(key)).length,
+    upserted_alerts: keys.length,
+    alerts: listed.alerts,
+  };
 }
 
 export async function investigateAlert(sourceRecordKey) {

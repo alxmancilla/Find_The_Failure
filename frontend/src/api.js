@@ -34,6 +34,7 @@ export const api = {
   runIngestion: () => json(`/ingestion/run`, { method: "POST" }),
   ingestionQuality: () => json(`/ingestion/quality`),
   alerts: () => json(`/alerts`),
+  ingestDemoAlerts: () => json(`/alerts/demo-feed`, { method: "POST" }),
   investigation: (sourceRecordKey) => json(`/investigation/${encodeURIComponent(sourceRecordKey)}`),
   systems: () => json(`/systems`),
   scenarios: () => json(`/scenarios`),

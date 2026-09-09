@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import DependencyGraph from "./DependencyGraph.jsx";
 
@@ -134,17 +134,24 @@ export default function InvestigationWorkbench() {
   const [flow, setFlow] = useState(null);
   const [impacted, setImpacted] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [feedBusy, setFeedBusy] = useState(false);
+  const [feedStatus, setFeedStatus] = useState("");
   const [messages, setMessages] = useState([]);
   const [question, setQuestion] = useState("");
 
   const selectedAlert = useMemo(() => alerts.find((a) => a.key === selectedKey), [alerts, selectedKey]);
 
-  useEffect(() => {
-    api.alerts().then((res) => {
-      setAlerts(res.alerts || []);
-      setSelectedKey(res.alerts?.[0]?.key || "");
-    }).catch(() => {});
+  const loadAlerts = useCallback(async () => {
+    const res = await api.alerts();
+    const nextAlerts = res.alerts || [];
+    setAlerts(nextAlerts);
+    setSelectedKey((current) => nextAlerts.some((alert) => alert.key === current) ? current : nextAlerts[0]?.key || "");
+    return nextAlerts;
   }, []);
+
+  useEffect(() => {
+    loadAlerts().catch(() => setFeedStatus("Unable to load alert inbox."));
+  }, [loadAlerts]);
 
   useEffect(() => {
     if (!selectedAlert?.interface_key) return;
@@ -224,13 +231,37 @@ export default function InvestigationWorkbench() {
     setQuestion("");
   };
 
+  const ingestLatestAlerts = async () => {
+    setFeedBusy(true);
+    setFeedStatus("Listening for latest observability alerts…");
+    try {
+      const res = await api.ingestDemoAlerts();
+      setAlerts(res.alerts || []);
+      setSelectedKey((current) => (res.alerts || []).some((alert) => alert.key === current) ? current : res.alerts?.[0]?.key || "");
+      const refreshed = Math.max((res.upserted_alerts || 0) - (res.inserted_alerts || 0), 0);
+      setFeedStatus(
+        res.inserted_alerts
+          ? `${res.inserted_alerts} new alerts ingested from observability feed.`
+          : `${refreshed} feed alerts refreshed; inbox is up to date.`
+      );
+    } catch (err) {
+      setFeedStatus(err.message || "Unable to ingest latest alerts.");
+    } finally {
+      setFeedBusy(false);
+    }
+  };
+
   return (
     <div className="workbench">
       <aside className="alert-inbox">
         <span className="eyebrow">Agent v1</span>
         <h2>Investigation Workbench</h2>
         <p className="muted">Start from an alert. The agent correlates topology, impact, owners, evidence, and safe next checks.</p>
-        <h3>Alert inbox</h3>
+        <div className="alert-inbox-head">
+          <h3>Alert inbox</h3>
+          <button disabled={feedBusy || busy} onClick={ingestLatestAlerts}>{feedBusy ? "Ingesting…" : "Ingest latest alerts"}</button>
+        </div>
+        <p className="feed-status">{feedStatus || "Simulates a targeted observability feed ingest without resetting demo data."}</p>
         {alerts.map((alert) => <AlertCard key={alert.key} alert={alert} active={alert.key === selectedKey} onClick={() => setSelectedKey(alert.key)} />)}
         <button className="primary full" disabled={busy || !selectedAlert} onClick={startInvestigation}>{busy ? "Investigating…" : "Investigate selected alert"}</button>
       </aside>

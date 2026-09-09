@@ -90,6 +90,14 @@ Use the follow-up panel to ask:
 > "This is the agent-ready moment: MongoDB provides the auditable context layer
 > needed for grounded investigation and human-approved remediation."
 
+### Optional — Simulate more operational signals
+1. In **Alert inbox**, click **Ingest latest alerts**.
+2. Point out that this is a targeted observability feed ingest, not a demo reset.
+3. Select a different alert such as **X12 translation backlog** or
+   **Partner notification publish failures**.
+4. Click **Investigate selected alert** to show that the topology, likely fault
+   domain, evidence, and next checks change with the alert context.
+
 ### Optional — Manual workflow view
 Go to **Demo Console** to manually step through topology reveal, failure
 injection, metadata normalization, and alert investigation.

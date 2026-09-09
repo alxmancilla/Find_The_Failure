@@ -14,7 +14,7 @@ import {
   getIngestionDashboard,
   runIngestion,
 } from "./services/ingestion.js";
-import { investigateAlert, listAlerts } from "./services/correlation.js";
+import { ingestDemoAlerts, investigateAlert, listAlerts } from "./services/correlation.js";
 import { scenarios, getScenario } from "./scenarios.js";
 
 const router = Router();
@@ -152,6 +152,10 @@ router.get(
 router.get(
   "/alerts",
   wrap(async (_req, res) => res.json(await listAlerts()))
+);
+router.post(
+  "/alerts/demo-feed",
+  wrap(async (_req, res) => res.json(await ingestDemoAlerts()))
 );
 router.get(
   "/investigation/:sourceRecordKey",
