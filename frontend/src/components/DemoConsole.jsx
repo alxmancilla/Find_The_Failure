@@ -5,42 +5,12 @@ import InterfaceDetails from "./InterfaceDetails.jsx";
 
 const pct = (n) => `${Math.round((n || 0) * 100)}%`;
 
-const STEP_GUIDE = [
-  {
-    title: "Start from the business symptom",
-    talkTrack: "Open with the rejected EDI 850 order, not with infrastructure. The audience sees the same symptom an operations team would receive.",
-    mongoPoint: "MongoDB keeps systems, interfaces, owners, events, and evidence together as one flexible context layer.",
-    question: "What failed, who owns it, and what business process is exposed?",
-    nextLabel: "Next: reveal topology",
-  },
-  {
-    title: "Show the connected topology",
-    talkTrack: "The graph turns scattered integration metadata into a navigable dependency path. Click nodes or edges to pivot the detail panel live.",
-    mongoPoint: "The topology is resolved from relationships rather than hard-coded screens.",
-    question: "Which downstream systems depend on this order path?",
-    nextLabel: "Next: inject failure",
-  },
-  {
-    title: "Make impact visible",
-    talkTrack: "Injecting the failure changes the graph and impact panel immediately, moving from catalog view to incident view.",
-    mongoPoint: "The same operational context powers impact analysis, owner lookup, and similar-failure evidence.",
-    question: "What is at risk beyond the failed interface?",
-    nextLabel: "Next: normalize metadata",
-  },
-  {
-    title: "Explain where context comes from",
-    talkTrack: "Normalize raw inventory, CMDB, and observability records so the audience sees this is grounded in existing enterprise sources.",
-    mongoPoint: "Flexible documents preserve source provenance while normalized edges support graph-style traversal.",
-    question: "Can we trust the evidence behind the recommendation?",
-    nextLabel: "Next: investigate alert",
-  },
-  {
-    title: "Close with evidence-backed investigation",
-    talkTrack: "Correlate the alert to likely fault domains, impacted process, owners, evidence, and safe next actions without auto-remediation.",
-    mongoPoint: "MongoDB provides the context substrate an AI assistant could use for grounded, auditable answers.",
-    question: "Can the team act faster with confidence?",
-    nextLabel: "Restart demo",
-  },
+const NEXT_LABELS = [
+  "Next: reveal topology",
+  "Next: inject failure",
+  "Next: normalize metadata",
+  "Next: investigate alert",
+  "Restart demo",
 ];
 
 function Stat({ label, value }) {
@@ -66,15 +36,12 @@ function StepButton({ step, index, active, done, locked, disabled, onClick }) {
   );
 }
 
-function PresenterCard({ guide, busy, nextDisabled, onNext }) {
+function DemoControls({ activeStep, busy, nextDisabled, onNext }) {
   return (
-    <section className="presenter-card">
-      <span className="eyebrow">Talk track</span>
-      <h3>{guide.title}</h3>
-      <p>{guide.talkTrack}</p>
-      <div className="presenter-note"><strong>MongoDB point:</strong> {guide.mongoPoint}</div>
-      <div className="presenter-note"><strong>Audience question:</strong> {guide.question}</div>
-      <button className="primary full" disabled={busy || nextDisabled} onClick={onNext}>{guide.nextLabel}</button>
+    <section className="demo-controls-card">
+      <span className="eyebrow">Demo controls</span>
+      <p>Advance through the scenario one action at a time.</p>
+      <button className="primary full" disabled={busy || nextDisabled} onClick={onNext}>{NEXT_LABELS[activeStep]}</button>
     </section>
   );
 }
@@ -222,7 +189,6 @@ export default function DemoConsole() {
   };
 
   const quality = ingestion?.quality;
-  const activeGuide = STEP_GUIDE[activeStep] || STEP_GUIDE[0];
   const nextDisabled = activeStep < steps.length - 1 && !stepReady[activeStep + 1];
 
   return (
@@ -245,7 +211,7 @@ export default function DemoConsole() {
           {steps.map((step, index) => (
             <StepButton key={step.title} step={step} index={index} active={activeStep === index} done={completedSteps[index]} locked={!stepReady[index]} disabled={busy} onClick={() => runStep(index)} />
           ))}
-          <PresenterCard guide={activeGuide} busy={busy} nextDisabled={nextDisabled} onNext={advanceDemo} />
+          <DemoControls activeStep={activeStep} busy={busy} nextDisabled={nextDisabled} onNext={advanceDemo} />
           <button className="scenario-reset full" disabled={busy} onClick={resetDemo}>Reset demo</button>
         </aside>
 

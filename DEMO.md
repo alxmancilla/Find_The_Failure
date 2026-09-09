@@ -32,7 +32,7 @@ SRV string (see the "Using MongoDB Atlas" section in `README.md`), then run
 
 ---
 
-## 2. Guided talk track (≈6 minutes)
+## 2. Presenter talk track reference (≈6 minutes)
 
 Open **Demo Console**. Use the left-side step rail and the green **Next** action
 to keep the story moving.

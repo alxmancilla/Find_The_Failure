@@ -164,12 +164,8 @@ select { padding: 8px; border-radius: 8px; background: var(--panel-2); color: va
 .demo-detail-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; max-height: 540px; overflow-y: auto; }
 .investigation-mini { margin-top: 12px; font-size: 12px; }
 .investigation-mini > strong { display: block; margin-bottom: 10px; line-height: 1.4; }
-.presenter-card { border: 1px solid var(--accent-dim); border-radius: 12px; background: #10172a; padding: 12px; margin: 14px 0; font-size: 12px; }
-.presenter-card h3 { margin: 4px 0 8px; font-size: 14px; color: var(--text); }
-.presenter-card p { color: var(--muted); line-height: 1.45; margin: 0 0 10px; }
-.presenter-note { border-top: 1px solid var(--border); padding-top: 8px; margin-top: 8px; color: var(--muted); line-height: 1.4; }
-.presenter-note strong { color: var(--accent); }
-.presenter-card button { margin-top: 12px; }
+.demo-controls-card { border: 1px solid var(--accent-dim); border-radius: 12px; background: #10172a; padding: 12px; margin: 14px 0; font-size: 12px; }
+.demo-controls-card p { color: var(--muted); line-height: 1.45; margin: 8px 0 12px; }
 
 @media (max-width: 1100px) {
   .demo-layout, .demo-workspace { grid-template-columns: 1fr; }
