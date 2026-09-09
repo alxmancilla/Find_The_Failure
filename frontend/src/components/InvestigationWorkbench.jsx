@@ -146,6 +146,21 @@ export default function InvestigationWorkbench() {
     }).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (!selectedAlert?.interface_key) return;
+    let ignore = false;
+    api.flow(selectedAlert.interface_key)
+      .then((graph) => {
+        if (!ignore) setFlow(graph);
+      })
+      .catch(() => {
+        if (!ignore) setFlow(null);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [selectedAlert]);
+
   const mark = (id, status, detail) => {
     setSteps((current) => current.map((s) => s.id === id ? { ...s, status, detail: detail || s.detail } : s));
   };
