@@ -135,7 +135,9 @@ select { padding: 8px; border-radius: 8px; background: var(--panel-2); color: va
 .demo-hero { display: flex; justify-content: space-between; gap: 20px; padding: 18px 20px; border-bottom: 1px solid var(--border); background: linear-gradient(135deg, #141a2e, #0f2a1e); }
 .demo-hero h2 { margin: 4px 0 6px; font-size: 24px; }
 .eyebrow { color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: 0.7px; text-transform: uppercase; }
+.demo-hero-actions { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
 .demo-stats { display: flex; gap: 10px; min-width: 360px; align-items: center; }
+.hero-next { width: 100%; padding: 11px 14px; }
 .compact-stat { min-width: 110px; margin: 0; }
 .demo-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: 260px minmax(0, 1fr); }
 .demo-rail { border-right: 1px solid var(--border); background: var(--panel); padding: 14px; overflow-y: auto; }
@@ -164,12 +166,11 @@ select { padding: 8px; border-radius: 8px; background: var(--panel-2); color: va
 .demo-detail-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; max-height: 540px; overflow-y: auto; }
 .investigation-mini { margin-top: 12px; font-size: 12px; }
 .investigation-mini > strong { display: block; margin-bottom: 10px; line-height: 1.4; }
-.demo-controls-card { border: 1px solid var(--accent-dim); border-radius: 12px; background: #10172a; padding: 12px; margin: 14px 0; font-size: 12px; }
-.demo-controls-card p { color: var(--muted); line-height: 1.45; margin: 8px 0 12px; }
+.active-demo-section { border-color: var(--accent-dim); box-shadow: 0 0 0 2px rgba(0, 237, 100, 0.08); transition: border-color 160ms ease, box-shadow 160ms ease; }
 
 @media (max-width: 1100px) {
   .demo-layout, .demo-workspace { grid-template-columns: 1fr; }
   .demo-rail { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .demo-step { margin-bottom: 0; }
-  .demo-stats, .demo-hero { flex-direction: column; min-width: 0; }
+  .demo-stats, .demo-hero, .demo-hero-actions { flex-direction: column; min-width: 0; }
 }

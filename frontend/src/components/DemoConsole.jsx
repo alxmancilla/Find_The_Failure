@@ -36,16 +36,6 @@ function StepButton({ step, index, active, done, locked, disabled, onClick }) {
   );
 }
 
-function DemoControls({ activeStep, busy, nextDisabled, onNext }) {
-  return (
-    <section className="demo-controls-card">
-      <span className="eyebrow">Demo controls</span>
-      <p>Advance through the scenario one action at a time.</p>
-      <button className="primary full" disabled={busy || nextDisabled} onClick={onNext}>{NEXT_LABELS[activeStep]}</button>
-    </section>
-  );
-}
-
 export default function DemoConsole() {
   const [activeStep, setActiveStep] = useState(0);
   const [scenarios, setScenarios] = useState([]);
@@ -148,15 +138,18 @@ export default function DemoConsole() {
     setBusy(true);
     try {
       await api.reset();
+      setFlow(null);
+      setDetail(null);
+      setImpact(null);
       setImpacted(null);
       setInvestigation(null);
       setIngestionResult(null);
-      if (selectedScenario) await loadScenario(selectedScenario);
-      else setActiveStep(0);
+      setIngestion(await api.ingestion());
+      setActiveStep(0);
     } finally {
       setBusy(false);
     }
-  }, [loadScenario, selectedScenario]);
+  }, []);
 
   const selectSystem = useCallback((systemKey) => {
     const iface = flow?.interfaces.find((i) => i.target === systemKey) || flow?.interfaces.find((i) => i.source === systemKey);
@@ -199,10 +192,13 @@ export default function DemoConsole() {
           <h2>Find the Failure — guided investigation</h2>
           <p className="muted">Walk through a realistic EDI incident: choose the scenario, traverse the topology, ingest raw enterprise metadata, and correlate an alert to evidence-backed fault domains.</p>
         </div>
-        <div className="demo-stats">
-          <Stat label="Source records" value={quality?.source_record_count} />
-          <Stat label="Typed edges" value={quality?.relationship_count} />
-          <Stat label="Alerts" value={alerts.length} />
+        <div className="demo-hero-actions">
+          <div className="demo-stats">
+            <Stat label="Source records" value={quality?.source_record_count} />
+            <Stat label="Typed edges" value={quality?.relationship_count} />
+            <Stat label="Alerts" value={alerts.length} />
+          </div>
+          <button className="primary hero-next" disabled={busy || nextDisabled} onClick={advanceDemo}>{NEXT_LABELS[activeStep]}</button>
         </div>
       </section>
 
@@ -211,12 +207,11 @@ export default function DemoConsole() {
           {steps.map((step, index) => (
             <StepButton key={step.title} step={step} index={index} active={activeStep === index} done={completedSteps[index]} locked={!stepReady[index]} disabled={busy} onClick={() => runStep(index)} />
           ))}
-          <DemoControls activeStep={activeStep} busy={busy} nextDisabled={nextDisabled} onNext={advanceDemo} />
           <button className="scenario-reset full" disabled={busy} onClick={resetDemo}>Reset demo</button>
         </aside>
 
         <main className="demo-stage">
-          <section className="panel-card demo-card">
+          <section className={`panel-card demo-card ${activeStep === 0 ? "active-demo-section" : ""}`}>
             <div className="demo-card-head">
               <div>
                 <h3>1. Choose a failure scenario</h3>
@@ -235,7 +230,7 @@ export default function DemoConsole() {
           </section>
 
           <section className="demo-workspace">
-            <div className="demo-graph-panel">
+            <div className={`demo-graph-panel ${activeStep === 1 || activeStep === 2 ? "active-demo-section" : ""}`}>
               <div className="demo-card-head slim">
                 <div>
                   <h3>2. Explore the topology</h3>
@@ -252,7 +247,7 @@ export default function DemoConsole() {
           </section>
 
           <div className="ingestion-grid">
-            <section className="panel-card">
+            <section className={`panel-card ${activeStep === 3 ? "active-demo-section" : ""}`}>
               <div className="demo-card-head slim">
                 <div>
                   <h3>3. Normalize federated metadata</h3>
@@ -264,7 +259,7 @@ export default function DemoConsole() {
               {quality?.findings.map((f) => <div key={f.label} className={`finding ${f.severity}`}><span>{f.label}</span><strong>{f.count}</strong></div>)}
             </section>
 
-            <section className="panel-card">
+            <section className={`panel-card ${activeStep === 4 ? "active-demo-section" : ""}`}>
               <div className="demo-card-head slim">
                 <div>
                   <h3>4. Correlate the alert</h3>
