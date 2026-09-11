@@ -141,7 +141,7 @@ shell commands, logs, or tickets).
 
 The `interfaces` collection uses a flexible schema so a single model can hold
 EDI, REST, FHIR, event, and SFTP interfaces. Seeded footprint: **9 systems,
-10 interfaces, 3 owners, 4 data entities, 1 business process, 14 typed
+10 interfaces, 3 owners, 4 data entities, 2 business processes, 17 typed
 relationships, and 5 source records**. The Workbench can targeted-upsert **3
 additional simulated observability alerts** and persist investigation cases.
 

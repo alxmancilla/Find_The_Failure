@@ -144,10 +144,11 @@ injection, metadata normalization, and alert investigation.
 ## 4. Data model
 
 `systems`, `interfaces`, `data_entities`, `owners`, `events`,
-`business_processes`, `relationships`, and `source_records`.
+`business_processes`, `relationships`, `source_records`, and
+`investigation_cases`.
 
 Seeded footprint: **9 systems, 10 interfaces, 3 owners, 4 data entities**,
-plus **1 business process, 14 relationships, 5 source records, 2 failure
+plus **2 business processes, 17 relationships, 5 source records, 3 failure
 scenarios**, and **1 modernization scenario**.
 
 ---

@@ -12,6 +12,11 @@ const coreOrderFlow = new Set([
   "if-erp-855",
 ]);
 
+const supplierReplenishmentFlow = new Set([
+  "if-erp-inventory",
+  "if-inventory-supplier",
+]);
+
 const rel = (r) => ({
   confidence: 1,
   confirmed: true,
@@ -50,6 +55,20 @@ export const relationships = [
         relationship_type: "supports_process",
         source_record_id: `${iface.key}.business_process`,
         evidence: [`${iface.name} participates in the hospital order fulfillment process.`],
+      })
+    ),
+  ...interfaces
+    .filter((iface) => supplierReplenishmentFlow.has(iface.key))
+    .map((iface) =>
+      rel({
+        key: `${iface.key}->supplier-replenishment:supports_process`,
+        from_type: "interface",
+        from_key: iface.key,
+        to_type: "business_process",
+        to_key: "supplier-replenishment",
+        relationship_type: "supports_process",
+        source_record_id: `${iface.key}.supplier_replenishment_process`,
+        evidence: [`${iface.name} participates in the supplier replenishment process.`],
       })
     ),
 ];

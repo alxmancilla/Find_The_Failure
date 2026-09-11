@@ -22,7 +22,7 @@ layer for integration metadata.
 | `owners` | Support / architecture owners | B2B Operations, ERP Integration |
 | `data_entities` | Business objects in motion | Purchase order, inventory request |
 | `events` | Operational history | ERP timeout, X12 SLA breach |
-| `business_processes` | Business services supported by integrations | Hospital Order Fulfillment |
+| `business_processes` | Business services supported by integrations | Order Fulfillment, Supplier Replenishment |
 | `relationships` | Typed graph edges with evidence/confidence | depends_on, supports_process |
 | `source_records` | Raw imported metadata and alerts | CMDB row, observability alert |
 | `investigation_cases` | Persisted Agent v1 case memory | Timeline, evidence, follow-up Q&A |
