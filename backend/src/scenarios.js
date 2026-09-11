@@ -23,6 +23,17 @@ export const scenarios = [
     detail:
       "X12 translator exceeded the 2-minute translation SLA under peak load; orders queuing in the gateway.",
   },
+  {
+    id: "supplier-replenishment-lag",
+    name: "Supplier replenishment delayed",
+    description:
+      "A low-stock replenishment order is delayed before supplier EDI transmission.",
+    flow_start: "if-erp-inventory",
+    interface_key: "if-inventory-supplier",
+    reason: "Supplier replenishment EDI delay",
+    detail:
+      "Low-stock replenishment order did not transmit to Supplier EDI within the 30-minute SLA.",
+  },
 ];
 
 export const getScenario = (id) => scenarios.find((s) => s.id === id);

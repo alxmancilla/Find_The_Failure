@@ -32,18 +32,31 @@ SRV string (see the "Using MongoDB Atlas" section in `README.md`), then run
 
 ---
 
-## 2. Guided talk track (≈6 minutes)
+## 2. Presenter talk track reference (≈6 minutes)
 
-Open **Demo Console**. Use the left-side step rail and the green **Next** action
-to keep the story moving.
+Open **Investigation Workbench**. Start from the alert inbox and let the agent
+workflow populate the timeline, topology, evidence, and recommended checks.
 
 ### Act 1 — Start from the business symptom
-1. Choose **EDI 850 rejected — ERP timeout**.
+1. Select the **ERP endpoint timeout** alert.
 2. Say: "We are starting where operations starts: a rejected purchase order, not
    a static architecture diagram."
-3. Click **Next: reveal topology**.
+3. Click **Investigate selected alert**.
 
-### Act 2 — Reveal the connected topology
+### Act 2 — Watch the agent investigation timeline
+The agent activity timeline advances through:
+
+- Alert received
+- Mapped to interface
+- Loaded topology
+- Assessed impact
+- Collected evidence
+- Ranked fault domains
+- Generated next checks
+
+> "The human is supervising an investigation, not chatting with a generic bot."
+
+### Act 3 — Reveal the connected topology
 The graph renders the order path:
 
 ```
@@ -57,31 +70,54 @@ Hospital 123 → EDI Gateway → X12 Translator → Integration API → Apex ERP
 > "MongoDB stores this as a flexible operational context graph, so we can move
 > from a business symptom to technical dependencies without hand-built screens."
 
-### Act 3 — Inject the failure and show impact
-1. Click **Next: inject failure**.
-2. The failed interface turns **red** and at-risk dependencies turn **orange**.
-3. Show the side panel: impacted systems, business process context, owner, and
-   similar recent failures.
+### Act 4 — Show impact, evidence, and owner
+1. The likely fault domain is highlighted with confidence.
+2. Show impacted business process, downstream risk, owners, and source evidence.
+3. Review the safe next checks. No remediation is executed in Agent v1.
 
 > "In seconds we know what broke, what's downstream, who owns it, and what
 > business process is exposed."
 
-### Act 4 — Normalize enterprise metadata
-1. Click **Next: normalize metadata**.
-2. Explain that raw records from integration inventory, CMDB, and observability
-   become normalized relationships/events with source evidence.
-3. Show source-record, typed-edge, and data-quality counters.
+### Act 5 — Ask grounded follow-up questions
+Use the follow-up panel to ask:
 
-> "The recommendation is grounded in existing enterprise data, not presenter
-> notes or a hard-coded diagram."
-
-### Act 5 — Investigate the alert
-1. Click **Next: investigate alert**.
-2. Show the grounded summary, likely fault domains, impacted process, evidence,
-   and safe next actions.
+- "Why is this the likely fault domain?"
+- "What business process is impacted?"
+- "Who owns this interface?"
+- "What evidence supports this?"
+- "What should I check first?"
 
 > "This is the agent-ready moment: MongoDB provides the auditable context layer
 > needed for grounded investigation and human-approved remediation."
+
+### Act 6 — Show case memory and audit trail
+After the investigation completes, point to **Case memory** in the Alert Inbox
+and **Case timeline** in the right panel.
+
+- Each investigation creates a persisted case record.
+- The case stores the alert snapshot, summary, likely fault domain, evidence,
+  recommended checks, timeline, and grounded follow-up Q&A.
+- Selecting a saved case rehydrates the investigation context without rerunning
+  the whole workflow.
+
+> "The agent is not just answering in the moment. It is building an auditable
+> investigation record that another operator can review later."
+
+### Optional — Simulate more operational signals
+1. In **Alert inbox**, click **Ingest latest alerts**.
+2. Point out that this is a targeted observability feed ingest, not a demo reset.
+3. Point out the balanced feed: two alerts map to **Hospital Order Fulfillment**
+   and two alerts map to **Supplier Replenishment**.
+4. Select a different alert such as **X12 translation backlog**,
+   **Partner notification publish failures**, or **Supplier EDI acknowledgment timeout**.
+5. Click **Investigate selected alert** to show that the topology, likely fault
+   domain, evidence, and next checks change with the alert context.
+6. Click **Clear feed + cases** when you want to reset the Workbench rehearsal
+   state back to the original single-alert inbox and empty case memory.
+
+### Optional — Manual workflow view
+Go to **Demo Console** to manually step through topology reveal, failure
+injection, metadata normalization, and alert investigation.
 
 ### Optional — What-if modernization question
 1. Go to the **Modernization** tab.
@@ -110,10 +146,11 @@ Hospital 123 → EDI Gateway → X12 Translator → Integration API → Apex ERP
 ## 4. Data model
 
 `systems`, `interfaces`, `data_entities`, `owners`, `events`,
-`business_processes`, `relationships`, and `source_records`.
+`business_processes`, `relationships`, `source_records`, and
+`investigation_cases`.
 
 Seeded footprint: **9 systems, 10 interfaces, 3 owners, 4 data entities**,
-plus **1 business process, 14 relationships, 5 source records, 2 failure
+plus **2 business processes, 17 relationships, 5 source records, 3 failure
 scenarios**, and **1 modernization scenario**.
 
 ---

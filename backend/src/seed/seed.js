@@ -9,6 +9,7 @@ import {
   Event,
   Relationship,
   SourceRecord,
+  InvestigationCase,
 } from "../models.js";
 import { owners, systems, dataEntities } from "./base.js";
 import { businessProcesses } from "./processes.js";
@@ -29,6 +30,7 @@ async function seed() {
     Event.deleteMany({}),
     Relationship.deleteMany({}),
     SourceRecord.deleteMany({}),
+    InvestigationCase.deleteMany({}),
   ]);
 
   await Owner.insertMany(owners);

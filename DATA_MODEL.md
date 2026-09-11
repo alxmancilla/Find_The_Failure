@@ -1,8 +1,10 @@
 # Find the Failure — Data Model & Query Guide
-This app uses MongoDB as a **context graph/catalog** for integration metadata.
+This app uses MongoDB as a **context graph/catalog** and bounded case-memory
+layer for integration metadata.
 
 > An **interface** is modeled as an edge between systems. Systems, owners,
-> business entities, and events hang off that edge. The app answers:
+> business entities, events, alert source records, and investigation cases hang
+> off that edge. The app answers:
 > **what is affected, who owns it, and what happened before?**
 
 ---
@@ -10,7 +12,8 @@ This app uses MongoDB as a **context graph/catalog** for integration metadata.
 ## Database and collections
 
 - **Database:** `find_the_failure`
-- **Collections:** `systems`, `interfaces`, `owners`, `data_entities`, `events`
+- **Collections:** `systems`, `interfaces`, `owners`, `data_entities`, `events`,
+  `business_processes`, `relationships`, `source_records`, `investigation_cases`
 
 | Collection | Purpose | Example |
 |---|---|---|
@@ -19,6 +22,10 @@ This app uses MongoDB as a **context graph/catalog** for integration metadata.
 | `owners` | Support / architecture owners | B2B Operations, ERP Integration |
 | `data_entities` | Business objects in motion | Purchase order, inventory request |
 | `events` | Operational history | ERP timeout, X12 SLA breach |
+| `business_processes` | Business services supported by integrations | Order Fulfillment, Supplier Replenishment |
+| `relationships` | Typed graph edges with evidence/confidence | depends_on, supports_process |
+| `source_records` | Raw imported metadata and alerts | CMDB row, observability alert |
+| `investigation_cases` | Persisted Agent v1 case memory | Timeline, evidence, follow-up Q&A |
 
 ---
 
@@ -30,6 +37,9 @@ interfaces    = graph edges
 owners        = accountability
 data_entities = business meaning
 events        = operational history
+source_records = raw imported evidence
+relationships = canonical evidence-backed edges
+investigation_cases = auditable investigation memory
 ~~~
 
 Example edge: `hospital-123 --if-hospital-850--> edi-gateway`
@@ -75,6 +85,29 @@ The `interfaces` schema uses `strict:false`, so different interface types can ca
 
 An event is recent operational history for an interface. Key fields: `interface_key`, `timestamp`, `status`, `message_type`, `reason`, `detail`, `severity`.
 
+### `business_processes`
+
+A business process connects technical topology to business impact. Key fields:
+`key`, `name`, `criticality`, `owner`, `data_entities`, `sla`.
+
+### `relationships`
+
+Canonical typed edges with provenance. Key fields: `from_type`, `from_key`,
+`to_type`, `to_key`, `relationship_type`, `confidence`, `confirmed`, `evidence`,
+`source_system`, and `source_record_id`.
+
+### `source_records`
+
+Raw or normalized source metadata from inventory, CMDB/app ownership, and
+observability feeds. Alerts are represented as `record_type: "alert"` and map to
+interfaces through `entity_key`.
+
+### `investigation_cases`
+
+Persisted Agent v1 case memory. Each case stores an alert snapshot, investigation
+summary, likely fault domain, evidence, recommended checks, timeline events, and
+grounded follow-up Q&A.
+
 ---
 
 ## Main query patterns
@@ -88,6 +121,9 @@ An event is recent operational history for an interface. Key fields: `interface_
 | Simulate failure | `/api/simulate/:key` | update interface + insert failed event |
 | Reset demo | `/api/reset` | `updateMany`, `deleteMany`, `insertMany` |
 | Modernization impact | `/api/modernization/:systemKey` | `$or` over `source`, `target`, `middleware` |
+| Ingest simulated alerts | `/api/alerts/demo-feed` | Targeted `bulkWrite` into `source_records` |
+| Investigate alert | `/api/cases/investigate/:key` | Alert correlation + persisted case insert |
+| Clear rehearsal state | `/api/workbench/clear-demo-state` | Delete feed alerts + case memory only |
 
 ---
 
@@ -106,6 +142,12 @@ This lets a typo like `hosptial` still return **Hospital Order 850**.
 ### Impact analysis
 
 `/api/impact/:key` starts with one interface, follows downstream interfaces, then resolves affected systems, owners, recent events, and similar failures. This is the core blast-radius answer.
+
+### Agent v1 case memory
+
+`/api/cases/investigate/:sourceRecordKey` runs deterministic alert correlation,
+stores an auditable investigation case, and preserves grounded follow-up Q&A. This
+is intentionally read-only and bounded; LLM/tool orchestration is a future phase.
 
 ### Modernization analysis
 
@@ -143,9 +185,11 @@ This lets a typo like `hosptial` still return **Hospital Order 850**.
 
 ## Production caveats
 
-The graph is only as correct as `downstream_interfaces`. `$graphLookup` has a
-100 MB per-stage memory limit and does not spill to disk. Dynamic Atlas Search is
-great for the demo, but production should tune paths, analyzers, boosts,
-synonyms, and index limits. Failure simulation uses separate writes; use
-transactions if atomicity matters. A real PoC also needs ingestion from CMDB,
-integration engines, APIs, or files.
+The graph is only as correct as the provided relationships and
+`downstream_interfaces`. `$graphLookup` has a 100 MB per-stage memory limit and
+does not spill to disk. Dynamic Atlas Search is great for the demo, but
+production should tune paths, analyzers, boosts, synonyms, and index limits.
+Failure simulation and rehearsal resets use separate writes; use transactions if
+atomicity matters. A real PoC also needs ingestion from CMDB, integration
+engines, APIs, observability feeds, or files, plus SME validation and access
+controls.
