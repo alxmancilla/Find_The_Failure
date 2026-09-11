@@ -151,7 +151,7 @@ export async function investigateAlert(sourceRecordKey) {
     Owner.find({ key: { $in: ownerKeys } }).lean(),
   ]);
 
-  const candidates = rankFaultDomains(alert, iface, upstream, downstream, systems);
+  const candidates = rankFaultDomains(alert, iface, upstream, downstream, systems, impact);
   return {
     alert: formatAlert(alert),
     investigation_summary: buildSummary(alert, iface, candidates, impact),
@@ -191,39 +191,95 @@ function formatAlert(alert) {
   };
 }
 
-function rankFaultDomains(alert, iface, upstream, downstream, systems) {
+function rankFaultDomains(alert, iface, upstream, downstream, systems, impact) {
   const byKey = Object.fromEntries(systems.map((s) => [s.key, s]));
-  const upstreamDepth = upstream.relationships.length ? 0.12 : 0;
+  const targetConfidence = scoreTargetConfidence(alert, iface, upstream, downstream, impact);
+  const upstreamDepth = Math.min(upstream.relationships.length, 4) * 0.04;
+  const downstreamBreadth = Math.min(downstream.relationships.length, 5) * 0.035;
   return [
     {
       type: "system",
       key: iface.target,
       name: byKey[iface.target]?.name || iface.target,
-      score: 0.92,
-      reason: `Alert is emitted on ${iface.name}, whose target is ${iface.target}.`,
+      score: targetConfidence,
+      reason: buildConfidenceReason(alert, iface, upstream, downstream, impact, targetConfidence),
     },
     {
       type: "interface",
       key: iface.key,
       name: iface.name,
-      score: 0.84,
+      score: clampScore(targetConfidence - 0.08, 0.68, 0.88),
       reason: alert.payload?.detail || "Alert is directly mapped to this integration interface.",
     },
     {
       type: "upstream-path",
       key: "upstream-dependency-chain",
       name: "Upstream dependency chain",
-      score: Number((0.55 + upstreamDepth).toFixed(2)),
+      score: clampScore(0.52 + upstreamDepth, 0.52, 0.78),
       reason: `${upstream.relationships.length} upstream relationship edges can contribute to the symptom.`,
     },
     {
       type: "downstream-blast-radius",
       key: "downstream-impact-chain",
       name: "Downstream impact chain",
-      score: Number((0.45 + Math.min(downstream.relationships.length, 5) * 0.04).toFixed(2)),
+      score: clampScore(0.46 + downstreamBreadth, 0.46, 0.76),
       reason: `${downstream.relationships.length} downstream relationship edges define affected consumers.`,
     },
   ].sort((a, b) => b.score - a.score);
+}
+
+function scoreTargetConfidence(alert, iface, upstream, downstream, impact) {
+  const relationships = [...upstream.relationships, ...downstream.relationships, ...(impact?.process_relationships || [])];
+  const confirmed = relationships.filter((r) => r.confirmed).length;
+  const inferred = relationships.filter((r) => r.confirmed === false).length;
+  const processCount = impact?.business_processes?.length || 0;
+  const evidenceCount = collectEvidence(alert, upstream, downstream, impact).length;
+  const symptom = `${alert.payload?.reason || ""} ${alert.payload?.detail || ""}`.toLowerCase();
+
+  let score = 0.64;
+  score += alert.entity_key === iface.key ? 0.12 : 0;
+  score += alert.payload?.severity === "critical" ? 0.05 : 0.02;
+  score += alert.payload?.status === "failed" ? 0.06 : 0.03;
+  score += /timeout|failure|failed|acknowledg/.test(symptom) ? 0.04 : 0.01;
+  score += Math.min(evidenceCount, 4) * 0.01;
+  score += Math.min(relationships.length, 6) * 0.008;
+  score += relationships.length && confirmed / relationships.length >= 0.8 ? 0.04 : 0;
+  score += processCount === 1 ? 0.04 : processCount > 1 ? 0.02 : 0;
+  score += (iface.owners || []).length ? 0.02 : 0;
+  score -= processCount > 1 ? 0.03 : 0;
+  score -= downstream.relationships.length > 2 ? 0.02 : 0;
+  score -= inferred ? 0.03 : 0;
+  score -= /backlog|lag|delay|delayed|queue/.test(symptom) ? 0.03 : 0;
+
+  return clampScore(score, 0.72, maxConfidenceFor(alert, processCount, downstream.relationships.length, symptom));
+}
+
+function maxConfidenceFor(alert, processCount, downstreamEdges, symptom) {
+  let max = alert.payload?.status === "failed" && alert.payload?.severity === "critical" ? 0.93 : 0.9;
+  if (alert.payload?.severity === "critical" && alert.payload?.status !== "failed") max = 0.92;
+  if (processCount > 1 || downstreamEdges > 2) max = Math.min(max, 0.91);
+  if (/backlog|queue/.test(symptom)) max = Math.min(max, 0.85);
+  if (/lag/.test(symptom)) max = Math.min(max, 0.84);
+  if (/delay|delayed/.test(symptom)) max = Math.min(max, 0.86);
+  if (/acknowledg/.test(symptom)) max = Math.max(max, 0.9);
+  return max;
+}
+
+function buildConfidenceReason(alert, iface, upstream, downstream, impact, score) {
+  const processCount = impact?.business_processes?.length || 0;
+  const relationships = [...upstream.relationships, ...downstream.relationships, ...(impact?.process_relationships || [])];
+  const confirmed = relationships.filter((r) => r.confirmed).length;
+  const evidenceCount = collectEvidence(alert, upstream, downstream, impact).length;
+  const ambiguity = processCount > 1 || downstream.relationships.length > 2
+    ? " Shared-process or broad downstream impact slightly lowers certainty."
+    : " Narrow process mapping increases certainty.";
+  return `Ranking confidence ${Math.round(score * 100)}%: alert maps directly to ${iface.name}, ` +
+    `${evidenceCount} evidence items are available, and ${confirmed}/${relationships.length || 0} relationship edges are confirmed.` +
+    ambiguity;
+}
+
+function clampScore(value, min, max) {
+  return Number(Math.min(max, Math.max(min, value)).toFixed(2));
 }
 
 function buildSummary(alert, iface, candidates, impact) {

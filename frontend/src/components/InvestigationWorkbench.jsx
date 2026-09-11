@@ -149,6 +149,7 @@ function SummaryPanel({ result }) {
       <h3>Investigation summary</h3>
       <p>{result.investigation_summary}</p>
       {top && <div className="fault-callout"><strong>{top.name}</strong><span>{pct(top.score)} confidence</span></div>}
+      {top?.reason && <p className="confidence-rationale">{top.reason}</p>}
       <div className="chip-row">
         {processes.map((p) => <span key={p.key} className="chip risk">{p.name}</span>)}
         {owners.map((o) => <span key={o.key} className="chip">{o.name}</span>)}
@@ -476,7 +477,7 @@ export default function InvestigationWorkbench() {
           </div>
           <div className="case-stats">
             <Stat label="Severity" value={selectedAlert?.severity || "—"} />
-            <Stat label="Confidence" value={result?.likely_fault_domains?.[0] ? pct(result.likely_fault_domains[0].score) : busy ? "Building" : "—"} />
+            <Stat label="Ranking confidence" value={result?.likely_fault_domains?.[0] ? pct(result.likely_fault_domains[0].score) : busy ? "Building" : "—"} />
             <Stat label="Evidence" value={result?.evidence?.length ?? "—"} />
           </div>
         </section>
