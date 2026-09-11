@@ -181,6 +181,41 @@ function SummaryPanel({ result }) {
   );
 }
 
+function BusinessImpactPanel({ result, selectedAlert }) {
+  const top = result?.likely_fault_domains?.[0];
+  const processNames = (result?.impacted_business_processes || []).map((p) => p.name).join(", ");
+  const ownerNames = (result?.owners || []).map((o) => o.name).join(", ");
+  const affectedSystems = result?.affected_systems?.length || 0;
+  const downstreamInterfaces = result?.topology?.downstream_interfaces?.length || 0;
+  const firstAction = result?.recommended_next_actions?.[0];
+
+  return (
+    <section className="panel-card business-impact-card">
+      <div className="panel-title-row compact">
+        <div>
+          <span className="eyebrow">Business impact</span>
+          <h3>Impact summary</h3>
+        </div>
+        {result && <span className="count-pill">Ready</span>}
+      </div>
+      {!result && (
+        <p className="muted">Investigate {selectedAlert ? `“${selectedAlert.reason}”` : "an alert"} to translate the signal into business impact.</p>
+      )}
+      {result && (
+        <>
+          <div className="impact-metric-grid">
+            <div><span>Process</span><strong>{processNames || "No mapped process"}</strong></div>
+            <div><span>Likely domain</span><strong>{top?.name || "Pending"}</strong></div>
+            <div><span>Owner</span><strong>{ownerNames || "No mapped owner"}</strong></div>
+            <div><span>Topology at risk</span><strong>{affectedSystems} systems · {downstreamInterfaces} interfaces</strong></div>
+          </div>
+          {firstAction && <div className="first-check"><span>Recommended first check</span><p>{firstAction}</p></div>}
+        </>
+      )}
+    </section>
+  );
+}
+
 function EvidencePanel({ result }) {
   const evidence = result?.evidence || [];
   const actions = result?.recommended_next_actions || [];
@@ -536,6 +571,7 @@ export default function InvestigationWorkbench() {
 
           <aside className="workbench-right">
             <SummaryPanel result={result} />
+            <BusinessImpactPanel result={result} selectedAlert={selectedAlert} />
             <CaseTimeline caseRecord={activeCase} />
             <EvidencePanel result={result} />
             <FollowUpPanel result={result} messages={messages} question={question} setQuestion={setQuestion} onAsk={ask} />
