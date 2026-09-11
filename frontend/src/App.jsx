@@ -6,53 +6,43 @@ import Modernization from "./components/Modernization.jsx";
 import Ingestion from "./components/Ingestion.jsx";
 import Investigation from "./components/Investigation.jsx";
 
+const NAV_ITEMS = [
+  { id: "workbench", label: "Workbench" },
+  { id: "demo", label: "Demo Console" },
+  { id: "explorer", label: "Impact Explorer" },
+  { id: "modernization", label: "Modernization" },
+  { id: "ingestion", label: "Ingestion" },
+  { id: "investigation", label: "Classic Investigation" },
+];
+
 export default function App() {
   const [tab, setTab] = useState("workbench");
 
   return (
     <div className="app">
       <header className="header">
-        <span className="dot" />
-        <h1>Find the Failure</h1>
-        <span className="muted">EDI Integration Impact Explorer</span>
-        <nav className="tabs">
-          <button
-            className={tab === "workbench" ? "active" : ""}
-            onClick={() => setTab("workbench")}
-          >
-            Investigation Workbench
-          </button>
-          <button
-            className={tab === "demo" ? "active" : ""}
-            onClick={() => setTab("demo")}
-          >
-            Demo Console
-          </button>
-          <button
-            className={tab === "explorer" ? "active" : ""}
-            onClick={() => setTab("explorer")}
-          >
-            Impact Explorer
-          </button>
-          <button
-            className={tab === "modernization" ? "active" : ""}
-            onClick={() => setTab("modernization")}
-          >
-            Modernization
-          </button>
-          <button
-            className={tab === "ingestion" ? "active" : ""}
-            onClick={() => setTab("ingestion")}
-          >
-            Ingestion
-          </button>
-          <button
-            className={tab === "investigation" ? "active" : ""}
-            onClick={() => setTab("investigation")}
-          >
-            Investigation
-          </button>
-        </nav>
+        <div className="brand">
+          <span className="dot" />
+          <div>
+            <h1>Find the Failure</h1>
+            <span className="muted">Apex Health Supply · EDI Integration Impact Explorer</span>
+          </div>
+        </div>
+        <div className="header-meta">
+          <span className="scope-pill">Bounded Agent v1 PoC</span>
+          <nav className="tabs" aria-label="Application views">
+            {NAV_ITEMS.map((item) => (
+              <button
+                key={item.id}
+                className={tab === item.id ? "active" : ""}
+                aria-pressed={tab === item.id}
+                onClick={() => setTab(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </nav>
+        </div>
       </header>
       {tab === "workbench" && <InvestigationWorkbench />}
       {tab === "demo" && <DemoConsole />}

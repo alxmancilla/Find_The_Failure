@@ -49,17 +49,33 @@ function Stat({ label, value }) {
 function AlertCard({ alert, active, onClick }) {
   return (
     <button className={`alert-card ${active ? "active" : ""}`} onClick={onClick}>
-      <span className={`badge status-${alert.status}`}>{alert.severity}</span>
+      <span className="alert-card-top">
+        <span className={`badge status-${alert.status}`}>{alert.severity || "alert"}</span>
+        <span className="alert-status-label">{alert.status || "open"}</span>
+      </span>
       <strong>{alert.reason}</strong>
       <small>{alert.source_system} · {alert.interface_key}</small>
+      {alert.detail && <span className="alert-preview">{alert.detail}</span>}
     </button>
   );
 }
 
 function Timeline({ steps }) {
+  const completeCount = steps.filter((step) => step.status === "complete").length;
+  const runningStep = steps.find((step) => step.status === "running");
+  const progress = Math.round((completeCount / steps.length) * 100);
   return (
     <section className="panel-card agent-timeline">
-      <h3>Agent activity</h3>
+      <div className="panel-title-row">
+        <div>
+          <h3>Agent activity</h3>
+          <p className="muted mini-copy">{runningStep ? runningStep.detail : `${completeCount} of ${steps.length} steps complete`}</p>
+        </div>
+        <span className="progress-pill">{progress}%</span>
+      </div>
+      <div className="progress-track" aria-label="Investigation progress">
+        <span style={{ width: `${progress}%` }} />
+      </div>
       {steps.map((step) => (
         <div key={step.id} className={`timeline-step ${step.status}`}>
           <span className="timeline-dot" />
@@ -76,8 +92,16 @@ function Timeline({ steps }) {
 function CaseMemory({ cases, activeCase, onSelect }) {
   return (
     <section className="case-memory">
-      <h3>Case memory</h3>
-      {!cases.length && <p className="muted mini-copy">Investigated alerts will appear here as auditable cases.</p>}
+      <div className="section-title-row">
+        <h3>Case memory</h3>
+        <span className="count-pill">{cases.length}</span>
+      </div>
+      {!cases.length && (
+        <div className="empty-card">
+          <strong>No saved cases yet</strong>
+          <p>Investigate an alert to create an auditable timeline and grounded Q&A history.</p>
+        </div>
+      )}
       {cases.map((item) => (
         <button key={item.key} className={`case-card ${activeCase?.key === item.key ? "active" : ""}`} onClick={() => onSelect(item.key)}>
           <strong>{item.alert_snapshot?.reason || "Investigation case"}</strong>
@@ -104,7 +128,18 @@ function CaseTimeline({ caseRecord }) {
 }
 
 function SummaryPanel({ result }) {
-  if (!result) return <section className="panel-card hero-card"><h3>Investigation summary</h3><p className="muted">Select an alert and start an investigation.</p></section>;
+  if (!result) return (
+    <section className="panel-card hero-card empty-summary">
+      <span className="eyebrow">Ready</span>
+      <h3>Investigation summary</h3>
+      <p className="muted">Select an alert, then start an investigation to generate a grounded summary, likely fault domain, evidence, and next checks.</p>
+      <ol className="coach-list">
+        <li>Choose an alert from the inbox</li>
+        <li>Open an auditable case</li>
+        <li>Review impact and safe next checks</li>
+      </ol>
+    </section>
+  );
   const top = result.likely_fault_domains?.[0];
   const processes = result.impacted_business_processes || [];
   const owners = result.owners || [];
@@ -122,12 +157,19 @@ function SummaryPanel({ result }) {
 }
 
 function EvidencePanel({ result }) {
+  const evidence = result?.evidence || [];
+  const actions = result?.recommended_next_actions || [];
   return (
     <section className="panel-card evidence-panel">
-      <h3>Evidence and next checks</h3>
+      <div className="panel-title-row compact">
+        <h3>Evidence and next checks</h3>
+        {result && <span className="count-pill">{evidence.length + actions.length}</span>}
+      </div>
       {!result && <p className="muted">Evidence appears as the agent investigates the alert.</p>}
-      {(result?.evidence || []).map((item, i) => <div key={i} className="evidence">{item}</div>)}
-      {(result?.recommended_next_actions || []).map((action, i) => <div key={i} className="next-action">{action}</div>)}
+      {Boolean(evidence.length) && <h4>Grounding evidence</h4>}
+      {evidence.map((item, i) => <div key={i} className="evidence">{item}</div>)}
+      {Boolean(actions.length) && <h4>Recommended next checks</h4>}
+      {actions.map((action, i) => <div key={i} className="next-action">{action}</div>)}
     </section>
   );
 }
@@ -136,7 +178,12 @@ function FollowUpPanel({ result, messages, question, setQuestion, onAsk }) {
   const canAsk = Boolean(result);
   return (
     <section className="panel-card followup-panel">
-      <h3>Ask follow-up</h3>
+      <div className="panel-title-row compact">
+        <div>
+          <h3>Ask follow-up</h3>
+          <p className="muted mini-copy">Answers are restricted to the active investigation result.</p>
+        </div>
+      </div>
       <div className="suggested-questions">
         {SUGGESTED_QUESTIONS.map((q) => <button key={q} disabled={!canAsk} onClick={() => onAsk(q)}>{q}</button>)}
       </div>
@@ -391,9 +438,14 @@ export default function InvestigationWorkbench() {
       <aside className="alert-inbox">
         <span className="eyebrow">Agent v1</span>
         <h2>Investigation Workbench</h2>
-        <p className="muted">Start from an alert. The agent correlates topology, impact, owners, evidence, and safe next checks.</p>
+        <p className="muted">Alert-first, read-only workflow for mapping operational signals to topology, owners, impact, evidence, and safe next checks.</p>
+        <div className="demo-hint">
+          <strong>Suggested demo path</strong>
+          <span>Investigate the ERP alert, ingest latest alerts, then clear feed + cases to reset.</span>
+        </div>
         <div className="alert-inbox-head">
           <h3>Alert inbox</h3>
+          <span className="count-pill">{alerts.length}</span>
         </div>
         <div className="alert-inbox-actions">
           <button disabled={feedBusy || resetBusy || busy} onClick={ingestLatestAlerts}>{feedBusy ? "Ingesting…" : "Ingest latest alerts"}</button>
@@ -412,10 +464,18 @@ export default function InvestigationWorkbench() {
             <span className="eyebrow">Active case</span>
             <h2>{selectedAlert?.reason || "No alert selected"}</h2>
             <p className="muted">{selectedAlert?.detail || "Choose an alert to begin."}</p>
+            {selectedAlert && (
+              <div className="case-context">
+                <span>{selectedAlert.external_id || "source alert"}</span>
+                <span>{selectedAlert.source_system}</span>
+                <span>{selectedAlert.interface_key}</span>
+                {activeCase?.key && <span>Saved as {activeCase.key}</span>}
+              </div>
+            )}
           </div>
           <div className="case-stats">
             <Stat label="Severity" value={selectedAlert?.severity || "—"} />
-            <Stat label="Confidence" value={result?.likely_fault_domains?.[0] ? pct(result.likely_fault_domains[0].score) : "Building"} />
+            <Stat label="Confidence" value={result?.likely_fault_domains?.[0] ? pct(result.likely_fault_domains[0].score) : busy ? "Building" : "—"} />
             <Stat label="Evidence" value={result?.evidence?.length ?? "—"} />
           </div>
         </section>
