@@ -191,7 +191,12 @@ select { padding: 8px; border-radius: 8px; background: var(--panel-2); color: va
 .demo-hint { margin: 14px 0 4px; padding: 12px; border-radius: 12px; border: 1px solid var(--accent-dim); background: rgba(0, 237, 100, 0.08); font-size: 12px; line-height: 1.4; }
 .demo-hint strong, .demo-hint span { display: block; }
 .demo-hint span { margin-top: 4px; color: var(--muted); }
+.alert-group { margin: 14px 0 16px; padding: 10px; border: 1px solid rgba(120, 135, 170, 0.22); border-radius: 14px; background: rgba(28, 36, 56, 0.32); }
+.alert-group-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.alert-group-head h4 { margin: 2px 0 0; color: var(--text); font-size: 12px; line-height: 1.25; }
+.group-kicker { color: var(--muted); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; }
 .alert-card { width: 100%; text-align: left; margin-bottom: 10px; padding: 12px; display: flex; flex-direction: column; gap: 6px; border-radius: 12px; }
+.alert-group .alert-card:last-child { margin-bottom: 0; }
 .alert-card.active { border-color: var(--accent); background: #0f2a1e; box-shadow: 0 0 0 2px rgba(0, 237, 100, 0.14); }
 .alert-card-top, .section-title-row, .panel-title-row, .case-context { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .alert-card small, .alert-status-label, .alert-preview { color: var(--muted); }

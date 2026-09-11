@@ -33,6 +33,12 @@ const CASE_EVENT_TO_STEP = {
   next_checks_ready: "summary",
 };
 
+const ALERT_GROUP_ORDER = [
+  "Hospital Order Fulfillment",
+  "Supplier Replenishment",
+  "Starting / unassigned alerts",
+];
+
 function StatusPill({ status }) {
   return <span className={`agent-status ${status}`}>{status}</span>;
 }
@@ -58,6 +64,23 @@ function AlertCard({ alert, active, onClick }) {
       {alert.business_process_name && <span className="process-tag">{alert.business_process_name}</span>}
       {alert.detail && <span className="alert-preview">{alert.detail}</span>}
     </button>
+  );
+}
+
+function AlertGroup({ group, selectedKey, onSelect }) {
+  return (
+    <section className="alert-group">
+      <div className="alert-group-head">
+        <div>
+          <span className="group-kicker">Business process</span>
+          <h4>{group.name}</h4>
+        </div>
+        <span className="count-pill">{group.alerts.length}</span>
+      </div>
+      {group.alerts.map((alert) => (
+        <AlertCard key={alert.key} alert={alert} active={alert.key === selectedKey} onClick={() => onSelect(alert.key)} />
+      ))}
+    </section>
   );
 }
 
@@ -236,6 +259,23 @@ function stepsFromCase(caseRecord) {
     : { ...step, status: "pending" });
 }
 
+function groupAlertsByProcess(alerts) {
+  const groupsByName = alerts.reduce((acc, alert) => {
+    const name = alert.business_process_name || "Starting / unassigned alerts";
+    if (!acc.has(name)) acc.set(name, []);
+    acc.get(name).push(alert);
+    return acc;
+  }, new Map());
+
+  return [...groupsByName.entries()]
+    .map(([name, groupedAlerts]) => ({ name, alerts: groupedAlerts }))
+    .sort((a, b) => {
+      const ai = ALERT_GROUP_ORDER.indexOf(a.name);
+      const bi = ALERT_GROUP_ORDER.indexOf(b.name);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi) || a.name.localeCompare(b.name);
+    });
+}
+
 export default function InvestigationWorkbench() {
   const [alerts, setAlerts] = useState([]);
   const [selectedKey, setSelectedKey] = useState("");
@@ -254,6 +294,7 @@ export default function InvestigationWorkbench() {
   const [caseStatus, setCaseStatus] = useState("");
 
   const selectedAlert = useMemo(() => alerts.find((a) => a.key === selectedKey), [alerts, selectedKey]);
+  const alertGroups = useMemo(() => groupAlertsByProcess(alerts), [alerts]);
 
   const loadAlerts = useCallback(async () => {
     const res = await api.alerts();
@@ -454,7 +495,9 @@ export default function InvestigationWorkbench() {
           <button className="danger" disabled={feedBusy || resetBusy || busy} onClick={clearDemoState}>{resetBusy ? "Clearing…" : "Clear feed + cases"}</button>
         </div>
         <p className="feed-status">{feedStatus || "Simulates a targeted observability feed ingest without resetting demo data."}</p>
-        {alerts.map((alert) => <AlertCard key={alert.key} alert={alert} active={alert.key === selectedKey} onClick={() => selectAlert(alert.key)} />)}
+        {alertGroups.map((group) => (
+          <AlertGroup key={group.name} group={group} selectedKey={selectedKey} onSelect={selectAlert} />
+        ))}
         <button className="primary full" disabled={busy || !selectedAlert} onClick={startInvestigation}>{busy ? "Investigating…" : "Investigate selected alert"}</button>
         <p className="feed-status">{caseStatus || "Case memory stores investigation history and grounded follow-up."}</p>
         <CaseMemory cases={cases} activeCase={activeCase} onSelect={selectCase} />
