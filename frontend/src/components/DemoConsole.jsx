@@ -268,7 +268,11 @@ export default function DemoConsole() {
                 <button className="primary" disabled={busy || !selectedAlert} onClick={investigateAlert}>Investigate</button>
               </div>
               <select value={selectedAlert} onChange={(e) => setSelectedAlert(e.target.value)}>
-                {alerts.map((alert) => <option key={alert.key} value={alert.key}>{alert.reason}</option>)}
+                {alerts.map((alert) => (
+                  <option key={alert.key} value={alert.key}>
+                    {alert.reason}{alert.business_process_name ? ` · ${alert.business_process_name}` : ""}
+                  </option>
+                ))}
               </select>
               {investigation && (
                 <div className="investigation-mini">

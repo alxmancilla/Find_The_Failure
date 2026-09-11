@@ -39,6 +39,8 @@ export const initialAlert = alert(
     reason: "ERP endpoint timeout spike",
     detail: "p95 timeout rate exceeded threshold for order-create calls.",
     message_type: "order-create",
+    business_process_key: "hospital-order-fulfillment",
+    business_process_name: "Hospital Order Fulfillment",
   },
 );
 
@@ -54,25 +56,14 @@ export const demoFeedAlerts = [
       reason: "X12 translation backlog",
       detail: "Inbound 850 translation queue depth exceeded threshold for 12 minutes.",
       message_type: "850",
-    },
-  ),
-  alert(
-    "alert-inventory-event-lag-2026-09-08",
-    "if-erp-inventory",
-    hoursAgo(3),
-    ["Kafka lag monitor detected delayed inventory-updated events from Apex ERP."],
-    {
-      status: "degraded",
-      severity: "warning",
-      reason: "Inventory reservation event lag",
-      detail: "Consumer lag exceeded threshold on inventory reservation updates.",
-      message_type: "inventory-updated",
+      business_process_key: "hospital-order-fulfillment",
+      business_process_name: "Hospital Order Fulfillment",
     },
   ),
   alert(
     "alert-partner-notification-failures-2026-09-08",
     "if-erp-notifications",
-    hoursAgo(4),
+    hoursAgo(3),
     ["Event publisher reported elevated failures on partner confirmation notifications."],
     {
       status: "failed",
@@ -80,8 +71,46 @@ export const demoFeedAlerts = [
       reason: "Partner notification publish failures",
       detail: "Publish error rate exceeded threshold for partner confirmation events.",
       message_type: "notification",
+      business_process_key: "hospital-order-fulfillment",
+      business_process_name: "Hospital Order Fulfillment",
     },
   ),
+  alert(
+    "alert-supplier-replenishment-delay-2026-09-08",
+    "if-inventory-supplier",
+    hoursAgo(4),
+    ["Replenishment monitor detected delayed outbound supplier EDI transmission."],
+    {
+      status: "degraded",
+      severity: "warning",
+      reason: "Supplier replenishment EDI delay",
+      detail: "Low-stock replenishment order has not transmitted to Supplier EDI within the 30-minute SLA.",
+      message_type: "850",
+      business_process_key: "supplier-replenishment",
+      business_process_name: "Supplier Replenishment",
+    },
+  ),
+  alert(
+    "alert-supplier-ack-timeout-2026-09-08",
+    "if-inventory-supplier",
+    hoursAgo(5),
+    ["Supplier EDI monitor detected missing transport acknowledgment for outbound replenishment 850."],
+    {
+      status: "failed",
+      severity: "critical",
+      reason: "Supplier EDI acknowledgment timeout",
+      detail: "Supplier EDI did not acknowledge outbound replenishment purchase order transmission.",
+      message_type: "850",
+      business_process_key: "supplier-replenishment",
+      business_process_name: "Supplier Replenishment",
+    },
+  ),
+];
+
+export const demoFeedAlertKeys = [
+  ...demoFeedAlerts.map((alertRecord) => alertRecord.key),
+  // Legacy key from the previous 3-alert feed; keep reset idempotent for live demos.
+  "observability:alert-inventory-event-lag-2026-09-08",
 ];
 
 export const demoAlerts = [initialAlert, ...demoFeedAlerts];

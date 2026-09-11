@@ -1,5 +1,5 @@
 import { Event, Interface, InvestigationCase, Owner, SourceRecord, System } from "../models.js";
-import { demoFeedAlerts } from "../seed/sourceRecords.js";
+import { demoFeedAlertKeys, demoFeedAlerts } from "../seed/sourceRecords.js";
 import { getImpact } from "./impact.js";
 import { traceInterfaceRelationships } from "./relationships.js";
 
@@ -44,7 +44,7 @@ export async function ingestDemoAlerts() {
 }
 
 export async function clearWorkbenchDemoState() {
-  const keys = demoFeedAlerts.map((alert) => alert.key);
+  const keys = demoFeedAlertKeys;
   const [sourceRecords, events, cases] = await Promise.all([
     SourceRecord.deleteMany({ key: { $in: keys } }),
     Event.deleteMany({ source_record_id: { $in: keys } }),
@@ -185,6 +185,8 @@ function formatAlert(alert) {
     status: alert.payload?.status || "degraded",
     reason: alert.payload?.reason || "Imported observability alert",
     detail: alert.payload?.detail,
+    business_process_key: alert.payload?.business_process_key,
+    business_process_name: alert.payload?.business_process_name,
     evidence: alert.evidence || [],
   };
 }

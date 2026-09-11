@@ -106,11 +106,13 @@ and **Case timeline** in the right panel.
 ### Optional — Simulate more operational signals
 1. In **Alert inbox**, click **Ingest latest alerts**.
 2. Point out that this is a targeted observability feed ingest, not a demo reset.
-3. Select a different alert such as **X12 translation backlog** or
-   **Partner notification publish failures**.
-4. Click **Investigate selected alert** to show that the topology, likely fault
+3. Point out the balanced feed: two alerts map to **Hospital Order Fulfillment**
+   and two alerts map to **Supplier Replenishment**.
+4. Select a different alert such as **X12 translation backlog**,
+   **Partner notification publish failures**, or **Supplier EDI acknowledgment timeout**.
+5. Click **Investigate selected alert** to show that the topology, likely fault
    domain, evidence, and next checks change with the alert context.
-5. Click **Clear feed + cases** when you want to reset the Workbench rehearsal
+6. Click **Clear feed + cases** when you want to reset the Workbench rehearsal
    state back to the original single-alert inbox and empty case memory.
 
 ### Optional — Manual workflow view

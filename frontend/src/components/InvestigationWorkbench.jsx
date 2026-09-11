@@ -55,6 +55,7 @@ function AlertCard({ alert, active, onClick }) {
       </span>
       <strong>{alert.reason}</strong>
       <small>{alert.source_system} · {alert.interface_key}</small>
+      {alert.business_process_name && <span className="process-tag">{alert.business_process_name}</span>}
       {alert.detail && <span className="alert-preview">{alert.detail}</span>}
     </button>
   );
