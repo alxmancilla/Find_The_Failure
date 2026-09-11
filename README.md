@@ -1,14 +1,20 @@
 # Find the Failure
 
-**An EDI Integration Impact Explorer** — a searchable, relationship-aware context
-layer over an integration landscape. It answers *"What's affected, who owns it,
-and what happens next?"* in seconds instead of hours.
+**An EDI Integration Impact Explorer** — a bounded Agent v1 PoC/demo with a
+searchable, relationship-aware context layer over an integration landscape. It
+answers *"What's affected, who owns it, and what happens next?"* in seconds
+instead of hours.
 
 > MongoDB does not replace existing integration engines (e.g. Apex Health Supply's). It
 > gives architects a flexible, searchable context layer **above** them so they
 > can understand how the landscape fits together.
 
 For a step-by-step presenter walkthrough, see [`DEMO.md`](./DEMO.md).
+
+> **Positioning:** this repository is an early-stage, seeded PoC. It demonstrates
+> the operating model and MongoDB fit; production readiness still requires real
+> source ingestion, SME-validated truth data, security/governance controls, and
+> scale testing.
 
 ---
 
@@ -23,6 +29,9 @@ For a step-by-step presenter walkthrough, see [`DEMO.md`](./DEMO.md).
   recent failures.
 - **Modernization what-if** — "What breaks if we replace this system?" returns
   affected interfaces, owners to coordinate, and migration dependencies.
+- **Agent v1 Investigation Workbench** — alert-first supervised workflow with
+  topology mapping, evidence, likely fault-domain ranking, grounded follow-up,
+  case memory, and rehearsal-safe alert feed controls.
 
 ---
 
@@ -124,14 +133,17 @@ shell commands, logs, or tickets).
 
 ---
 
-## Data model (5 collections)
+## Data model (9 collections)
 
-`systems`, `interfaces`, `data_entities`, `owners`, `events`.
+`systems`, `interfaces`, `data_entities`, `owners`, `events`,
+`business_processes`, `relationships`, `source_records`, and
+`investigation_cases`.
 
 The `interfaces` collection uses a flexible schema so a single model can hold
 EDI, REST, FHIR, event, and SFTP interfaces. Seeded footprint: **9 systems,
-10 interfaces, 3 owners, 4 data entities**, plus **2 failure scenarios** and
-**1 modernization scenario**.
+10 interfaces, 3 owners, 4 data entities, 1 business process, 14 typed
+relationships, and 5 source records**. The Workbench can targeted-upsert **3
+additional simulated observability alerts** and persist investigation cases.
 
 ---
 
@@ -150,6 +162,10 @@ Base URL: `http://localhost:4000/api`
 | POST | `/reset` | Restore pristine demo state |
 | GET | `/scenarios` · POST `/scenarios/:id/run` | Named failure scenarios |
 | GET | `/modernization/:systemKey` | What-if impact of replacing a system |
+| GET | `/alerts` | List observability alerts imported as source records |
+| POST | `/alerts/demo-feed` | Target-upsert simulated alert feed records |
+| GET/POST | `/cases` · `/cases/investigate/:sourceRecordKey` | Persist and list investigation cases |
+| POST | `/workbench/clear-demo-state` | Clear simulated feed alerts + case memory only |
 | GET | `/systems` · `/owners` | Listings |
 
 ---
@@ -170,7 +186,7 @@ Find_The_Failure/
 │   └── src/
 │       ├── config.js     # loads root .env
 │       ├── db.js         # Mongoose connection
-│       ├── models.js     # 5 collections
+│       ├── models.js     # 9 collections
 │       ├── routes.js     # REST API
 │       ├── server.js     # Express app
 │       ├── scenarios.js  # named failure scenarios
