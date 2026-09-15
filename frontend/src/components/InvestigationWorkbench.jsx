@@ -185,7 +185,7 @@ function MongoStagePanel({ stageId, step, result }) {
       </div>
       <dl className="stage-details">
         <div>
-          <dt>{operations.length ? "Actual query" : "Query pattern"}</dt>
+          <dt>{operations.length ? "Raw MongoDB query" : "Query pattern"}</dt>
           <dd>
             {operations.length ? (
               <div className="query-list">

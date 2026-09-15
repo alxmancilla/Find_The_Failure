@@ -371,34 +371,31 @@ function buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, im
     evidence: stageTrace("Grounded evidence and provenance", [
       aggregateOp("Relationship", "relationships", downstreamPipeline(iface.key, relationshipMatch), "Read relationship documents whose evidence fields ground the dependency path."),
       {
-        collection: "source_records + relationships",
-        operation: "project evidence fields",
-        filter: { evidence_count: evidence.length },
-        code: "collectEvidence(alert, upstream, downstream, impact)",
-        purpose: "Combine alert evidence with relationship evidence already returned by MongoDB.",
+        collection: "relationships",
+        operation: "aggregate",
+        pipeline: evidencePipeline(iface.key, relationshipMatch),
+        code: `db.relationships.aggregate(${queryLiteral(evidencePipeline(iface.key, relationshipMatch))})`,
+        purpose: "Project relationship evidence fields that ground the dependency path.",
       },
     ]),
     ranked: stageTrace("Evidence-based fault-domain ranking", [
       {
-        collection: "MongoDB result set",
-        operation: "score in application layer",
+        collection: "source_records",
+        operation: "findOne",
         filter: {
-          direct_mapping: alert.entity_key === iface.key,
-          evidence_count: evidence.length,
-          upstream_edges: upstream.relationships.length,
-          downstream_edges: downstream.relationships.length,
-          impacted_processes: processKeys.length,
+          key: sourceRecordKey,
+          record_type: "alert",
         },
-        code: "rankFaultDomains(alert, iface, upstream, downstream, systems, impact)",
-        purpose: "Score fault-domain candidates from documents loaded in prior MongoDB reads.",
+        code: `db.source_records.findOne(${queryLiteral({ key: sourceRecordKey, record_type: "alert" })})`,
+        purpose: "Use the retrieved alert severity/status as ranking inputs alongside topology and evidence reads.",
       },
     ]),
     summary: stageTrace("Auditable recommendations and follow-up memory", [
       {
         collection: "investigation_cases",
-        operation: "create",
+        operation: "insertOne",
         filter: { alert_key: sourceRecordKey, top_fault_domain: null },
-        code: "InvestigationCase.create({ alert_key, alert_snapshot, investigation_result, timeline, messages: [] })",
+        code: `db.investigation_cases.insertOne(${queryLiteral({ alert_key: sourceRecordKey, status: "open", timeline: [], messages: [] })})`,
         purpose: "Persist the completed investigation as resumable case memory when the Workbench opens a case.",
       },
     ]),
@@ -415,9 +412,9 @@ function addCaseWriteTrace(trace, caseKey, sourceRecordKey) {
         ...trace.received.operations,
         {
           collection: "investigation_cases",
-          operation: "create",
+          operation: "insertOne",
           filter: { key: caseKey, alert_key: sourceRecordKey },
-          code: `InvestigationCase.create(${queryLiteral({ key: caseKey, alert_key: sourceRecordKey, status: "open" })})`,
+          code: `db.investigation_cases.insertOne(${queryLiteral({ key: caseKey, alert_key: sourceRecordKey, status: "open" })})`,
           purpose: "Create the auditable case record for this investigation run.",
         },
       ],
@@ -428,7 +425,7 @@ function addCaseWriteTrace(trace, caseKey, sourceRecordKey) {
         ? {
           ...operation,
           filter: { key: caseKey, alert_key: sourceRecordKey },
-          code: `InvestigationCase.create(${queryLiteral({ key: caseKey, alert_key: sourceRecordKey, status: "open" })})`,
+          code: `db.investigation_cases.insertOne(${queryLiteral({ key: caseKey, alert_key: sourceRecordKey, status: "open" })})`,
         }
         : operation),
     },
@@ -443,22 +440,22 @@ function stageTrace(capability, operations) {
   };
 }
 
-function op(model, collection, operation, { filter, chain = "", purpose }) {
+function op(_model, collection, operation, { filter, chain = "", purpose }) {
   return {
     collection,
     operation,
     filter,
-    code: `${model}.${operation}(${queryLiteral(filter)})${chain}`,
+    code: `db.${collection}.${operation}(${queryLiteral(filter)})${mongoShellChain(chain)}`,
     purpose,
   };
 }
 
-function aggregateOp(model, collection, pipeline, purpose) {
+function aggregateOp(_model, collection, pipeline, purpose) {
   return {
     collection,
     operation: "aggregate",
     pipeline,
-    code: `${model}.aggregate(${queryLiteral(pipeline)})`,
+    code: `db.${collection}.aggregate(${queryLiteral(pipeline)})`,
     purpose,
   };
 }
@@ -487,6 +484,17 @@ function relationshipPipeline(match, downstream, relationshipMatch) {
       },
     },
   ];
+}
+
+function evidencePipeline(interfaceKey, relationshipMatch) {
+  return [
+    ...downstreamPipeline(interfaceKey, relationshipMatch),
+    { $project: { key: 1, from_key: 1, to_key: 1, evidence: 1, confidence: 1 } },
+  ];
+}
+
+function mongoShellChain(chain) {
+  return chain.replaceAll(".lean()", "");
 }
 
 function queryLiteral(value) {
