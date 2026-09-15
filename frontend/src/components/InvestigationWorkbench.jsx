@@ -201,7 +201,7 @@ function MongoStagePanel({ stageId, step, result }) {
           </dd>
         </div>
         <div><dt>Agent learns</dt><dd>{stage.learns}</dd></div>
-        <div><dt>Demo talk track</dt><dd>{stage.demoLine}</dd></div>
+        <div><dt>Why it matters</dt><dd>{stage.demoLine}</dd></div>
       </dl>
     </section>
   );
