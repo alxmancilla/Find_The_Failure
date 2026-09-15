@@ -39,6 +39,58 @@ const ALERT_GROUP_ORDER = [
   "Starting / unassigned alerts",
 ];
 
+const MONGODB_STAGE_EXPLANATIONS = {
+  received: {
+    capability: "Durable alert intake and case memory",
+    collections: ["source_records", "events", "investigation_cases"],
+    queryPattern: "Find the alert source record, normalize the payload, and create an auditable case document.",
+    learns: "The agent captures the raw observability signal, source system, severity, status, and alert-to-interface key.",
+    demoLine: "MongoDB gives the workflow a durable starting point instead of a transient alert notification.",
+  },
+  mapped: {
+    capability: "Canonical interface mapping",
+    collections: ["interfaces", "systems", "owners"],
+    queryPattern: "Lookup the mapped interface by key, then load related system and owner metadata.",
+    learns: "The agent turns a raw alert entity into a known Apex ERP integration asset with accountable teams.",
+    demoLine: "This is where the alert becomes business-readable integration context.",
+  },
+  topology: {
+    capability: "Operational context graph traversal",
+    collections: ["relationships", "interfaces", "systems"],
+    queryPattern: "Traverse upstream and downstream relationship edges around the mapped interface.",
+    learns: "The agent identifies dependency paths, downstream consumers, and adjacent systems at risk.",
+    demoLine: "MongoDB acts as the topology graph behind the investigation.",
+  },
+  impact: {
+    capability: "Business-process impact lookup",
+    collections: ["business_processes", "relationships", "interfaces"],
+    queryPattern: "Follow supports_process and depends_on relationships to map topology risk to business workflows.",
+    learns: "The agent links technical degradation to Hospital Order Fulfillment or Supplier Replenishment impact.",
+    demoLine: "This is the shift from system outage to business impact.",
+  },
+  evidence: {
+    capability: "Grounded evidence and provenance",
+    collections: ["source_records", "relationships", "events"],
+    queryPattern: "Collect source inventory, CMDB, observability, and relationship evidence attached to the path.",
+    learns: "The agent shows why the path and impact assessment are credible, not just the final conclusion.",
+    demoLine: "MongoDB stores the evidence trail the human can audit.",
+  },
+  ranked: {
+    capability: "Evidence-based fault-domain ranking",
+    collections: ["source_records", "interfaces", "relationships", "owners"],
+    queryPattern: "Score candidate domains using severity, status, direct mapping, evidence count, ownership, and topology ambiguity.",
+    learns: "The agent ranks likely fault domains and explains confidence with retrieved operational context.",
+    demoLine: "The confidence is deterministic and explainable because it is grounded in MongoDB context.",
+  },
+  summary: {
+    capability: "Auditable recommendations and follow-up memory",
+    collections: ["investigation_cases", "owners", "interfaces"],
+    queryPattern: "Persist the investigation summary, recommended checks, timeline, and follow-up Q&A to the case record.",
+    learns: "The agent produces safe next checks and keeps a resumable investigation history.",
+    demoLine: "MongoDB turns the agent run into an auditable case, not a one-off chat answer.",
+  },
+};
+
 function StatusPill({ status }) {
   return <span className={`agent-status ${status}`}>{status}</span>;
 }
@@ -84,7 +136,7 @@ function AlertGroup({ group, selectedKey, onSelect }) {
   );
 }
 
-function Timeline({ steps }) {
+function Timeline({ steps, selectedStageId, onSelectStage }) {
   const completeCount = steps.filter((step) => step.status === "complete").length;
   const runningStep = steps.find((step) => step.status === "running");
   const progress = Math.round((completeCount / steps.length) * 100);
@@ -93,7 +145,7 @@ function Timeline({ steps }) {
       <div className="panel-title-row">
         <div>
           <h3>Agent activity</h3>
-          <p className="muted mini-copy">{runningStep ? runningStep.detail : `${completeCount} of ${steps.length} steps complete`}</p>
+          <p className="muted mini-copy">{runningStep ? runningStep.detail : `${completeCount} of ${steps.length} steps complete`} · Click a stage for MongoDB usage.</p>
         </div>
         <span className="progress-pill">{progress}%</span>
       </div>
@@ -101,14 +153,38 @@ function Timeline({ steps }) {
         <span style={{ width: `${progress}%` }} />
       </div>
       {steps.map((step) => (
-        <div key={step.id} className={`timeline-step ${step.status}`}>
+        <button key={step.id} type="button" className={`timeline-step ${step.status} ${step.id === selectedStageId ? "selected" : ""}`} onClick={() => onSelectStage(step.id)}>
           <span className="timeline-dot" />
           <div>
             <div><strong>{step.label}</strong> <StatusPill status={step.status} /></div>
             <p>{step.detail}</p>
           </div>
-        </div>
+        </button>
       ))}
+    </section>
+  );
+}
+
+function MongoStagePanel({ stageId, step }) {
+  const stage = MONGODB_STAGE_EXPLANATIONS[stageId] || MONGODB_STAGE_EXPLANATIONS.received;
+  return (
+    <section className="panel-card mongo-stage-panel">
+      <div className="panel-title-row compact">
+        <div>
+          <span className="eyebrow">MongoDB usage</span>
+          <h3>{step?.label || "Agent stage"}</h3>
+        </div>
+        <StatusPill status={step?.status || "pending"} />
+      </div>
+      <p className="stage-capability">{stage.capability}</p>
+      <div className="collection-chip-row">
+        {stage.collections.map((collection) => <span key={collection}>{collection}</span>)}
+      </div>
+      <dl className="stage-details">
+        <div><dt>Query pattern</dt><dd>{stage.queryPattern}</dd></div>
+        <div><dt>Agent learns</dt><dd>{stage.learns}</dd></div>
+        <div><dt>Demo talk track</dt><dd>{stage.demoLine}</dd></div>
+      </dl>
     </section>
   );
 }
@@ -327,9 +403,11 @@ export default function InvestigationWorkbench() {
   const [cases, setCases] = useState([]);
   const [activeCase, setActiveCase] = useState(null);
   const [caseStatus, setCaseStatus] = useState("");
+  const [selectedStageId, setSelectedStageId] = useState("received");
 
   const selectedAlert = useMemo(() => alerts.find((a) => a.key === selectedKey), [alerts, selectedKey]);
   const alertGroups = useMemo(() => groupAlertsByProcess(alerts), [alerts]);
+  const selectedStage = useMemo(() => steps.find((step) => step.id === selectedStageId) || steps[0], [selectedStageId, steps]);
 
   const loadAlerts = useCallback(async () => {
     const res = await api.alerts();
@@ -366,6 +444,7 @@ export default function InvestigationWorkbench() {
   }, [selectedAlert]);
 
   const mark = (id, status, detail) => {
+    setSelectedStageId(id);
     setSteps((current) => current.map((s) => s.id === id ? { ...s, status, detail: detail || s.detail } : s));
   };
 
@@ -375,6 +454,7 @@ export default function InvestigationWorkbench() {
     setResult(null);
     setImpacted(null);
     setMessages([]);
+    setSelectedStageId("received");
     setSteps(STEP_TEMPLATE.map((s) => ({ ...s, status: "pending" })));
   };
 
@@ -387,6 +467,7 @@ export default function InvestigationWorkbench() {
       setResult(investigation);
       setMessages(savedCase.messages || []);
       setSteps(stepsFromCase(savedCase));
+      setSelectedStageId("summary");
       setImpacted(impactedFromInvestigation(investigation));
       setSelectedKey(savedCase.alert_key || "");
       if (savedCase.alert_snapshot?.interface_key) setFlow(await api.flow(savedCase.alert_snapshot.interface_key));
@@ -501,6 +582,7 @@ export default function InvestigationWorkbench() {
       setImpacted(null);
       setMessages([]);
       setQuestion("");
+      setSelectedStageId("received");
       setSteps(STEP_TEMPLATE.map((s) => ({ ...s, status: "pending" })));
       setFeedStatus(`${res.deleted_feed_alerts} feed alerts cleared; ${res.deleted_cases} cases removed.`);
       setCaseStatus("Case memory cleared for the next rehearsal.");
@@ -562,7 +644,8 @@ export default function InvestigationWorkbench() {
 
         <div className="workbench-grid">
           <div className="workbench-center">
-            <Timeline steps={steps} />
+            <Timeline steps={steps} selectedStageId={selectedStageId} onSelectStage={setSelectedStageId} />
+            <MongoStagePanel stageId={selectedStageId} step={selectedStage} />
             <section className="panel-card workbench-graph">
               <h3>Topology impact graph</h3>
               <DependencyGraph flow={flow} impacted={impacted} />
