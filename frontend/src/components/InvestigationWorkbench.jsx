@@ -165,8 +165,11 @@ function Timeline({ steps, selectedStageId, onSelectStage }) {
   );
 }
 
-function MongoStagePanel({ stageId, step }) {
+function MongoStagePanel({ stageId, step, result }) {
   const stage = MONGODB_STAGE_EXPLANATIONS[stageId] || MONGODB_STAGE_EXPLANATIONS.received;
+  const trace = result?.mongodb_trace?.[stageId];
+  const collections = trace?.collections?.length ? trace.collections : stage.collections;
+  const operations = trace?.operations || [];
   return (
     <section className="panel-card mongo-stage-panel">
       <div className="panel-title-row compact">
@@ -174,14 +177,29 @@ function MongoStagePanel({ stageId, step }) {
           <span className="eyebrow">MongoDB usage</span>
           <h3>{step?.label || "Agent stage"}</h3>
         </div>
-        <StatusPill status={step?.status || "pending"} />
+        {operations.length ? <span className="count-pill">Actual trace</span> : <StatusPill status={step?.status || "pending"} />}
       </div>
-      <p className="stage-capability">{stage.capability}</p>
+      <p className="stage-capability">{trace?.capability || stage.capability}</p>
       <div className="collection-chip-row">
-        {stage.collections.map((collection) => <span key={collection}>{collection}</span>)}
+        {collections.map((collection) => <span key={collection}>{collection}</span>)}
       </div>
       <dl className="stage-details">
-        <div><dt>Query pattern</dt><dd>{stage.queryPattern}</dd></div>
+        <div>
+          <dt>{operations.length ? "Actual query" : "Query pattern"}</dt>
+          <dd>
+            {operations.length ? (
+              <div className="query-list">
+                {operations.map((operation, index) => (
+                  <article key={`${operation.collection}-${operation.operation}-${index}`} className="query-snippet">
+                    <span>{operation.collection} · {operation.operation}</span>
+                    <pre>{operation.code}</pre>
+                    {operation.purpose && <small>{operation.purpose}</small>}
+                  </article>
+                ))}
+              </div>
+            ) : stage.queryPattern}
+          </dd>
+        </div>
         <div><dt>Agent learns</dt><dd>{stage.learns}</dd></div>
         <div><dt>Demo talk track</dt><dd>{stage.demoLine}</dd></div>
       </dl>
@@ -645,7 +663,7 @@ export default function InvestigationWorkbench() {
         <div className="workbench-grid">
           <div className="workbench-center">
             <Timeline steps={steps} selectedStageId={selectedStageId} onSelectStage={setSelectedStageId} />
-            <MongoStagePanel stageId={selectedStageId} step={selectedStage} />
+            <MongoStagePanel stageId={selectedStageId} step={selectedStage} result={result} />
             <section className="panel-card workbench-graph">
               <h3>Topology impact graph</h3>
               <DependencyGraph flow={flow} impacted={impacted} />

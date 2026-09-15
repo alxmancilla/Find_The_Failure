@@ -81,21 +81,25 @@ export async function createInvestigationCase(sourceRecordKey) {
 
   const now = new Date();
   const key = `case-${now.toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)}-${Math.random().toString(36).slice(2, 7)}`;
+  const persistedInvestigation = {
+    ...investigation,
+    mongodb_trace: addCaseWriteTrace(investigation.mongodb_trace, key, sourceRecordKey),
+  };
   const doc = await InvestigationCase.create({
     key,
     alert_key: sourceRecordKey,
-    alert_snapshot: investigation.alert,
+    alert_snapshot: persistedInvestigation.alert,
     status: "open",
-    summary: investigation.investigation_summary,
-    top_fault_domain: investigation.likely_fault_domains?.[0],
-    investigation_result: investigation,
-    evidence: investigation.evidence || [],
-    recommended_next_actions: investigation.recommended_next_actions || [],
-    timeline: buildCaseTimeline(now, investigation),
+    summary: persistedInvestigation.investigation_summary,
+    top_fault_domain: persistedInvestigation.likely_fault_domains?.[0],
+    investigation_result: persistedInvestigation,
+    evidence: persistedInvestigation.evidence || [],
+    recommended_next_actions: persistedInvestigation.recommended_next_actions || [],
+    timeline: buildCaseTimeline(now, persistedInvestigation),
     messages: [],
   });
 
-  return { case: formatCase(doc.toObject()), investigation };
+  return { case: formatCase(doc.toObject()), investigation: persistedInvestigation };
 }
 
 export async function appendCaseMessages(caseKey, question, answer) {
@@ -146,6 +150,7 @@ export async function investigateAlert(sourceRecordKey) {
     ...(iface.owners || []),
     ...(impact?.downstream_interfaces || []).flatMap((i) => i.owners || []),
   ])];
+  const evidence = collectEvidence(alert, upstream, downstream, impact);
   const [systems, owners] = await Promise.all([
     System.find({ key: { $in: systemKeys } }).lean(),
     Owner.find({ key: { $in: ownerKeys } }).lean(),
@@ -165,12 +170,13 @@ export async function investigateAlert(sourceRecordKey) {
       downstream_interfaces: impact?.downstream_interfaces || downstream.interfaces.filter((i) => i.key !== iface.key),
       relationship_edges: [...upstream.relationships, ...downstream.relationships],
     },
-    evidence: collectEvidence(alert, upstream, downstream, impact),
+    evidence,
     recommended_next_actions: [
       `Page ${owners[0]?.name || "the owning integration team"}.`,
       `Check ${iface.target} health before restarting upstream senders.`,
       "Use relationship evidence to confirm blast radius with application owners.",
     ],
+    mongodb_trace: buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, impact, systemKeys, ownerKeys, evidence),
   };
 }
 
@@ -294,6 +300,196 @@ function collectEvidence(alert, upstream, downstream, impact) {
     .flatMap((r) => r.evidence || [])
     .slice(0, 8);
   return [...(alert.evidence || []), ...relationshipEvidence];
+}
+
+function buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, impact, systemKeys, ownerKeys, evidence) {
+  const impactedInterfaceKeys = [iface.key, ...(impact?.downstream_interfaces || []).map((i) => i.key)];
+  const processKeys = (impact?.business_processes || []).map((p) => p.key);
+  const relationshipMatch = {
+    from_type: "interface",
+    to_type: "interface",
+    relationship_type: "depends_on",
+  };
+
+  return {
+    received: stageTrace("Durable alert intake and case memory", [
+      op("SourceRecord", "source_records", "findOne", {
+        filter: { key: sourceRecordKey, record_type: "alert" },
+        chain: ".lean()",
+        purpose: "Load the raw observability alert selected from the Workbench inbox.",
+      }),
+    ]),
+    mapped: stageTrace("Canonical interface mapping", [
+      op("Interface", "interfaces", "findOne", {
+        filter: { key: alert.entity_key },
+        chain: ".lean()",
+        purpose: "Resolve the alert entity key to a canonical interface document.",
+      }),
+      op("System", "systems", "find", {
+        filter: { key: { $in: systemKeys } },
+        chain: ".lean()",
+        purpose: "Load source, target, and affected system context for the mapped path.",
+      }),
+      op("Owner", "owners", "find", {
+        filter: { key: { $in: ownerKeys } },
+        chain: ".lean()",
+        purpose: "Load accountable team metadata for the mapped interface and downstream path.",
+      }),
+    ]),
+    topology: stageTrace("Operational context graph traversal", [
+      aggregateOp("Relationship", "relationships", upstreamPipeline(iface.key, relationshipMatch), "Trace upstream dependency edges using $graphLookup."),
+      aggregateOp("Relationship", "relationships", downstreamPipeline(iface.key, relationshipMatch), "Trace downstream dependency edges using $graphLookup."),
+      op("Interface", "interfaces", "find", {
+        filter: { key: { $in: [...new Set([iface.key, ...upstream.interfaces.map((i) => i.key), ...downstream.interfaces.map((i) => i.key)])] } },
+        chain: ".lean()",
+        purpose: "Hydrate relationship keys into interface documents for the graph.",
+      }),
+    ]),
+    impact: stageTrace("Business-process impact lookup", [
+      op("Relationship", "relationships", "find", {
+        filter: {
+          from_type: "interface",
+          from_key: { $in: impactedInterfaceKeys },
+          to_type: "business_process",
+          relationship_type: "supports_process",
+        },
+        chain: ".lean()",
+        purpose: "Map impacted interfaces to supported business processes.",
+      }),
+      op("BusinessProcess", "business_processes", "find", {
+        filter: { key: { $in: processKeys } },
+        chain: ".lean()",
+        purpose: "Load business process names and descriptions for the impact summary.",
+      }),
+      op("Event", "events", "find", {
+        filter: { interface_key: iface.key },
+        chain: ".sort({ timestamp: -1 }).limit(5).lean()",
+        purpose: "Load recent events for operational impact context.",
+      }),
+    ]),
+    evidence: stageTrace("Grounded evidence and provenance", [
+      aggregateOp("Relationship", "relationships", downstreamPipeline(iface.key, relationshipMatch), "Read relationship documents whose evidence fields ground the dependency path."),
+      {
+        collection: "source_records + relationships",
+        operation: "project evidence fields",
+        filter: { evidence_count: evidence.length },
+        code: "collectEvidence(alert, upstream, downstream, impact)",
+        purpose: "Combine alert evidence with relationship evidence already returned by MongoDB.",
+      },
+    ]),
+    ranked: stageTrace("Evidence-based fault-domain ranking", [
+      {
+        collection: "MongoDB result set",
+        operation: "score in application layer",
+        filter: {
+          direct_mapping: alert.entity_key === iface.key,
+          evidence_count: evidence.length,
+          upstream_edges: upstream.relationships.length,
+          downstream_edges: downstream.relationships.length,
+          impacted_processes: processKeys.length,
+        },
+        code: "rankFaultDomains(alert, iface, upstream, downstream, systems, impact)",
+        purpose: "Score fault-domain candidates from documents loaded in prior MongoDB reads.",
+      },
+    ]),
+    summary: stageTrace("Auditable recommendations and follow-up memory", [
+      {
+        collection: "investigation_cases",
+        operation: "create",
+        filter: { alert_key: sourceRecordKey, top_fault_domain: null },
+        code: "InvestigationCase.create({ alert_key, alert_snapshot, investigation_result, timeline, messages: [] })",
+        purpose: "Persist the completed investigation as resumable case memory when the Workbench opens a case.",
+      },
+    ]),
+  };
+}
+
+function addCaseWriteTrace(trace, caseKey, sourceRecordKey) {
+  if (!trace?.summary?.operations?.length) return trace;
+  return {
+    ...trace,
+    received: {
+      ...trace.received,
+      operations: [
+        ...trace.received.operations,
+        {
+          collection: "investigation_cases",
+          operation: "create",
+          filter: { key: caseKey, alert_key: sourceRecordKey },
+          code: `InvestigationCase.create(${queryLiteral({ key: caseKey, alert_key: sourceRecordKey, status: "open" })})`,
+          purpose: "Create the auditable case record for this investigation run.",
+        },
+      ],
+    },
+    summary: {
+      ...trace.summary,
+      operations: trace.summary.operations.map((operation) => operation.collection === "investigation_cases"
+        ? {
+          ...operation,
+          filter: { key: caseKey, alert_key: sourceRecordKey },
+          code: `InvestigationCase.create(${queryLiteral({ key: caseKey, alert_key: sourceRecordKey, status: "open" })})`,
+        }
+        : operation),
+    },
+  };
+}
+
+function stageTrace(capability, operations) {
+  return {
+    capability,
+    collections: [...new Set(operations.map((operation) => operation.collection))],
+    operations,
+  };
+}
+
+function op(model, collection, operation, { filter, chain = "", purpose }) {
+  return {
+    collection,
+    operation,
+    filter,
+    code: `${model}.${operation}(${queryLiteral(filter)})${chain}`,
+    purpose,
+  };
+}
+
+function aggregateOp(model, collection, pipeline, purpose) {
+  return {
+    collection,
+    operation: "aggregate",
+    pipeline,
+    code: `${model}.aggregate(${queryLiteral(pipeline)})`,
+    purpose,
+  };
+}
+
+function upstreamPipeline(interfaceKey, relationshipMatch) {
+  return relationshipPipeline({ ...relationshipMatch, to_key: interfaceKey }, false, relationshipMatch);
+}
+
+function downstreamPipeline(interfaceKey, relationshipMatch) {
+  return relationshipPipeline({ ...relationshipMatch, from_key: interfaceKey }, true, relationshipMatch);
+}
+
+function relationshipPipeline(match, downstream, relationshipMatch) {
+  return [
+    { $match: match },
+    {
+      $graphLookup: {
+        from: "relationships",
+        startWith: downstream ? "$to_key" : "$from_key",
+        connectFromField: downstream ? "to_key" : "from_key",
+        connectToField: downstream ? "from_key" : "to_key",
+        as: "chain",
+        maxDepth: 20,
+        depthField: "depth",
+        restrictSearchWithMatch: relationshipMatch,
+      },
+    },
+  ];
+}
+
+function queryLiteral(value) {
+  return JSON.stringify(value, null, 2);
 }
 
 function buildCaseTimeline(start, investigation) {

@@ -247,6 +247,11 @@ select { padding: 8px; border-radius: 8px; background: var(--panel-2); color: va
 .stage-details div { padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: rgba(11, 16, 32, 0.5); }
 .stage-details dt { color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
 .stage-details dd { margin: 5px 0 0; color: var(--text); font-size: 12px; line-height: 1.4; }
+.query-list { display: grid; gap: 8px; }
+.query-snippet { border: 1px solid rgba(0, 237, 100, 0.18); border-radius: 9px; overflow: hidden; background: rgba(4, 10, 20, 0.7); }
+.query-snippet span, .query-snippet small { display: block; padding: 7px 9px; color: var(--muted); font-size: 10px; line-height: 1.35; }
+.query-snippet span { color: var(--accent); font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+.query-snippet pre { margin: 0; padding: 10px; max-height: 180px; overflow: auto; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); color: #d7ffe7; font-size: 11px; line-height: 1.45; white-space: pre-wrap; }
 .workbench-graph { min-height: 430px; display: flex; flex-direction: column; }
 .workbench-graph .graph-wrap { height: 360px; flex: 0 0 360px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .case-timeline-item { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
