@@ -38,6 +38,7 @@ const ALERT_GROUP_ORDER = [
   "Supplier Replenishment",
   "Starting / unassigned alerts",
 ];
+const PROCESS_FILTER_ALL = "All processes";
 
 const MONGODB_STAGE_EXPLANATIONS = {
   received: {
@@ -106,7 +107,7 @@ function Stat({ label, value }) {
 
 function AlertCard({ alert, active, onClick }) {
   return (
-    <button className={`alert-card ${active ? "active" : ""}`} onClick={onClick}>
+    <button type="button" className={`alert-card ${active ? "active" : ""}`} aria-current={active ? "true" : undefined} onClick={onClick}>
       <span className="alert-card-top">
         <span className={`badge status-${alert.status}`}>{alert.severity || "alert"}</span>
         <span className="alert-status-label">{alert.status || "open"}</span>
@@ -152,9 +153,10 @@ function Timeline({ steps, selectedStageId, onSelectStage }) {
       <div className="progress-track" aria-label="Investigation progress">
         <span style={{ width: `${progress}%` }} />
       </div>
-      {steps.map((step) => (
-        <button key={step.id} type="button" className={`timeline-step ${step.status} ${step.id === selectedStageId ? "selected" : ""}`} onClick={() => onSelectStage(step.id)}>
+      {steps.map((step, index) => (
+        <button key={step.id} type="button" className={`timeline-step ${step.status} ${step.id === selectedStageId ? "selected" : ""}`} aria-current={step.id === selectedStageId ? "step" : undefined} onClick={() => onSelectStage(step.id)}>
           <span className="timeline-dot" />
+          <span className="timeline-index">{index + 1}</span>
           <div>
             <div><strong>{step.label}</strong> <StatusPill status={step.status} /></div>
             <p>{step.detail}</p>
@@ -180,6 +182,7 @@ function MongoStagePanel({ stageId, step, result }) {
         {operations.length ? <span className="count-pill">Actual trace</span> : <StatusPill status={step?.status || "pending"} />}
       </div>
       <p className="stage-capability">{trace?.capability || stage.capability}</p>
+      {operations.length > 0 && <p className="trace-helper">Shown as MongoDB shell-style syntax for readability; ODM/runtime details are intentionally omitted.</p>}
       <div className="collection-chip-row">
         {collections.map((collection) => <span key={collection}>{collection}</span>)}
       </div>
@@ -191,7 +194,7 @@ function MongoStagePanel({ stageId, step, result }) {
               <div className="query-list">
                 {operations.map((operation, index) => (
                   <article key={`${operation.collection}-${operation.operation}-${index}`} className="query-snippet">
-                    <span>{operation.collection} · {operation.operation}</span>
+                    <span>{operation.operation} on {operation.collection}</span>
                     <pre>{operation.code}</pre>
                     {operation.purpose && <small>{operation.purpose}</small>}
                   </article>
@@ -221,11 +224,39 @@ function CaseMemory({ cases, activeCase, onSelect }) {
         </div>
       )}
       {cases.map((item) => (
-        <button key={item.key} className={`case-card ${activeCase?.key === item.key ? "active" : ""}`} onClick={() => onSelect(item.key)}>
+        <button key={item.key} type="button" className={`case-card ${activeCase?.key === item.key ? "active" : ""}`} onClick={() => onSelect(item.key)}>
           <strong>{item.alert_snapshot?.reason || "Investigation case"}</strong>
           <small>{item.top_fault_domain?.name || "Fault domain pending"} · {item.status}</small>
         </button>
       ))}
+    </section>
+  );
+}
+
+function SelectedAlertPanel({ alert, busy, activeCase, isHiddenByFilters, onInvestigate }) {
+  if (!alert) {
+    return (
+      <section className="selected-alert-panel empty-card">
+        <strong>No alert selected</strong>
+        <p>Use the inbox filters, then choose an alert to start the agent workflow.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="selected-alert-panel">
+      <span className="eyebrow">Selected alert</span>
+      <span className="selected-alert-meta">
+        <span className={`badge status-${alert.status}`}>{alert.severity || "alert"}</span>
+        <span>{alert.status || "open"}</span>
+      </span>
+      <strong>{alert.reason}</strong>
+      <small>{alert.source_system} · {alert.interface_key}</small>
+      {isHiddenByFilters && <span className="saved-case-pill">Hidden by current filters</span>}
+      {activeCase?.key && <span className="saved-case-pill">Saved case: {activeCase.key}</span>}
+      <button type="button" className="primary full" disabled={busy} onClick={onInvestigate}>
+        {busy ? "Investigating…" : activeCase?.key ? "Run fresh investigation" : "Open investigation case"}
+      </button>
     </section>
   );
 }
@@ -405,6 +436,16 @@ function groupAlertsByProcess(alerts) {
     });
 }
 
+function processName(alert) {
+  return alert.business_process_name || "Starting / unassigned alerts";
+}
+
+function sortProcessNames(a, b) {
+  const ai = ALERT_GROUP_ORDER.indexOf(a);
+  const bi = ALERT_GROUP_ORDER.indexOf(b);
+  return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi) || a.localeCompare(b);
+}
+
 export default function InvestigationWorkbench() {
   const [alerts, setAlerts] = useState([]);
   const [selectedKey, setSelectedKey] = useState("");
@@ -422,9 +463,22 @@ export default function InvestigationWorkbench() {
   const [activeCase, setActiveCase] = useState(null);
   const [caseStatus, setCaseStatus] = useState("");
   const [selectedStageId, setSelectedStageId] = useState("received");
+  const [alertQuery, setAlertQuery] = useState("");
+  const [processFilter, setProcessFilter] = useState(PROCESS_FILTER_ALL);
 
   const selectedAlert = useMemo(() => alerts.find((a) => a.key === selectedKey), [alerts, selectedKey]);
-  const alertGroups = useMemo(() => groupAlertsByProcess(alerts), [alerts]);
+  const processOptions = useMemo(() => {
+    const counts = alerts.reduce((acc, alert) => acc.set(processName(alert), (acc.get(processName(alert)) || 0) + 1), new Map());
+    return [{ name: PROCESS_FILTER_ALL, count: alerts.length }, ...[...counts.entries()].sort(([a], [b]) => sortProcessNames(a, b)).map(([name, count]) => ({ name, count }))];
+  }, [alerts]);
+  const filteredAlerts = useMemo(() => alerts.filter((alert) => {
+    const matchesProcess = processFilter === PROCESS_FILTER_ALL || processName(alert) === processFilter;
+    const haystack = [alert.reason, alert.detail, alert.source_system, alert.interface_key, alert.severity, alert.status, processName(alert)].filter(Boolean).join(" ").toLowerCase();
+    return matchesProcess && haystack.includes(alertQuery.trim().toLowerCase());
+  }), [alerts, alertQuery, processFilter]);
+  const alertGroups = useMemo(() => groupAlertsByProcess(filteredAlerts), [filteredAlerts]);
+  const hiddenAlertCount = alerts.length - filteredAlerts.length;
+  const selectedAlertVisible = useMemo(() => filteredAlerts.some((alert) => alert.key === selectedKey), [filteredAlerts, selectedKey]);
   const selectedStage = useMemo(() => steps.find((step) => step.id === selectedStageId) || steps[0], [selectedStageId, steps]);
 
   const loadAlerts = useCallback(async () => {
@@ -543,6 +597,9 @@ export default function InvestigationWorkbench() {
       mark("summary", "complete", `${investigation.recommended_next_actions.length} recommended checks ready.`);
       setSteps(stepsFromCase(nextCase));
       loadCases().catch(() => {});
+    } catch (err) {
+      setCaseStatus(err.message || "Unable to complete investigation.");
+      setSteps(STEP_TEMPLATE.map((s) => ({ ...s, status: "pending" })));
     } finally {
       setBusy(false);
     }
@@ -619,21 +676,36 @@ export default function InvestigationWorkbench() {
         <p className="muted">Alert-first, read-only workflow for mapping operational signals to topology, owners, impact, evidence, and safe next checks.</p>
         <div className="demo-hint">
           <strong>Suggested demo path</strong>
-          <span>Investigate the ERP alert, ingest latest alerts, then clear feed + cases to reset.</span>
+          <span>Pick an alert, open an investigation case, review impact, then reset rehearsal state when done.</span>
         </div>
         <div className="alert-inbox-head">
           <h3>Alert inbox</h3>
           <span className="count-pill">{alerts.length}</span>
         </div>
         <div className="alert-inbox-actions">
-          <button disabled={feedBusy || resetBusy || busy} onClick={ingestLatestAlerts}>{feedBusy ? "Ingesting…" : "Ingest latest alerts"}</button>
-          <button className="danger" disabled={feedBusy || resetBusy || busy} onClick={clearDemoState}>{resetBusy ? "Clearing…" : "Clear feed + cases"}</button>
+          <button type="button" disabled={feedBusy || resetBusy || busy} onClick={ingestLatestAlerts}>{feedBusy ? "Ingesting…" : "Ingest latest feed alerts"}</button>
+          <button type="button" className="danger" disabled={feedBusy || resetBusy || busy} onClick={clearDemoState}>{resetBusy ? "Resetting…" : "Reset rehearsal state"}</button>
         </div>
         <p className="feed-status">{feedStatus || "Simulates a targeted observability feed ingest without resetting demo data."}</p>
+        <SelectedAlertPanel alert={selectedAlert} busy={busy} activeCase={activeCase} isHiddenByFilters={Boolean(selectedAlert && !selectedAlertVisible)} onInvestigate={startInvestigation} />
+        <div className="inbox-filter-panel">
+          <label>
+            <span>Filter alerts</span>
+            <input value={alertQuery} onChange={(e) => setAlertQuery(e.target.value)} placeholder="Search reason, source, interface…" />
+          </label>
+          <div className="process-filter-row" aria-label="Filter by business process">
+            {processOptions.map((option) => (
+              <button key={option.name} type="button" className={processFilter === option.name ? "active" : ""} onClick={() => setProcessFilter(option.name)}>
+                {option.name}<span>{option.count}</span>
+              </button>
+            ))}
+          </div>
+          {hiddenAlertCount > 0 && <small>{hiddenAlertCount} alert{hiddenAlertCount === 1 ? "" : "s"} hidden by filters.</small>}
+        </div>
+        {!filteredAlerts.length && <div className="empty-card"><strong>No matching alerts</strong><p>Clear the search or switch process filters to see more alerts.</p></div>}
         {alertGroups.map((group) => (
           <AlertGroup key={group.name} group={group} selectedKey={selectedKey} onSelect={selectAlert} />
         ))}
-        <button className="primary full" disabled={busy || !selectedAlert} onClick={startInvestigation}>{busy ? "Investigating…" : "Investigate selected alert"}</button>
         <p className="feed-status">{caseStatus || "Case memory stores investigation history and grounded follow-up."}</p>
         <CaseMemory cases={cases} activeCase={activeCase} onSelect={selectCase} />
       </aside>
