@@ -1,0 +1,1 @@
+export const GRAPH_LOOKUP_MAX_DEPTH = 10;

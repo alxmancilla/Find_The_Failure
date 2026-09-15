@@ -1,6 +1,7 @@
 import { Event, Interface, InvestigationCase, Owner, SourceRecord, System } from "../models.js";
 import { demoFeedAlertKeys, demoFeedAlerts } from "../seed/sourceRecords.js";
 import { getImpact } from "./impact.js";
+import { GRAPH_LOOKUP_MAX_DEPTH } from "./graphConfig.js";
 import { traceInterfaceRelationships } from "./relationships.js";
 
 export async function listAlerts() {
@@ -480,7 +481,7 @@ function relationshipPipeline(match, downstream, relationshipMatch) {
         connectFromField: downstream ? "to_key" : "from_key",
         connectToField: downstream ? "from_key" : "to_key",
         as: "chain",
-        maxDepth: 20,
+        maxDepth: GRAPH_LOOKUP_MAX_DEPTH,
         depthField: "depth",
         restrictSearchWithMatch: relationshipMatch,
       },

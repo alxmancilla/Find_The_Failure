@@ -1,4 +1,5 @@
 import { BusinessProcess, Interface, Relationship } from "../models.js";
+import { GRAPH_LOOKUP_MAX_DEPTH } from "./graphConfig.js";
 
 const edgeMatch = {
   from_type: "interface",
@@ -21,7 +22,7 @@ export async function traceInterfaceRelationships(interfaceKey, direction = "dow
         connectFromField: downstream ? "to_key" : "from_key",
         connectToField: downstream ? "from_key" : "to_key",
         as: "chain",
-        maxDepth: 20,
+        maxDepth: GRAPH_LOOKUP_MAX_DEPTH,
         depthField: "depth",
         restrictSearchWithMatch: edgeMatch,
       },

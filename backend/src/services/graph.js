@@ -1,4 +1,5 @@
 import { Interface, System } from "../models.js";
+import { GRAPH_LOOKUP_MAX_DEPTH } from "./graphConfig.js";
 
 // Collect the ordered chain of interfaces starting from a given interface,
 // following downstream_interfaces via $graphLookup (relationship traversal).
@@ -12,7 +13,7 @@ export async function getDownstreamInterfaces(startKey) {
         connectFromField: "downstream_interfaces",
         connectToField: "key",
         as: "chain",
-        maxDepth: 20,
+        maxDepth: GRAPH_LOOKUP_MAX_DEPTH,
       },
     },
   ]);
@@ -34,7 +35,7 @@ export async function getUpstreamInterfaces(interfaceKey) {
         connectFromField: "key",
         connectToField: "downstream_interfaces",
         as: "chain",
-        maxDepth: 20,
+        maxDepth: GRAPH_LOOKUP_MAX_DEPTH,
       },
     },
   ]);
