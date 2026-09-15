@@ -10,6 +10,7 @@ const STEP_TEMPLATE = [
   { id: "mapped", label: "Mapped to interface", detail: "Resolve the alert to canonical integration metadata." },
   { id: "topology", label: "Loaded topology", detail: "Retrieve the dependency path and related systems." },
   { id: "impact", label: "Assessed impact", detail: "Identify business processes, owners, and downstream risk." },
+  { id: "related", label: "Retrieved related context", detail: "Search runbooks and prior incidents for matching symptoms." },
   { id: "evidence", label: "Collected evidence", detail: "Gather source records, relationship evidence, and events." },
   { id: "ranked", label: "Ranked fault domains", detail: "Score likely causes with supporting rationale." },
   { id: "summary", label: "Generated next checks", detail: "Produce safe, human-reviewable recommendations." },
@@ -28,6 +29,7 @@ const CASE_EVENT_TO_STEP = {
   alert_mapped: "mapped",
   topology_loaded: "topology",
   impact_assessed: "impact",
+  related_context_retrieved: "related",
   evidence_collected: "evidence",
   fault_ranked: "ranked",
   next_checks_ready: "summary",
@@ -68,6 +70,13 @@ const MONGODB_STAGE_EXPLANATIONS = {
     queryPattern: "Follow supports_process and depends_on relationships to map topology risk to business workflows.",
     learns: "The agent links technical degradation to Hospital Order Fulfillment or Supplier Replenishment impact.",
     demoLine: "This is the shift from system outage to business impact.",
+  },
+  related: {
+    capability: "Atlas retrieval for related operational context",
+    collections: ["operational_knowledge"],
+    queryPattern: "Search runbooks, incident notes, and business context for text related to the active alert.",
+    learns: "The agent sees similar incidents, relevant runbooks, and operational notes before ranking the fault domain.",
+    demoLine: "Atlas Search provides immediate value; Automated Embeddings and reranking can be enabled for semantic retrieval when available.",
   },
   evidence: {
     capability: "Grounded evidence and provenance",
@@ -341,6 +350,32 @@ function BusinessImpactPanel({ result, selectedAlert }) {
   );
 }
 
+function RelatedContextPanel({ result }) {
+  const related = result?.related_context;
+  const docs = related?.documents || [];
+  return (
+    <section className="panel-card related-context-panel">
+      <div className="panel-title-row compact">
+        <div>
+          <span className="eyebrow">Related context</span>
+          <h3>Runbooks and prior incidents</h3>
+        </div>
+        {related?.engine && <span className="count-pill">{related.engine}</span>}
+      </div>
+      {!result && <p className="muted">Related runbooks and incident notes appear after investigation.</p>}
+      {related?.query && <p className="mini-copy muted">Query: {related.query}</p>}
+      {docs.map((doc) => (
+        <article key={doc.key} className="related-context-card">
+          <span>{doc.type}</span>
+          <strong>{doc.title}</strong>
+          <p>{doc.snippet || doc.text}</p>
+        </article>
+      ))}
+      {result && !docs.length && <p className="muted">No related context found for this alert.</p>}
+    </section>
+  );
+}
+
 function EvidencePanel({ result }) {
   const evidence = result?.evidence || [];
   const actions = result?.recommended_next_actions || [];
@@ -393,6 +428,7 @@ function answerQuestion(question, result) {
   if (q.includes("why") || q.includes("fault")) return `${top?.name || "The top candidate"} is ranked highest because ${top?.reason || "the alert maps directly to this domain"}`;
   if (q.includes("business") || q.includes("process") || q.includes("impact")) return `The impacted business process is ${processes}. Affected systems include ${(result.affected_systems || []).map((s) => s.name).join(", ") || "the mapped downstream systems"}.`;
   if (q.includes("owner") || q.includes("owns")) return `The mapped owner is ${owners}. Use the runbook/contact metadata before taking remediation steps.`;
+  if (q.includes("related") || q.includes("similar") || q.includes("runbook") || q.includes("incident")) return `Related context: ${(result.related_context?.documents || []).slice(0, 3).map((d) => d.title).join("; ") || "no matching runbooks or incident notes were found"}.`;
   if (q.includes("evidence") || q.includes("support")) return `The strongest evidence is: ${(result.evidence || []).slice(0, 3).join(" ")}`;
   if (q.includes("check") || q.includes("next") || q.includes("first")) return actions || "Start by checking the top fault domain health and validating the interface logs for the alert window.";
   return `For this case, ${result.investigation_summary} Recommended next check: ${(result.recommended_next_actions || [])[0] || "review the top fault domain evidence."}`;
@@ -584,6 +620,10 @@ export default function InvestigationWorkbench() {
       mark("impact", "complete", `${investigation.impacted_business_processes.length || 0} process and ${investigation.affected_systems.length} systems at risk.`);
       await pause(250);
 
+      mark("related", "running", "Searching related runbooks and incident notes.");
+      mark("related", "complete", `${investigation.related_context?.documents?.length || 0} related context items retrieved.`);
+      await pause(250);
+
       mark("evidence", "running", "Collecting evidence and provenance.");
       mark("evidence", "complete", `${investigation.evidence.length} evidence items collected.`);
       await pause(250);
@@ -745,6 +785,7 @@ export default function InvestigationWorkbench() {
           <aside className="workbench-right">
             <SummaryPanel result={result} />
             <BusinessImpactPanel result={result} selectedAlert={selectedAlert} />
+            <RelatedContextPanel result={result} />
             <CaseTimeline caseRecord={activeCase} />
             <EvidencePanel result={result} />
             <FollowUpPanel result={result} messages={messages} question={question} setQuestion={setQuestion} onAsk={ask} />

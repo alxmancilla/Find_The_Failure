@@ -30,8 +30,9 @@ For a step-by-step presenter walkthrough, see [`DEMO.md`](./DEMO.md).
 - **Modernization what-if** — "What breaks if we replace this system?" returns
   affected interfaces, owners to coordinate, and migration dependencies.
 - **Agent v1 Investigation Workbench** — alert-first supervised workflow with
-  topology mapping, evidence, likely fault-domain ranking, grounded follow-up,
-  case memory, and rehearsal-safe alert feed controls.
+  topology mapping, related runbook/incident retrieval, evidence, likely
+  fault-domain ranking, grounded follow-up, case memory, and rehearsal-safe alert
+  feed controls.
 
 ---
 
@@ -105,6 +106,8 @@ Start from [`.env.example`](./.env.example), which documents both modes:
 ```
 MONGO_URI=mongodb://localhost:27017/find_the_failure?directConnection=true
 PORT=4000
+ATLAS_RETRIEVAL_MODE=atlas-search
+ENABLE_ATLAS_AUTO_EMBED_INDEX=false
 ```
 
 It is loaded by `backend/src/config.js` (resolved relative to the module, so it
@@ -131,19 +134,36 @@ indexes on your cluster on first startup. The `.env` is git-ignored, so
 credentials stay out of version control; keep the URI in `.env` only (not in
 shell commands, logs, or tickets).
 
+### Related-context retrieval modes
+
+The Investigation Workbench searches `operational_knowledge` for related
+runbooks, incident notes, and business context. The default is Atlas Search with
+a local keyword fallback.
+
+- `ATLAS_RETRIEVAL_MODE=atlas-search` — default, no AI service required.
+- `ATLAS_RETRIEVAL_MODE=atlas-rerank` — Atlas Search candidates + `$rerank`.
+- `ATLAS_RETRIEVAL_MODE=vector-rerank` — Automated Embedding `$vectorSearch` + `$rerank`.
+- `ATLAS_RETRIEVAL_MODE=auto` — try vector/rerank first, then fall back.
+
+Set `ENABLE_ATLAS_AUTO_EMBED_INDEX=true` only on an Atlas project where
+Automated Embedding and Native Reranking are enabled and expected. It creates a
+`vectorSearch` index over `operational_knowledge.text` using the `autoEmbed`
+field type.
+
 ---
 
-## Data model (9 collections)
+## Data model (10 collections)
 
 `systems`, `interfaces`, `data_entities`, `owners`, `events`,
-`business_processes`, `relationships`, `source_records`, and
+`business_processes`, `relationships`, `source_records`, `operational_knowledge`, and
 `investigation_cases`.
 
 The `interfaces` collection uses a flexible schema so a single model can hold
 EDI, REST, FHIR, event, and SFTP interfaces. Seeded footprint: **9 systems,
 10 interfaces, 3 owners, 4 data entities, 2 business processes, 17 typed
 relationships, and 5 source records**. The Workbench can targeted-upsert **4
-additional simulated observability alerts** and persist investigation cases.
+additional simulated observability alerts**, retrieve **8 operational knowledge
+documents**, and persist investigation cases.
 
 ---
 
@@ -186,12 +206,12 @@ Find_The_Failure/
 │   └── src/
 │       ├── config.js     # loads root .env
 │       ├── db.js         # Mongoose connection
-│       ├── models.js     # 9 collections
+│       ├── models.js     # 10 collections
 │       ├── routes.js     # REST API
 │       ├── server.js     # Express app
 │       ├── scenarios.js  # named failure scenarios
 │       ├── seed/         # seed data + runner
-│       └── services/     # graph, impact, search, search index
+│       └── services/     # graph, impact, search, retrieval, search index
 └── frontend/
     └── src/
         ├── api.js        # API client

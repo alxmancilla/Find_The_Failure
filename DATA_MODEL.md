@@ -13,7 +13,8 @@ layer for integration metadata.
 
 - **Database:** `find_the_failure`
 - **Collections:** `systems`, `interfaces`, `owners`, `data_entities`, `events`,
-  `business_processes`, `relationships`, `source_records`, `investigation_cases`
+  `business_processes`, `relationships`, `source_records`,
+  `operational_knowledge`, `investigation_cases`
 
 | Collection | Purpose | Example |
 |---|---|---|
@@ -25,6 +26,7 @@ layer for integration metadata.
 | `business_processes` | Business services supported by integrations | Order Fulfillment, Supplier Replenishment |
 | `relationships` | Typed graph edges with evidence/confidence | depends_on, supports_process |
 | `source_records` | Raw imported metadata and alerts | CMDB row, observability alert |
+| `operational_knowledge` | Runbooks, incident notes, business context | ERP timeout triage note |
 | `investigation_cases` | Persisted Agent v1 case memory | Timeline, evidence, follow-up Q&A |
 
 ---
@@ -39,6 +41,7 @@ data_entities = business meaning
 events        = operational history
 source_records = raw imported evidence
 relationships = canonical evidence-backed edges
+operational_knowledge = searchable runbooks and prior incidents
 investigation_cases = auditable investigation memory
 ~~~
 
@@ -102,6 +105,12 @@ Raw or normalized source metadata from inventory, CMDB/app ownership, and
 observability feeds. Alerts are represented as `record_type: "alert"` and map to
 interfaces through `entity_key`.
 
+### `operational_knowledge`
+
+Searchable operational memory for the Workbench. Key fields: `key`, `type`,
+`title`, `text`, `interface_key`, `business_process_key`, `source_system`,
+`tags`, and `observed_at`.
+
 ### `investigation_cases`
 
 Persisted Agent v1 case memory. Each case stores an alert snapshot, investigation
@@ -122,7 +131,7 @@ grounded follow-up Q&A.
 | Reset demo | `/api/reset` | `updateMany`, `deleteMany`, `insertMany` |
 | Modernization impact | `/api/modernization/:systemKey` | `$or` over `source`, `target`, `middleware` |
 | Ingest simulated alerts | `/api/alerts/demo-feed` | Targeted `bulkWrite` into `source_records` |
-| Investigate alert | `/api/cases/investigate/:key` | Alert correlation + persisted case insert |
+| Investigate alert | `/api/cases/investigate/:key` | Alert correlation + operational context retrieval + case insert |
 | Clear rehearsal state | `/api/workbench/clear-demo-state` | Delete feed alerts + case memory only |
 
 ---
@@ -146,8 +155,12 @@ This lets a typo like `hosptial` still return **Hospital Order 850**.
 ### Agent v1 case memory
 
 `/api/cases/investigate/:sourceRecordKey` runs deterministic alert correlation,
-stores an auditable investigation case, and preserves grounded follow-up Q&A. This
-is intentionally read-only and bounded; LLM/tool orchestration is a future phase.
+retrieves related runbooks/prior incidents from `operational_knowledge`, stores
+an auditable investigation case, and preserves grounded follow-up Q&A.
+
+Related-context retrieval defaults to Atlas Search and falls back to local keyword
+scoring if Search is unavailable. On supported Atlas projects, the same stage can
+be configured for Automated Embedding `$vectorSearch` and Native `$rerank`.
 
 ### Modernization analysis
 

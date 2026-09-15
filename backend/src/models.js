@@ -130,6 +130,25 @@ const sourceRecordSchema = new Schema(
 sourceRecordSchema.index({ source_system: 1, record_type: 1 });
 sourceRecordSchema.index({ entity_type: 1, entity_key: 1 });
 
+// Searchable operational knowledge used for related-context retrieval.
+const operationalKnowledgeSchema = new Schema(
+  {
+    key: { type: String, required: true, unique: true },
+    type: { type: String, required: true },
+    title: { type: String, required: true },
+    text: { type: String, required: true },
+    interface_key: String,
+    business_process_key: String,
+    source_system: String,
+    tags: [String],
+    observed_at: Date,
+  },
+  { collection: "operational_knowledge", timestamps: true, strict: false }
+);
+
+operationalKnowledgeSchema.index({ interface_key: 1, type: 1 });
+operationalKnowledgeSchema.index({ business_process_key: 1, type: 1 });
+
 // Agent investigation cases: auditable memory for supervised investigations.
 const investigationCaseSchema = new Schema(
   {
@@ -198,4 +217,5 @@ export const Interface = model("Interface", interfaceSchema);
 export const Event = model("Event", eventSchema);
 export const Relationship = model("Relationship", relationshipSchema);
 export const SourceRecord = model("SourceRecord", sourceRecordSchema);
+export const OperationalKnowledge = model("OperationalKnowledge", operationalKnowledgeSchema);
 export const InvestigationCase = model("InvestigationCase", investigationCaseSchema);

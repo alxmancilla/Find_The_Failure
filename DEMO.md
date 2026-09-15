@@ -30,6 +30,10 @@ the backend (`:4000`) and frontend (`:5173`). Open **http://localhost:5173**.
 SRV string (see the "Using MongoDB Atlas" section in `README.md`), then run
 `npm run start:app`. Same talk track below — Atlas Search is built in.
 
+Optional Atlas AI mode: set `ATLAS_RETRIEVAL_MODE=auto` and
+`ENABLE_ATLAS_AUTO_EMBED_INDEX=true` only on an Atlas project where Automated
+Embedding and Native Reranking are enabled.
+
 ---
 
 ## 2. Presenter talk track reference (≈6 minutes)
@@ -50,6 +54,7 @@ The agent activity timeline advances through:
 - Mapped to interface
 - Loaded topology
 - Assessed impact
+- Retrieved related context
 - Collected evidence
 - Ranked fault domains
 - Generated next checks
@@ -72,8 +77,10 @@ Hospital 123 → EDI Gateway → X12 Translator → Integration API → Apex ERP
 
 ### Act 4 — Show impact, evidence, and owner
 1. The likely fault domain is highlighted with confidence.
-2. Show impacted business process, downstream risk, owners, and source evidence.
-3. Review the safe next checks. No remediation is executed in Agent v1.
+2. Show impacted business process, downstream risk, owners, and related context.
+3. Open the related runbooks/prior incidents panel to explain how the agent gets
+   operational memory before ranking.
+4. Review the safe next checks. No remediation is executed in Agent v1.
 
 > "In seconds we know what broke, what's downstream, who owns it, and what
 > business process is exposed."
@@ -135,6 +142,8 @@ injection, metadata normalization, and alert investigation.
 |---|---|
 | Flexible documents | `interfaces` holds EDI, REST, FHIR, and event types in one collection |
 | Atlas Search | Fuzzy, relevance-ranked search across all fields (⚡ badge) |
+| Automated Embedding + Vector Search | Optional semantic retrieval over `operational_knowledge.text` |
+| Native Reranking | Optional `$rerank` stage to reorder retrieved operational context |
 | Relationship traversal | `$graphLookup` builds the upstream/downstream dependency path |
 | Federated ingestion | Raw inventory, CMDB, and observability records normalize into typed relationships |
 | Evidence and provenance | Source records and relationship evidence support trusted investigation |
@@ -146,12 +155,12 @@ injection, metadata normalization, and alert investigation.
 ## 4. Data model
 
 `systems`, `interfaces`, `data_entities`, `owners`, `events`,
-`business_processes`, `relationships`, `source_records`, and
+`business_processes`, `relationships`, `source_records`, `operational_knowledge`, and
 `investigation_cases`.
 
 Seeded footprint: **9 systems, 10 interfaces, 3 owners, 4 data entities**,
-plus **2 business processes, 17 relationships, 5 source records, 3 failure
-scenarios**, and **1 modernization scenario**.
+plus **2 business processes, 17 relationships, 5 source records, 8 operational
+knowledge documents, 3 failure scenarios**, and **1 modernization scenario**.
 
 ---
 
@@ -160,6 +169,8 @@ scenarios**, and **1 modernization scenario**.
 - **Backend** — Node + Express + Mongoose (`backend/`). REST API under `/api`.
 - **Frontend** — React + Vite + React Flow (`frontend/`).
 - **Database** — MongoDB Atlas Local (mongod + Atlas Search) via `docker-compose.yml`.
+- **Atlas AI optional** — Automated Embedding Vector Search and Native Reranking
+  can be enabled through `.env` for Atlas cloud projects that support them.
 
 ### Key endpoints
 | Method | Path | Purpose |

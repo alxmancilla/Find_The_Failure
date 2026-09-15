@@ -284,6 +284,11 @@ select { padding: 8px; border-radius: 8px; background: var(--panel-2); color: va
 .impact-metric-grid strong { display: block; margin-top: 5px; font-size: 12px; line-height: 1.35; }
 .first-check { margin-top: 8px; }
 .first-check p { margin: 5px 0 0; color: var(--text); font-size: 12px; line-height: 1.4; }
+.related-context-panel { border-color: rgba(0, 237, 100, 0.22); }
+.related-context-card { margin-top: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: rgba(11, 16, 32, 0.5); }
+.related-context-card span { display: inline-block; margin-bottom: 5px; color: var(--accent); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.45px; }
+.related-context-card strong { display: block; font-size: 12px; line-height: 1.35; }
+.related-context-card p { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
 .empty-summary .coach-list { margin: 12px 0 0; padding-left: 20px; color: var(--muted); font-size: 12px; line-height: 1.7; }
 .evidence-panel { max-height: 320px; overflow-y: auto; }
 .evidence-panel h4 { margin: 14px 0 8px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
