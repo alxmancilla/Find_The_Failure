@@ -46,7 +46,7 @@ Before presenting:
 6. Start in **Investigation Workbench** with the single seeded alert.
 
 `npm run smoke` returns the Workbench to a clean rehearsal state by clearing
-demo-feed alerts/cases and resetting simulated failures.
+demo-feed alerts, lifecycle state, cases, and simulated failures.
 
 ---
 
@@ -59,7 +59,7 @@ playbook populate topology, evidence, and recommended checks.
 1. Select the **ERP endpoint timeout** alert.
 2. Say: "We are starting where operations starts: a rejected purchase order, not
    a static architecture diagram."
-3. Click **Investigate selected alert**.
+3. Click **Open investigation case**.
 
 ### Act 2 — Watch the investigation playbook
 The playbook follows the same supervised pattern for every alert, with
@@ -92,11 +92,13 @@ Hospital 123 → EDI Gateway → X12 Translator → Integration API → Apex ERP
 ### Act 4 — Show impact, evidence, and owner
 1. Start with **Operational priority**: severity, SLA/risk, process, owner,
    likely fault domain, and first safe check.
-2. The likely fault domain is highlighted with confidence.
-3. Show impacted business process, downstream risk, owners, and related context.
-4. Open the related runbooks/prior incidents panel to explain how the agent gets
+2. Point to the alert lifecycle tag: opening the case marks the alert
+   **Investigating** in local Workbench state.
+3. The likely fault domain is highlighted with confidence.
+4. Show impacted business process, downstream risk, owners, and related context.
+5. Open the related runbooks/prior incidents panel to explain how the agent gets
    operational memory before ranking.
-5. Review the safe next checks. No remediation is executed in Agent v1; the
+6. Review the safe next checks. No remediation is executed in Agent v1; the
    guardrail reminds the audience that action requires operator approval.
 
 > "In seconds we know what broke, what's downstream, who owns it, and what
@@ -128,16 +130,18 @@ and **Case timeline** in the right panel.
 > investigation record that another operator can review later."
 
 ### Optional — Simulate more operational signals
-1. In **Alert inbox**, click **Ingest latest alerts**.
+1. In **Alert inbox**, open **Demo controls** and click **Add extra demo alerts**.
 2. Point out that this is a targeted observability feed ingest, not a demo reset.
 3. Point out the balanced feed: two alerts map to **Hospital Order Fulfillment**
    and two alerts map to **Supplier Replenishment**.
 4. Select a different alert such as **X12 translation backlog**,
    **Partner notification publish failures**, or **Supplier EDI acknowledgment timeout**.
-5. Click **Investigate selected alert** to show that the topology, likely fault
+5. Click **Open investigation case** to show that the topology, likely fault
    domain, evidence, and next checks change with the alert context.
-6. Click **Clear feed + cases** when you want to reset the Workbench rehearsal
-   state back to the original single-alert inbox and empty case memory.
+6. Use the selected alert lifecycle controls to acknowledge, escalate, resolve,
+   or reopen locally. No ticket, page, or remediation is sent.
+7. Click **Reset demo** when you want to reset the Workbench rehearsal state back
+   to the original single-alert inbox and empty case memory.
 
 ### Optional — Manual workflow view
 Go to **Presenter Console** to manually step through topology reveal, failure
@@ -252,6 +256,7 @@ Modernization, and Presenter Console as optional supporting views.
 | GET/POST | `/api/ingestion` · `/api/ingestion/run` | Raw source records, pipeline, quality, and normalization |
 | POST | `/api/ingestion/fixtures` · `/api/ingestion/fixtures/clear` | Load/clear optional enterprise fixture pack |
 | GET | `/api/alerts` · `/api/investigation/:sourceRecordKey` | Read-only alert investigation |
+| POST | `/api/alerts/:sourceRecordKey/lifecycle` | Local Workbench lifecycle transition |
 
 ---
 

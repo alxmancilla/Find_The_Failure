@@ -5,11 +5,43 @@ import { GRAPH_LOOKUP_MAX_DEPTH } from "./graphConfig.js";
 import { findRelatedContext } from "./relatedContext.js";
 import { traceInterfaceRelationships } from "./relationships.js";
 
+const ALERT_LIFECYCLE_STATUSES = new Set(["new", "acknowledged", "investigating", "escalated", "resolved"]);
+const ALERT_LIFECYCLE_LABELS = {
+  new: "New",
+  acknowledged: "Acknowledged",
+  investigating: "Investigating",
+  escalated: "Escalated",
+  resolved: "Resolved",
+};
+
 export async function listAlerts() {
   const alerts = await SourceRecord.find({ record_type: "alert" })
     .sort({ observed_at: -1 })
     .lean();
   return { alerts: alerts.map(formatAlert) };
+}
+
+export async function updateAlertLifecycle(sourceRecordKey, status, actor = "demo-operator") {
+  if (!ALERT_LIFECYCLE_STATUSES.has(status)) {
+    return { error: `unsupported lifecycle status: ${status}` };
+  }
+
+  const now = new Date();
+  const historyEntry = { at: now, status, actor, note: lifecycleNote(status) };
+  const alert = await SourceRecord.findOneAndUpdate(
+    { key: sourceRecordKey, record_type: "alert" },
+    {
+      $set: {
+        "workbench_lifecycle.status": status,
+        "workbench_lifecycle.updated_at": now,
+        "workbench_lifecycle.updated_by": actor,
+      },
+      $push: { "workbench_lifecycle.history": historyEntry },
+    },
+    { new: true }
+  ).lean();
+
+  return alert ? { alert: formatAlert(alert) } : null;
 }
 
 export async function ingestDemoAlerts() {
@@ -29,6 +61,7 @@ export async function ingestDemoAlerts() {
             ingestion_status: "ingested",
             ingested_at: now,
           },
+          $unset: { workbench_lifecycle: "" },
           $setOnInsert: { createdAt: now },
         },
         upsert: true,
@@ -47,10 +80,11 @@ export async function ingestDemoAlerts() {
 
 export async function clearWorkbenchDemoState() {
   const keys = demoFeedAlertKeys;
-  const [sourceRecords, events, cases] = await Promise.all([
+  const [sourceRecords, events, cases, lifecycle] = await Promise.all([
     SourceRecord.deleteMany({ key: { $in: keys } }),
     Event.deleteMany({ source_record_id: { $in: keys } }),
     InvestigationCase.deleteMany({}),
+    SourceRecord.updateMany({ record_type: "alert" }, { $unset: { workbench_lifecycle: "" } }),
   ]);
   const [alerts, caseMemory] = await Promise.all([listAlerts(), listInvestigationCases()]);
 
@@ -59,6 +93,7 @@ export async function clearWorkbenchDemoState() {
     deleted_feed_alerts: sourceRecords.deletedCount,
     deleted_feed_events: events.deletedCount,
     deleted_cases: cases.deletedCount,
+    reset_lifecycle_alerts: lifecycle.modifiedCount || 0,
     alerts: alerts.alerts,
     cases: caseMemory.cases,
   };
@@ -83,8 +118,10 @@ export async function createInvestigationCase(sourceRecordKey) {
 
   const now = new Date();
   const key = `case-${now.toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)}-${Math.random().toString(36).slice(2, 7)}`;
+  const lifecycle = await updateAlertLifecycle(sourceRecordKey, "investigating", "agent-workbench");
   const persistedInvestigation = {
     ...investigation,
+    alert: lifecycle?.alert || investigation.alert,
     mongodb_trace: addCaseWriteTrace(investigation.mongodb_trace, key, sourceRecordKey),
   };
   const doc = await InvestigationCase.create({
@@ -188,6 +225,7 @@ export async function investigateAlert(sourceRecordKey) {
 }
 
 function formatAlert(alert) {
+  const lifecycle = formatLifecycle(alert.workbench_lifecycle);
   return {
     key: alert.key,
     source_system: alert.source_system,
@@ -200,8 +238,33 @@ function formatAlert(alert) {
     detail: alert.payload?.detail,
     business_process_key: alert.payload?.business_process_key,
     business_process_name: alert.payload?.business_process_name,
+    lifecycle,
+    lifecycle_status: lifecycle.status,
     evidence: alert.evidence || [],
   };
+}
+
+function formatLifecycle(lifecycle = {}) {
+  const status = ALERT_LIFECYCLE_STATUSES.has(lifecycle.status) ? lifecycle.status : "new";
+  const history = Array.isArray(lifecycle.history) ? lifecycle.history.slice(-5) : [];
+  return {
+    status,
+    label: ALERT_LIFECYCLE_LABELS[status] || "New",
+    updated_at: lifecycle.updated_at,
+    updated_by: lifecycle.updated_by,
+    history_count: lifecycle.history?.length || 0,
+    history,
+  };
+}
+
+function lifecycleNote(status) {
+  return {
+    new: "Alert reopened for review.",
+    acknowledged: "Alert acknowledged in the Workbench.",
+    investigating: "Investigation case opened.",
+    escalated: "Marked for human-approved escalation.",
+    resolved: "Marked resolved for demo tracking.",
+  }[status] || "Lifecycle status updated.";
 }
 
 function rankFaultDomains(alert, iface, upstream, downstream, systems, impact) {

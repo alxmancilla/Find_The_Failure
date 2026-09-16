@@ -79,8 +79,8 @@ auditable memory.
 - **Agent v1 Investigation Workbench** — alert-first supervised workflow with
   topology mapping, related runbook/incident retrieval, evidence, likely
   fault-domain ranking, grounded follow-up, case memory, a grouped investigation
-  playbook, a guided enterprise context replay path, and collapsed secondary
-  demo controls.
+  playbook, local alert lifecycle tracking, a guided enterprise context replay
+  path, and collapsed secondary demo controls.
 - **Enterprise fixture ingestion** — optional Alertmanager, integration-catalog,
   and CMDB-style records are captured as raw source evidence, resolved to
   canonical keys, normalized into events/relationships, surfaced in the
@@ -244,8 +244,9 @@ Base URL: `http://localhost:4000/api`
 | POST | `/ingestion/fixtures/clear` | Remove optional fixture pack and normalized fixture evidence |
 | GET | `/alerts` | List observability alerts imported as source records |
 | POST | `/alerts/demo-feed` | Target-upsert simulated alert feed records |
+| POST | `/alerts/:sourceRecordKey/lifecycle` | Update local Workbench alert lifecycle status |
 | GET/POST | `/cases` · `/cases/investigate/:sourceRecordKey` | Persist and list investigation cases |
-| POST | `/workbench/clear-demo-state` | Clear simulated feed alerts + case memory only |
+| POST | `/workbench/clear-demo-state` | Clear simulated feed alerts, lifecycle state, and case memory |
 | GET | `/systems` · `/owners` | Listings |
 
 ---
@@ -290,8 +291,8 @@ npm run smoke
 
 This full demo smoke test exercises the running server across search, graph,
 impact, enterprise fixture ingestion, quality/provenance scoring, scenarios,
-modernization, Workbench investigation, related context retrieval, case memory,
-and reset/cleanup. It clears the optional fixture pack before the Workbench path
-so the normal rehearsal baseline remains stable.
+modernization, Workbench investigation, alert lifecycle, related context
+retrieval, case memory, and reset/cleanup. It clears the optional fixture pack
+before the Workbench path so the normal rehearsal baseline remains stable.
 
 For the smaller backend-only check, run `cd backend && node smoke.mjs`.

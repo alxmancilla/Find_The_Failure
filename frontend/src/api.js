@@ -37,6 +37,11 @@ export const api = {
   ingestionQuality: () => json(`/ingestion/quality`),
   alerts: () => json(`/alerts`),
   ingestDemoAlerts: () => json(`/alerts/demo-feed`, { method: "POST" }),
+  updateAlertLifecycle: (sourceRecordKey, body) => json(`/alerts/${encodeURIComponent(sourceRecordKey)}/lifecycle`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body || {}),
+  }),
   clearWorkbenchDemoState: () => json(`/workbench/clear-demo-state`, { method: "POST" }),
   investigation: (sourceRecordKey) => json(`/investigation/${encodeURIComponent(sourceRecordKey)}`),
   cases: () => json(`/cases`),

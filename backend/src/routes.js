@@ -25,6 +25,7 @@ import {
   investigateAlert,
   listAlerts,
   listInvestigationCases,
+  updateAlertLifecycle,
 } from "./services/correlation.js";
 import { scenarios, getScenario } from "./scenarios.js";
 
@@ -175,6 +176,15 @@ router.get(
 router.post(
   "/alerts/demo-feed",
   wrap(async (_req, res) => res.json(await ingestDemoAlerts()))
+);
+router.post(
+  "/alerts/:sourceRecordKey/lifecycle",
+  wrap(async (req, res) => {
+    const result = await updateAlertLifecycle(req.params.sourceRecordKey, req.body?.status);
+    if (!result) return res.status(404).json({ error: "alert not found" });
+    if (result.error) return res.status(400).json({ error: result.error });
+    res.json(result);
+  })
 );
 router.post(
   "/workbench/clear-demo-state",

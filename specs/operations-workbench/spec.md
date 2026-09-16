@@ -76,6 +76,8 @@ across disconnected topology diagrams, CMDB records, runbooks, and prior tickets
   fault domain, recommended checks, timeline, and follow-up messages.
 - **REQ-009:** The active case area shall show operational priority derived from
   existing alert, impact, owner, and recommendation data.
+- **REQ-010:** Alerts shall expose a lightweight local lifecycle that supports
+  demo-safe acknowledgement, investigation, escalation, resolution, and reopen.
 
 ## 8. UX design
 
@@ -91,6 +93,10 @@ The active case area also presents Operational Priority so operators can quickly
 see urgency, SLA/risk, business process, likely owner, likely fault domain, first
 safe check, and the human-approval guardrail.
 
+The selected alert panel includes local lifecycle controls. These controls update
+Workbench state in MongoDB only; they do not page teams, create ITSM tickets, or
+remediate systems.
+
 ## 9. Data and API design
 
 - `POST /api/ingestion/fixtures` loads enterprise fixture `source_records`.
@@ -100,6 +106,8 @@ safe check, and the human-approval guardrail.
 - `POST /api/workbench/clear-demo-state` clears scripted demo alerts and cases.
 - `POST /api/ingestion/fixtures/clear` clears enterprise fixture records and
   fixture-derived events/relationships.
+- `POST /api/alerts/:sourceRecordKey/lifecycle` updates local Workbench lifecycle
+  status on an alert source record.
 - `POST /api/cases/investigate/:sourceRecordKey` creates persisted case memory.
 
 ## 10. MongoDB usage
@@ -121,11 +129,12 @@ safe check, and the human-approval guardrail.
 - [x] The primary path is visually distinct from optional demo controls.
 - [x] Case output includes owner, impact, evidence, and recommended next checks.
 - [x] Active case output includes operational priority and an approval guardrail.
+- [x] Alert output includes local lifecycle status and demo-safe transitions.
 
 ## 12. Product risks
 
-- The Workbench is not yet a full operational queue because alert lifecycle
-  states are intentionally out of scope.
+- Alert lifecycle is intentionally lightweight and local-only; it is not an ITSM
+  replacement or external escalation workflow.
 - Fixture replay may be perceived as synthetic unless positioned as a safe
   enterprise ingestion rehearsal.
 - SLA/priority indicators are derived from demo data and should be positioned as
@@ -149,6 +158,7 @@ safe check, and the human-approval guardrail.
 - [x] Group the activity timeline into playbook phases.
 - [x] Align Alert received copy with current source-record/case-memory behavior.
 - [x] Add frontend-only Operational Priority card.
+- [x] Add lightweight alert lifecycle status and controls.
 - [x] Update README and demo runbook.
 
 ## 15. Decisions
@@ -159,15 +169,13 @@ safe check, and the human-approval guardrail.
 
 ## 16. Roadmap priority
 
-1. **Alert lifecycle** — adds queue realism with acknowledge, investigate,
-   escalate, and resolve states.
-2. **Change correlation** — connects symptoms to recent deployments, config
+1. **Change correlation** — connects symptoms to recent deployments, config
    changes, routing updates, and ownership changes.
-3. **Alert deduplication and noise reduction** — important for scale realism,
+2. **Alert deduplication and noise reduction** — important for scale realism,
    but less urgent for the curated demo size.
 
 ## 17. Follow-ups
 
-- Add a future spec for alert lifecycle.
+- Keep lifecycle read-only/demo-safe unless a future ITSM handoff spec is drafted.
 - Add a future spec for change correlation and recent deployment context.
 - Add a future spec for alert deduplication and noise reduction.

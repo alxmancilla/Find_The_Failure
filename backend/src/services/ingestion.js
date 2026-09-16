@@ -22,7 +22,7 @@ export async function loadEnterpriseFixtures() {
     records.map((record) => ({
       updateOne: {
         filter: { key: record.key },
-        update: { $set: record },
+        update: { $set: record, $unset: { workbench_lifecycle: "" } },
         upsert: true,
       },
     }))

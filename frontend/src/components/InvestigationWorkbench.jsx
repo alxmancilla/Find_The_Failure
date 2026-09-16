@@ -142,11 +142,12 @@ function Stat({ label, value }) {
 }
 
 function AlertCard({ alert, active, onClick }) {
+  const lifecycleStatus = alert.lifecycle_status || alert.lifecycle?.status || "new";
   return (
     <button type="button" className={`alert-card ${active ? "active" : ""}`} aria-current={active ? "true" : undefined} onClick={onClick}>
       <span className="alert-card-top">
         <span className={`badge status-${alert.status}`}>{alert.severity || "alert"}</span>
-        <span className="alert-status-label">{alert.status || "open"}</span>
+        <span className={`lifecycle-pill lifecycle-${lifecycleStatus}`}>{alert.lifecycle?.label || "New"}</span>
       </span>
       <strong>{alert.reason}</strong>
       <small>{alert.source_system} · {alert.interface_key}</small>
@@ -308,7 +309,7 @@ function CaseMemory({ cases, activeCase, onSelect }) {
   );
 }
 
-function SelectedAlertPanel({ alert, busy, activeCase, isHiddenByFilters, onInvestigate }) {
+function SelectedAlertPanel({ alert, busy, lifecycleBusy, activeCase, isHiddenByFilters, onInvestigate, onLifecycleChange }) {
   if (!alert) {
     return (
       <section className="selected-alert-panel empty-card">
@@ -318,17 +319,34 @@ function SelectedAlertPanel({ alert, busy, activeCase, isHiddenByFilters, onInve
     );
   }
 
+  const lifecycleStatus = alert.lifecycle_status || alert.lifecycle?.status || "new";
+  const lifecycleActions = [
+    { status: "acknowledged", label: "Acknowledge" },
+    { status: "escalated", label: "Escalate" },
+    { status: "resolved", label: "Resolve" },
+    { status: "new", label: "Reopen" },
+  ].filter((action) => action.status !== lifecycleStatus);
+
   return (
     <section className="selected-alert-panel">
       <span className="eyebrow">Selected alert</span>
       <span className="selected-alert-meta">
         <span className={`badge status-${alert.status}`}>{alert.severity || "alert"}</span>
         <span>{alert.status || "open"}</span>
+        <span className={`lifecycle-pill lifecycle-${lifecycleStatus}`}>{alert.lifecycle?.label || "New"}</span>
       </span>
       <strong>{alert.reason}</strong>
       <small>{alert.source_system} · {alert.interface_key}</small>
       {isHiddenByFilters && <span className="saved-case-pill">Hidden by current filters</span>}
       {activeCase?.key && <span className="saved-case-pill">Saved case: {activeCase.key}</span>}
+      <div className="lifecycle-actions" aria-label="Alert lifecycle actions">
+        {lifecycleActions.map((action) => (
+          <button key={action.status} type="button" disabled={busy || lifecycleBusy} onClick={() => onLifecycleChange(action.status)}>
+            {action.label}
+          </button>
+        ))}
+      </div>
+      <small className="lifecycle-note">Demo-safe lifecycle only; no page, ticket, or remediation is sent.</small>
       <button type="button" className="primary full" disabled={busy} onClick={onInvestigate}>
         {busy ? "Investigating…" : activeCase?.key ? "Run fresh investigation" : "Open investigation case"}
       </button>
@@ -608,6 +626,11 @@ function groupAlertsByProcess(alerts) {
     });
 }
 
+function mergeUpdatedAlert(alerts, updatedAlert) {
+  if (!updatedAlert?.key) return alerts;
+  return alerts.map((alert) => alert.key === updatedAlert.key ? updatedAlert : alert);
+}
+
 function processName(alert) {
   return alert.business_process_name || "Starting / unassigned alerts";
 }
@@ -628,6 +651,7 @@ export default function InvestigationWorkbench() {
   const [busy, setBusy] = useState(false);
   const [feedBusy, setFeedBusy] = useState(false);
   const [resetBusy, setResetBusy] = useState(false);
+  const [lifecycleBusy, setLifecycleBusy] = useState(false);
   const [feedStatus, setFeedStatus] = useState("");
   const [messages, setMessages] = useState([]);
   const [question, setQuestion] = useState("");
@@ -645,7 +669,7 @@ export default function InvestigationWorkbench() {
   }, [alerts]);
   const filteredAlerts = useMemo(() => alerts.filter((alert) => {
     const matchesProcess = processFilter === PROCESS_FILTER_ALL || processName(alert) === processFilter;
-    const haystack = [alert.reason, alert.detail, alert.source_system, alert.interface_key, alert.severity, alert.status, processName(alert)].filter(Boolean).join(" ").toLowerCase();
+    const haystack = [alert.reason, alert.detail, alert.source_system, alert.interface_key, alert.severity, alert.status, alert.lifecycle?.label, alert.lifecycle_status, processName(alert)].filter(Boolean).join(" ").toLowerCase();
     return matchesProcess && haystack.includes(alertQuery.trim().toLowerCase());
   }), [alerts, alertQuery, processFilter]);
   const alertGroups = useMemo(() => groupAlertsByProcess(filteredAlerts), [filteredAlerts]);
@@ -764,8 +788,9 @@ export default function InvestigationWorkbench() {
         api.createInvestigationCase(selectedAlert.key),
         api.flow(selectedAlert.interface_key),
       ]);
+      setAlerts((current) => mergeUpdatedAlert(current, investigation.alert));
       setActiveCase(nextCase);
-      setCaseStatus(`Case ${nextCase.key} opened and stored.`);
+      setCaseStatus(`Case ${nextCase.key} opened; alert marked investigating.`);
       mark("mapped", "complete", `Mapped to ${investigation.topology.alert_interface.name}.`);
       await pause(250);
 
@@ -801,6 +826,20 @@ export default function InvestigationWorkbench() {
       setSteps(STEP_TEMPLATE.map((s) => ({ ...s, status: "pending" })));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const updateLifecycle = async (status) => {
+    if (!selectedAlert) return;
+    setLifecycleBusy(true);
+    try {
+      const res = await api.updateAlertLifecycle(selectedAlert.key, { status });
+      setAlerts((current) => mergeUpdatedAlert(current, res.alert));
+      setFeedStatus(`Alert lifecycle updated to ${res.alert.lifecycle?.label || status}.`);
+    } catch (err) {
+      setFeedStatus(err.message || "Unable to update alert lifecycle.");
+    } finally {
+      setLifecycleBusy(false);
     }
   };
 
@@ -926,7 +965,7 @@ export default function InvestigationWorkbench() {
           <h3>Alert inbox</h3>
           <span className="count-pill">{alerts.length}</span>
         </div>
-        <SelectedAlertPanel alert={selectedAlert} busy={busy} activeCase={activeCase} isHiddenByFilters={Boolean(selectedAlert && !selectedAlertVisible)} onInvestigate={startInvestigation} />
+        <SelectedAlertPanel alert={selectedAlert} busy={busy} lifecycleBusy={lifecycleBusy} activeCase={activeCase} isHiddenByFilters={Boolean(selectedAlert && !selectedAlertVisible)} onInvestigate={startInvestigation} onLifecycleChange={updateLifecycle} />
         <details className="sidebar-disclosure">
           <summary>Filter alerts <span>{hiddenAlertCount ? `${hiddenAlertCount} hidden` : "optional"}</span></summary>
           <div className="inbox-filter-panel">
@@ -966,6 +1005,7 @@ export default function InvestigationWorkbench() {
                 <span>{selectedAlert.external_id || "source alert"}</span>
                 <span>{selectedAlert.source_system}</span>
                 <span>{selectedAlert.interface_key}</span>
+                <span>{selectedAlert.lifecycle?.label || "New"}</span>
                 {activeCase?.key && <span>Saved as {activeCase.key}</span>}
               </div>
             )}

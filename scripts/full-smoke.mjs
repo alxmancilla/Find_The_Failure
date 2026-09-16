@@ -69,14 +69,20 @@ try {
 
   const feed = await post("/alerts/demo-feed");
   assert(feed.alerts.length >= 4, "demo feed alerts missing");
+  assert(feed.alerts.every((alert) => alert.lifecycle_status === "new"), "alerts should default lifecycle to new");
+  const acknowledged = await post(`/alerts/${encodeURIComponent(feed.alerts[0].key)}/lifecycle`, { status: "acknowledged" });
+  assert(acknowledged.alert.lifecycle_status === "acknowledged", "alert lifecycle acknowledge failed");
   const investigation = await get("/investigation/" + encodeURIComponent(feed.alerts[0].key));
   assert(investigation.related_context.documents.length > 0, "related context missing");
   assert(investigation.mongodb_trace.related, "MongoDB related trace missing");
   const created = await post("/cases/investigate/" + encodeURIComponent(feed.alerts[0].key));
+  assert(created.investigation.alert.lifecycle_status === "investigating", "case create did not mark alert investigating");
   assert(created.case?.timeline?.some((item) => item.event === "related_context_retrieved"), "case memory incomplete");
   const cases = await get("/cases");
   assert(cases.cases.length >= 1, "case list empty after create");
   await cleanup();
+  const resetAlerts = await get("/alerts");
+  assert(resetAlerts.alerts.every((alert) => alert.lifecycle_status === "new"), "reset should clear alert lifecycle metadata");
 
   console.log(JSON.stringify({
     ok: true,
@@ -97,6 +103,7 @@ try {
     scenarios: scenarios.length,
     retrievalEngine: investigation.related_context.engine,
     relatedContext: investigation.related_context.documents.length,
+    lifecycleStatus: created.investigation.alert.lifecycle_status,
     caseTimelineEvents: created.case.timeline.length,
     finalState: "workbench feed/cases cleared and demo reset",
   }, null, 2));
