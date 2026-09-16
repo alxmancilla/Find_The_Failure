@@ -6,7 +6,7 @@ const pct = (n) => `${Math.round((n || 0) * 100)}%`;
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const STEP_TEMPLATE = [
-  { id: "received", label: "Alert received", detail: "Waiting for an observability signal." },
+  { id: "received", label: "Alert received", detail: "Load the selected raw alert from the Workbench inbox." },
   { id: "mapped", label: "Mapped to interface", detail: "Resolve the alert to canonical integration metadata." },
   { id: "topology", label: "Loaded topology", detail: "Retrieve the dependency path and related systems." },
   { id: "impact", label: "Assessed impact", detail: "Identify business processes, owners, and downstream risk." },
@@ -72,8 +72,8 @@ const PLAYBOOK_PHASES = [
 const MONGODB_STAGE_EXPLANATIONS = {
   received: {
     capability: "Durable alert intake and case memory",
-    collections: ["source_records", "events", "investigation_cases"],
-    queryPattern: "Find the alert source record, normalize the payload, and create an auditable case document.",
+    collections: ["source_records", "investigation_cases"],
+    queryPattern: "Find the selected alert source record and create an auditable case document.",
     learns: "The agent captures the raw observability signal, source system, severity, status, and alert-to-interface key.",
     demoLine: "MongoDB gives the workflow a durable starting point instead of a transient alert notification.",
   },
