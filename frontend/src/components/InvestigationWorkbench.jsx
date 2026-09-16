@@ -42,6 +42,33 @@ const ALERT_GROUP_ORDER = [
 ];
 const PROCESS_FILTER_ALL = "All processes";
 
+const PLAYBOOK_PHASES = [
+  {
+    id: "intake",
+    label: "Intake",
+    detail: "Capture the alert and map it to a known integration asset.",
+    stageIds: ["received", "mapped"],
+  },
+  {
+    id: "impact",
+    label: "Impact",
+    detail: "Load topology and translate technical risk into business impact.",
+    stageIds: ["topology", "impact"],
+  },
+  {
+    id: "evidence",
+    label: "Evidence",
+    detail: "Retrieve related context and collect auditable provenance.",
+    stageIds: ["related", "evidence"],
+  },
+  {
+    id: "recommendation",
+    label: "Recommendation",
+    detail: "Rank fault domains and prepare safe next checks.",
+    stageIds: ["ranked", "summary"],
+  },
+];
+
 const MONGODB_STAGE_EXPLANATIONS = {
   received: {
     capability: "Durable alert intake and case memory",
@@ -163,28 +190,54 @@ function Timeline({ steps, selectedStageId, onSelectStage }) {
   const completeCount = steps.filter((step) => step.status === "complete").length;
   const runningStep = steps.find((step) => step.status === "running");
   const progress = Math.round((completeCount / steps.length) * 100);
+  const stepById = new Map(steps.map((step) => [step.id, step]));
+  const phases = PLAYBOOK_PHASES.map((phase) => {
+    const phaseSteps = phase.stageIds.map((id) => stepById.get(id)).filter(Boolean);
+    const phaseComplete = phaseSteps.every((step) => step.status === "complete");
+    const phaseRunning = phaseSteps.some((step) => step.status === "running");
+    const phaseSelected = phaseSteps.some((step) => step.id === selectedStageId);
+    return {
+      ...phase,
+      steps: phaseSteps,
+      status: phaseComplete ? "complete" : phaseRunning ? "running" : "pending",
+      open: phaseSelected || phaseRunning,
+    };
+  });
   return (
-    <section className="panel-card agent-timeline">
+    <section className="panel-card investigation-playbook">
       <div className="panel-title-row">
         <div>
-          <h3>Agent activity</h3>
-          <p className="muted mini-copy">{runningStep ? runningStep.detail : `${completeCount} of ${steps.length} steps complete`} · Click a stage for MongoDB usage.</p>
+          <h3>Investigation playbook</h3>
+          <p className="muted mini-copy">Same supervised playbook for every alert; each step is grounded in case-specific MongoDB context.</p>
+          <p className="muted mini-copy">{runningStep ? runningStep.detail : `${completeCount} of ${steps.length} checks complete`} · Expand a phase and click a check for MongoDB usage.</p>
         </div>
         <span className="progress-pill">{progress}%</span>
       </div>
       <div className="progress-track" aria-label="Investigation progress">
         <span style={{ width: `${progress}%` }} />
       </div>
-      {steps.map((step, index) => (
-        <button key={step.id} type="button" className={`timeline-step ${step.status} ${step.id === selectedStageId ? "selected" : ""}`} aria-current={step.id === selectedStageId ? "step" : undefined} onClick={() => onSelectStage(step.id)}>
-          <span className="timeline-dot" />
-          <span className="timeline-index">{index + 1}</span>
-          <div>
-            <div><strong>{step.label}</strong> <StatusPill status={step.status} /></div>
-            <p>{step.detail}</p>
-          </div>
-        </button>
-      ))}
+      <div className="playbook-phase-list">
+        {phases.map((phase, phaseIndex) => (
+          <details key={phase.id} className={`playbook-phase ${phase.status}`} open={phase.open}>
+            <summary>
+              <span className="phase-index">{phaseIndex + 1}</span>
+              <span><strong>{phase.label}</strong><small>{phase.detail}</small></span>
+              <StatusPill status={phase.status} />
+            </summary>
+            <div className="phase-step-list">
+              {phase.steps.map((step) => (
+                <button key={step.id} type="button" className={`phase-step ${step.status} ${step.id === selectedStageId ? "selected" : ""}`} aria-current={step.id === selectedStageId ? "step" : undefined} onClick={() => onSelectStage(step.id)}>
+                  <span className="timeline-dot" />
+                  <span>
+                    <strong>{step.label}</strong>
+                    <small>{step.detail}</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </details>
+        ))}
+      </div>
     </section>
   );
 }

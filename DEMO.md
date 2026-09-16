@@ -53,7 +53,7 @@ demo-feed alerts/cases and resetting simulated failures.
 ## 2. Recommended hero path (≈6 minutes)
 
 Open **Investigation Workbench**. Start from the alert inbox and let the agent
-workflow populate the timeline, topology, evidence, and recommended checks.
+playbook populate topology, evidence, and recommended checks.
 
 ### Act 1 — Start from the business symptom
 1. Select the **ERP endpoint timeout** alert.
@@ -61,17 +61,17 @@ workflow populate the timeline, topology, evidence, and recommended checks.
    a static architecture diagram."
 3. Click **Investigate selected alert**.
 
-### Act 2 — Watch the agent investigation timeline
-The agent activity timeline advances through:
+### Act 2 — Watch the investigation playbook
+The playbook follows the same supervised pattern for every alert, with
+case-specific evidence inside each phase:
 
-- Alert received
-- Mapped to interface
-- Loaded topology
-- Assessed impact
-- Retrieved related context
-- Collected evidence
-- Ranked fault domains
-- Generated next checks
+- **Intake** — alert received and mapped to a known interface
+- **Impact** — topology loaded and business impact assessed
+- **Evidence** — related context retrieved and provenance collected
+- **Recommendation** — fault domains ranked and next checks generated
+
+Expand a phase to show the underlying checks, then click a check to show the
+MongoDB collections and query pattern behind it.
 
 > "The human is supervising an investigation, not chatting with a generic bot."
 
