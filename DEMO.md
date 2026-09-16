@@ -158,6 +158,10 @@ In the **Investigation Workbench**, click **Ingest enterprise context pack** to
 run the same fixture capture/normalization path and immediately show the two
 external Alertmanager alerts in the alert inbox.
 
+The Workbench also has **Load scripted demo alerts** as a secondary rehearsal
+shortcut. Use it only when you want extra curated alert scenarios; the enterprise
+context pack is the primary ingestion story.
+
 ### Optional — What-if modernization question
 1. Go to the **Modernization** tab.
 2. Select **X12 Translator** → **Analyze**.

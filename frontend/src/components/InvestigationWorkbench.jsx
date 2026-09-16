@@ -663,9 +663,9 @@ export default function InvestigationWorkbench() {
     }
   };
 
-  const ingestLatestAlerts = async () => {
+  const loadScriptedDemoAlerts = async () => {
     setFeedBusy(true);
-    setFeedStatus("Listening for latest observability alerts…");
+    setFeedStatus("Loading scripted demo alerts for rehearsal…");
     try {
       const res = await api.ingestDemoAlerts();
       setAlerts(res.alerts || []);
@@ -673,11 +673,11 @@ export default function InvestigationWorkbench() {
       const refreshed = Math.max((res.upserted_alerts || 0) - (res.inserted_alerts || 0), 0);
       setFeedStatus(
         res.inserted_alerts
-          ? `${res.inserted_alerts} new alerts ingested from observability feed.`
-          : `${refreshed} feed alerts refreshed; inbox is up to date.`
+          ? `${res.inserted_alerts} scripted demo alerts loaded for rehearsal.`
+          : `${refreshed} scripted demo alerts refreshed; inbox is up to date.`
       );
     } catch (err) {
-      setFeedStatus(err.message || "Unable to ingest latest alerts.");
+      setFeedStatus(err.message || "Unable to load scripted demo alerts.");
     } finally {
       setFeedBusy(false);
     }
@@ -754,11 +754,11 @@ export default function InvestigationWorkbench() {
           <span className="count-pill">{alerts.length}</span>
         </div>
         <div className="alert-inbox-actions">
-          <button type="button" disabled={feedBusy || resetBusy || busy} onClick={ingestLatestAlerts}>{feedBusy ? "Ingesting…" : "Ingest latest feed alerts"}</button>
-          <button type="button" disabled={feedBusy || resetBusy || busy} onClick={ingestEnterpriseContext}>{feedBusy ? "Ingesting…" : "Ingest enterprise context pack"}</button>
+          <button type="button" className="primary" disabled={feedBusy || resetBusy || busy} onClick={ingestEnterpriseContext}>{feedBusy ? "Ingesting…" : "Ingest enterprise context pack"}</button>
+          <button type="button" disabled={feedBusy || resetBusy || busy} onClick={loadScriptedDemoAlerts}>{feedBusy ? "Loading…" : "Load scripted demo alerts"}</button>
           <button type="button" className="danger" disabled={feedBusy || resetBusy || busy} onClick={clearDemoState}>{resetBusy ? "Resetting…" : "Reset rehearsal state"}</button>
         </div>
-        <p className="feed-status">{feedStatus || "Use the curated feed for scripted alerts, or the enterprise context pack to replay raw Alertmanager + catalog + CMDB records into the inbox."}</p>
+        <p className="feed-status">{feedStatus || "Use the enterprise context pack for the realistic Alertmanager + catalog + CMDB ingestion path; use scripted demo alerts only for extra rehearsal scenarios."}</p>
         <SelectedAlertPanel alert={selectedAlert} busy={busy} activeCase={activeCase} isHiddenByFilters={Boolean(selectedAlert && !selectedAlertVisible)} onInvestigate={startInvestigation} />
         <div className="inbox-filter-panel">
           <label>
