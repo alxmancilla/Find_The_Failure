@@ -77,8 +77,8 @@ auditable memory.
   affected interfaces, owners to coordinate, and migration dependencies.
 - **Agent v1 Investigation Workbench** — alert-first supervised workflow with
   topology mapping, related runbook/incident retrieval, evidence, likely
-  fault-domain ranking, grounded follow-up, case memory, enterprise context
-  ingestion controls, and secondary scripted demo-alert controls.
+  fault-domain ranking, grounded follow-up, case memory, a guided enterprise
+  context replay path, and collapsed secondary demo controls.
 - **Enterprise fixture ingestion** — optional Alertmanager, integration-catalog,
   and CMDB-style records are captured as raw source evidence, resolved to
   canonical keys, normalized into events/relationships, surfaced in the

@@ -198,10 +198,26 @@ select { padding: 8px; border-radius: 8px; background: var(--panel-2); color: va
 .alert-inbox-head h3 { margin: 0; }
 .alert-inbox-actions { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
 .alert-inbox-actions button { padding: 6px 8px; font-size: 11px; white-space: nowrap; }
-.feed-status { min-height: 32px; margin: 8px 0 10px; color: var(--muted); font-size: 11px; line-height: 1.35; }
-.demo-hint { margin: 14px 0 4px; padding: 12px; border-radius: 12px; border: 1px solid var(--accent-dim); background: rgba(0, 237, 100, 0.08); font-size: 12px; line-height: 1.4; }
+.feed-status { margin: 8px 0 10px; color: var(--muted); font-size: 11px; line-height: 1.35; }
+.demo-hint { margin: 14px 0 10px; padding: 12px; border-radius: 12px; border: 1px solid var(--accent-dim); background: rgba(0, 237, 100, 0.08); font-size: 12px; line-height: 1.4; }
 .demo-hint strong, .demo-hint span { display: block; }
 .demo-hint span { margin-top: 4px; color: var(--muted); }
+.guided-path { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 7px; }
+.guided-path li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: start; color: var(--muted); }
+.guided-path li > span { margin-top: 0; color: inherit; }
+.guided-path li strong { color: inherit; }
+.guided-path li small { display: block; margin-top: 2px; font-size: 10px; line-height: 1.3; }
+.guided-path li.active { color: var(--text); }
+.guided-path li.complete { color: var(--accent); }
+.guided-path .guided-path-num { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid currentColor; border-radius: 50%; font-size: 10px; font-weight: 800; }
+.replay-card { margin: 10px 0; padding: 12px; border-radius: 14px; border: 1px solid var(--accent-dim); background: linear-gradient(135deg, rgba(15, 42, 30, 0.9), rgba(20, 26, 46, 0.9)); display: grid; gap: 8px; }
+.replay-card.ready { border-color: rgba(120, 135, 170, 0.28); background: rgba(28, 36, 56, 0.45); }
+.replay-card p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.35; }
+.sidebar-disclosure { margin: 10px 0; border: 1px solid rgba(120, 135, 170, 0.22); border-radius: 12px; background: rgba(11, 16, 32, 0.3); }
+.sidebar-disclosure summary { cursor: pointer; padding: 9px 10px; color: var(--muted); font-size: 11px; font-weight: 700; display: flex; justify-content: space-between; gap: 8px; }
+.sidebar-disclosure summary span { color: var(--accent); font-size: 10px; }
+.sidebar-disclosure[open] { background: rgba(28, 36, 56, 0.36); }
+.sidebar-disclosure > :not(summary) { margin-left: 10px; margin-right: 10px; }
 .alert-group { margin: 14px 0 16px; padding: 10px; border: 1px solid rgba(120, 135, 170, 0.22); border-radius: 14px; background: rgba(28, 36, 56, 0.32); }
 .alert-group-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .alert-group-head h4 { margin: 2px 0 0; color: var(--text); font-size: 12px; line-height: 1.25; }
@@ -221,7 +237,7 @@ select { padding: 8px; border-radius: 8px; background: var(--panel-2); color: va
 .selected-alert-panel strong { line-height: 1.35; }
 .selected-alert-panel small { color: var(--muted); }
 .saved-case-pill { justify-self: start; padding: 3px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); background: rgba(28, 36, 56, 0.7); font-size: 10px; }
-.inbox-filter-panel { margin: 12px 0; padding: 10px; display: grid; gap: 9px; border: 1px solid var(--border); border-radius: 14px; background: rgba(11, 16, 32, 0.38); }
+.inbox-filter-panel { margin: 0 0 10px; padding: 10px; display: grid; gap: 9px; border: 1px solid var(--border); border-radius: 14px; background: rgba(11, 16, 32, 0.38); }
 .inbox-filter-panel label span { display: block; margin-bottom: 6px; color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
 .inbox-filter-panel input { width: 100%; box-sizing: border-box; padding: 9px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); }
 .inbox-filter-panel small { color: var(--muted); font-size: 11px; }

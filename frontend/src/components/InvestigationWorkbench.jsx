@@ -146,6 +146,19 @@ function AlertGroup({ group, selectedKey, onSelect }) {
   );
 }
 
+function GuidedPath({ steps }) {
+  return (
+    <ol className="guided-path" aria-label="Recommended investigation path">
+      {steps.map((step, index) => (
+        <li key={step.label} className={step.status}>
+          <span className="guided-path-num">{index + 1}</span>
+          <span><strong>{step.label}</strong><small>{step.detail}</small></span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 function Timeline({ steps, selectedStageId, onSelectStage }) {
   const completeCount = steps.filter((step) => step.status === "complete").length;
   const runningStep = steps.find((step) => step.status === "running");
@@ -516,6 +529,29 @@ export default function InvestigationWorkbench() {
   const hiddenAlertCount = alerts.length - filteredAlerts.length;
   const selectedAlertVisible = useMemo(() => filteredAlerts.some((alert) => alert.key === selectedKey), [filteredAlerts, selectedKey]);
   const selectedStage = useMemo(() => steps.find((step) => step.id === selectedStageId) || steps[0], [selectedStageId, steps]);
+  const hasEnterpriseContext = useMemo(() => alerts.some((alert) => alert.source_system === "alertmanager-webhook"), [alerts]);
+  const guidedPath = useMemo(() => [
+    {
+      label: "Replay context",
+      detail: hasEnterpriseContext ? "External alerts loaded" : "Load Alertmanager + catalog + CMDB records",
+      status: hasEnterpriseContext ? "complete" : "active",
+    },
+    {
+      label: "Select alert",
+      detail: selectedAlert ? selectedAlert.business_process_name || selectedAlert.interface_key : "Choose an inbox item",
+      status: selectedAlert ? "complete" : hasEnterpriseContext ? "active" : "pending",
+    },
+    {
+      label: "Open case",
+      detail: activeCase ? activeCase.key : "Create an auditable investigation",
+      status: activeCase ? "complete" : selectedAlert ? "active" : "pending",
+    },
+    {
+      label: "Review evidence",
+      detail: result ? "Impact, topology, related context ready" : "Follow the agent timeline",
+      status: result ? "complete" : activeCase ? "active" : "pending",
+    },
+  ], [activeCase, hasEnterpriseContext, result, selectedAlert]);
 
   const loadAlerts = useCallback(async () => {
     const res = await api.alerts();
@@ -746,40 +782,54 @@ export default function InvestigationWorkbench() {
         <h2>Investigation Workbench</h2>
         <p className="muted">Alert-first, read-only workflow for mapping operational signals to topology, owners, impact, evidence, and safe next checks.</p>
         <div className="demo-hint">
-          <strong>Suggested demo path</strong>
-          <span>Pick an alert, open an investigation case, review impact, then reset rehearsal state when done.</span>
+          <strong>Recommended flow</strong>
+          <GuidedPath steps={guidedPath} />
         </div>
+        <div className={`replay-card ${hasEnterpriseContext ? "ready" : ""}`}>
+          <strong>{hasEnterpriseContext ? "Enterprise context is loaded" : "Start here"}</strong>
+          <p>{hasEnterpriseContext ? "External Alertmanager alerts are available in the inbox." : "Replay enterprise context to load raw Alertmanager, catalog, and CMDB records into the inbox."}</p>
+          <button type="button" className="primary" disabled={feedBusy || resetBusy || busy} onClick={ingestEnterpriseContext}>{feedBusy ? "Replaying…" : "Replay enterprise context"}</button>
+        </div>
+        <details className="sidebar-disclosure demo-controls">
+          <summary>Demo controls</summary>
+          <div className="alert-inbox-actions">
+            <button type="button" disabled={feedBusy || resetBusy || busy} onClick={loadScriptedDemoAlerts}>{feedBusy ? "Loading…" : "Add extra demo alerts"}</button>
+            <button type="button" className="danger" disabled={feedBusy || resetBusy || busy} onClick={clearDemoState}>{resetBusy ? "Resetting…" : "Reset demo"}</button>
+          </div>
+          <p className="feed-status">Reset clears enterprise fixtures, scripted demo alerts, and case memory.</p>
+        </details>
+        <p className="feed-status">{feedStatus || "Enterprise context is the primary demo path. Extra scripted alerts are optional rehearsal data."}</p>
         <div className="alert-inbox-head">
           <h3>Alert inbox</h3>
           <span className="count-pill">{alerts.length}</span>
         </div>
-        <div className="alert-inbox-actions">
-          <button type="button" className="primary" disabled={feedBusy || resetBusy || busy} onClick={ingestEnterpriseContext}>{feedBusy ? "Ingesting…" : "Ingest enterprise context pack"}</button>
-          <button type="button" disabled={feedBusy || resetBusy || busy} onClick={loadScriptedDemoAlerts}>{feedBusy ? "Loading…" : "Load scripted demo alerts"}</button>
-          <button type="button" className="danger" disabled={feedBusy || resetBusy || busy} onClick={clearDemoState}>{resetBusy ? "Resetting…" : "Reset rehearsal state"}</button>
-        </div>
-        <p className="feed-status">{feedStatus || "Use the enterprise context pack for the realistic Alertmanager + catalog + CMDB ingestion path; use scripted demo alerts only for extra rehearsal scenarios."}</p>
         <SelectedAlertPanel alert={selectedAlert} busy={busy} activeCase={activeCase} isHiddenByFilters={Boolean(selectedAlert && !selectedAlertVisible)} onInvestigate={startInvestigation} />
-        <div className="inbox-filter-panel">
-          <label>
-            <span>Filter alerts</span>
-            <input value={alertQuery} onChange={(e) => setAlertQuery(e.target.value)} placeholder="Search reason, source, interface…" />
-          </label>
-          <div className="process-filter-row" aria-label="Filter by business process">
-            {processOptions.map((option) => (
-              <button key={option.name} type="button" className={processFilter === option.name ? "active" : ""} onClick={() => setProcessFilter(option.name)}>
-                {option.name}<span>{option.count}</span>
-              </button>
-            ))}
+        <details className="sidebar-disclosure">
+          <summary>Filter alerts <span>{hiddenAlertCount ? `${hiddenAlertCount} hidden` : "optional"}</span></summary>
+          <div className="inbox-filter-panel">
+            <label>
+              <span>Search alerts</span>
+              <input value={alertQuery} onChange={(e) => setAlertQuery(e.target.value)} placeholder="Reason, source, interface…" />
+            </label>
+            <div className="process-filter-row" aria-label="Filter by business process">
+              {processOptions.map((option) => (
+                <button key={option.name} type="button" className={processFilter === option.name ? "active" : ""} onClick={() => setProcessFilter(option.name)}>
+                  {option.name}<span>{option.count}</span>
+                </button>
+              ))}
+            </div>
+            {hiddenAlertCount > 0 && <small>{hiddenAlertCount} alert{hiddenAlertCount === 1 ? "" : "s"} hidden by filters.</small>}
           </div>
-          {hiddenAlertCount > 0 && <small>{hiddenAlertCount} alert{hiddenAlertCount === 1 ? "" : "s"} hidden by filters.</small>}
-        </div>
+        </details>
         {!filteredAlerts.length && <div className="empty-card"><strong>No matching alerts</strong><p>Clear the search or switch process filters to see more alerts.</p></div>}
         {alertGroups.map((group) => (
           <AlertGroup key={group.name} group={group} selectedKey={selectedKey} onSelect={selectAlert} />
         ))}
-        <p className="feed-status">{caseStatus || "Case memory stores investigation history and grounded follow-up."}</p>
-        <CaseMemory cases={cases} activeCase={activeCase} onSelect={selectCase} />
+        <details className="sidebar-disclosure case-history">
+          <summary>Case memory <span>{cases.length}</span></summary>
+          <p className="feed-status">{caseStatus || "Stores investigation history and grounded follow-up."}</p>
+          <CaseMemory cases={cases} activeCase={activeCase} onSelect={selectCase} />
+        </details>
       </aside>
 
       <main className="workbench-main">

@@ -154,13 +154,14 @@ come from, and can we trust it?"
 4. Click **Clear fixture pack** if you want to return to the default clean
    Workbench rehearsal state.
 
-In the **Investigation Workbench**, click **Ingest enterprise context pack** to
-run the same fixture capture/normalization path and immediately show the two
-external Alertmanager alerts in the alert inbox.
+In the **Investigation Workbench**, click **Replay enterprise context** to run
+the same fixture capture/normalization path and immediately show the two
+external Alertmanager alerts in the alert inbox. The sidebar now presents this
+as the primary path: replay context, select alert, open case, review evidence.
 
-The Workbench also has **Load scripted demo alerts** as a secondary rehearsal
-shortcut. Use it only when you want extra curated alert scenarios; the enterprise
-context pack is the primary ingestion story.
+Open **Demo controls** only when you need **Add extra demo alerts** or **Reset
+demo**. The scripted alerts are secondary rehearsal data; the enterprise context
+pack is the primary ingestion story.
 
 ### Optional — What-if modernization question
 1. Go to the **Modernization** tab.
