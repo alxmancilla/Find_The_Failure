@@ -84,11 +84,54 @@ const cmdbFixtures = [
   },
 ];
 
+const changeFixtures = [
+  {
+    change_id: "CHG-1842",
+    source_system: "deployment-events",
+    change_type: "deployment",
+    asset_type: "system",
+    asset_alias: "APEXERP01",
+    business_process_key: "hospital-order-fulfillment",
+    observed_at: minutesAgo(22),
+    actor: "release-engineering",
+    risk: "medium",
+    summary: "Apex ERP order API patch deployed",
+    detail: "Release 2026.09.16.3 updated order-create timeout handling and connection retry defaults.",
+  },
+  {
+    change_id: "CHG-1847",
+    source_system: "integration-catalog-export",
+    change_type: "route",
+    asset_type: "interface",
+    interface_alias: "SUPPLIER_REPLENISH_850",
+    business_process_key: "supplier-replenishment",
+    observed_at: minutesAgo(34),
+    actor: "b2b-operations",
+    risk: "high",
+    summary: "Supplier EDI route failover window changed",
+    detail: "Catalog update moved replenishment 850 traffic to the supplier secondary transport profile.",
+  },
+  {
+    change_id: "CHG-1815",
+    source_system: "config-registry",
+    change_type: "config",
+    asset_type: "system",
+    asset_alias: "X12_TRANSLATOR",
+    business_process_key: "hospital-order-fulfillment",
+    observed_at: minutesAgo(82),
+    actor: "integration-platform",
+    risk: "low",
+    summary: "X12 translator batch-size config increased",
+    detail: "Translator batch-size changed from 200 to 500 for inbound 850 processing throughput test.",
+  },
+];
+
 export function buildEnterpriseFixtureSourceRecords(capturedAt = now()) {
   return [
     ...alertmanagerFixtures.map((fixture) => alertRecord(fixture, capturedAt)),
     ...parseCsv(integrationCatalogCsv).map((row) => integrationCatalogRecord(row, capturedAt)),
     ...cmdbFixtures.map((fixture) => cmdbRecord(fixture, capturedAt)),
+    ...changeFixtures.map((fixture) => changeRecord(fixture, capturedAt)),
   ];
 }
 
@@ -171,6 +214,36 @@ function cmdbRecord(fixture, capturedAt) {
     evidence: relationship.evidence,
     resolution: resolution(fixture.app_alias, systemKey, "cmdb_alias"),
     payload: { relationship, owner_key: fixture.owner_key, tier: fixture.tier, raw: fixture },
+    capturedAt,
+  });
+}
+
+function changeRecord(fixture, capturedAt) {
+  const assetKey = fixture.asset_type === "interface"
+    ? interfaceAliases[fixture.interface_alias]
+    : systemAliases[fixture.asset_alias];
+  const alias = fixture.interface_alias || fixture.asset_alias;
+  return sourceRecord({
+    sourceSystem: fixture.source_system,
+    recordType: "change",
+    externalId: fixture.change_id,
+    entityType: fixture.asset_type,
+    entityKey: assetKey,
+    observedAt: fixture.observed_at,
+    evidence: [`${fixture.change_id}: ${fixture.summary} — ${fixture.detail}`],
+    resolution: resolution(alias, assetKey, fixture.asset_type === "interface" ? "interface_alias" : "cmdb_alias"),
+    payload: {
+      change_type: fixture.change_type,
+      asset_type: fixture.asset_type,
+      asset_key: assetKey,
+      business_process_key: fixture.business_process_key,
+      business_process_name: processNames[fixture.business_process_key],
+      summary: fixture.summary,
+      detail: fixture.detail,
+      risk: fixture.risk,
+      actor: fixture.actor,
+      raw: fixture,
+    },
     capturedAt,
   });
 }

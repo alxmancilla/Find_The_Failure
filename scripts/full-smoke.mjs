@@ -48,13 +48,19 @@ try {
 
   await post("/ingestion/fixtures/clear");
   const fixtureLoad = await post("/ingestion/fixtures");
-  assert(fixtureLoad.source_records_loaded >= 7, "enterprise fixture pack did not load");
+  assert(fixtureLoad.source_records_loaded >= 10, "enterprise fixture pack did not load");
   const ingestion = await get("/ingestion");
   assert(Array.isArray(ingestion.source_records), "ingestion dashboard missing source records");
-  assert(ingestion.quality.fixture_records >= 7, "fixture records missing from dashboard");
+  assert(ingestion.quality.fixture_records >= 10, "fixture records missing from dashboard");
   assert(ingestion.pipeline.length === 4, "ingestion pipeline summary missing");
   const ingestionRun = await post("/ingestion/run");
   assert(ingestionRun.ok === true, "ingestion run failed");
+  const fixtureAlerts = await get("/alerts");
+  const externalAlerts = fixtureAlerts.alerts.filter((alert) => alert.source_system === "alertmanager-webhook");
+  assert(externalAlerts.length >= 2, "external Alertmanager alerts missing");
+  const fixtureInvestigation = await get("/investigation/" + encodeURIComponent(externalAlerts[0].key));
+  assert(fixtureInvestigation.change_correlation.documents.length > 0, "change correlation missing");
+  assert(fixtureInvestigation.mongodb_trace.changes, "MongoDB change trace missing");
   const quality = await get("/ingestion/quality");
   assert(Array.isArray(quality.findings), "ingestion quality missing findings");
   assert(quality.provenance_coverage > 0, "provenance coverage missing");
@@ -94,6 +100,7 @@ try {
     ingestion: {
       records: ingestion.source_records.length,
       fixtureRecords: ingestion.quality.fixture_records,
+      changeRecords: ingestion.quality.records_by_type.change || 0,
       relationships: ingestionRun.relationship_upserts,
       events: ingestionRun.event_upserts,
       provenanceCoverage: quality.provenance_coverage,
@@ -102,6 +109,7 @@ try {
     qualityFindings: quality.findings.length,
     scenarios: scenarios.length,
     retrievalEngine: investigation.related_context.engine,
+    changeCorrelation: fixtureInvestigation.change_correlation.documents.length,
     relatedContext: investigation.related_context.documents.length,
     lifecycleStatus: created.investigation.alert.lifecycle_status,
     caseTimelineEvents: created.case.timeline.length,

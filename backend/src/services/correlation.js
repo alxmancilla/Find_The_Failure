@@ -190,13 +190,15 @@ export async function investigateAlert(sourceRecordKey) {
     ...(impact?.downstream_interfaces || []).flatMap((i) => i.owners || []),
   ])];
   const baseEvidence = collectEvidence(alert, upstream, downstream, impact);
-  const [systems, owners, relatedContext] = await Promise.all([
+  const [systems, owners, relatedContext, changeCorrelation] = await Promise.all([
     System.find({ key: { $in: systemKeys } }).lean(),
     Owner.find({ key: { $in: ownerKeys } }).lean(),
     findRelatedContext(alert, iface, impact),
+    findChangeCorrelation(alert, iface, impact, systemKeys),
   ]);
   const relatedEvidence = formatRelatedEvidence(relatedContext.documents);
-  const evidence = [...baseEvidence, ...relatedEvidence];
+  const changeEvidence = formatChangeEvidence(changeCorrelation.documents);
+  const evidence = [...baseEvidence, ...changeEvidence, ...relatedEvidence];
 
   const candidates = rankFaultDomains(alert, iface, upstream, downstream, systems, impact);
   return {
@@ -206,6 +208,7 @@ export async function investigateAlert(sourceRecordKey) {
     impacted_business_processes: impact?.business_processes || [],
     affected_systems: impact?.affected_systems || [],
     owners,
+    change_correlation: changeCorrelation,
     related_context: relatedContext,
     topology: {
       alert_interface: iface,
@@ -217,10 +220,11 @@ export async function investigateAlert(sourceRecordKey) {
     recommended_next_actions: [
       `Page ${owners[0]?.name || "the owning integration team"}.`,
       `Check ${iface.target} health before restarting upstream senders.`,
+      changeCorrelation.top_change ? `Review recent change ${changeCorrelation.top_change.external_id}: ${changeCorrelation.top_change.summary}.` : "Review recent deployment, config, and route changes for the alert window.",
       relatedContext.documents[0] ? `Review related context: ${relatedContext.documents[0].title}.` : "Search related runbooks and incident notes for matching symptoms.",
       "Use relationship evidence to confirm blast radius with application owners.",
     ],
-    mongodb_trace: buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, impact, systemKeys, ownerKeys, evidence, relatedContext),
+    mongodb_trace: buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, impact, systemKeys, ownerKeys, evidence, relatedContext, changeCorrelation),
   };
 }
 
@@ -376,7 +380,83 @@ function formatRelatedEvidence(documents = []) {
   return documents.slice(0, 3).map((doc) => `Related ${doc.type}: ${doc.title} — ${doc.snippet || doc.text}`);
 }
 
-function buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, impact, systemKeys, ownerKeys, evidence, relatedContext) {
+function formatChangeEvidence(documents = []) {
+  return documents.slice(0, 3).map((change) => `Recent change ${change.external_id}: ${change.summary} (${change.time_context}, ${Math.round(change.score * 100)}% correlation).`);
+}
+
+async function findChangeCorrelation(alert, iface, impact, systemKeys) {
+  const windowMinutes = 180;
+  const alertTime = new Date(alert.observed_at || Date.now());
+  const windowStart = new Date(alertTime.getTime() - windowMinutes * 60 * 1000);
+  const windowEnd = new Date(alertTime.getTime() + 15 * 60 * 1000);
+  const processKeys = [alert.payload?.business_process_key, ...(impact?.business_processes || []).map((p) => p.key)].filter(Boolean);
+  const assetKeys = [...new Set([iface.key, ...systemKeys].filter(Boolean))];
+  const filter = changeCorrelationFilter(assetKeys, processKeys, windowStart, windowEnd);
+  const records = await SourceRecord.find(filter).sort({ observed_at: -1 }).limit(8).lean();
+  const documents = records
+    .map((record) => formatChangeRecord(record, alertTime, assetKeys, processKeys))
+    .sort((a, b) => b.score - a.score || Math.abs(a.minutes_from_alert) - Math.abs(b.minutes_from_alert))
+    .slice(0, 3);
+  const top = documents[0];
+
+  return {
+    query_window_minutes: windowMinutes,
+    filter,
+    documents,
+    top_change: top || null,
+    summary: top
+      ? `${documents.length} recent change${documents.length === 1 ? "" : "s"} correlated; strongest hypothesis is ${top.external_id} on ${top.asset_name}.`
+      : "No recent changes matched the alert interface, adjacent systems, or business process window.",
+  };
+}
+
+function changeCorrelationFilter(assetKeys, processKeys, windowStart, windowEnd) {
+  return {
+    record_type: "change",
+    observed_at: { $gte: windowStart, $lte: windowEnd },
+    $or: [
+      { entity_key: { $in: assetKeys } },
+      { "payload.asset_key": { $in: assetKeys } },
+      { "payload.business_process_key": { $in: processKeys } },
+    ],
+  };
+}
+
+function formatChangeRecord(record, alertTime, assetKeys, processKeys) {
+  const minutesFromAlert = Math.round((alertTime.getTime() - new Date(record.observed_at).getTime()) / 60000);
+  const directAsset = assetKeys.includes(record.entity_key) || assetKeys.includes(record.payload?.asset_key);
+  const processMatch = processKeys.includes(record.payload?.business_process_key);
+  const proximity = Math.max(0, 1 - Math.min(Math.abs(minutesFromAlert), 180) / 180);
+  let score = 0.42 + proximity * 0.24;
+  score += directAsset ? 0.18 : 0;
+  score += processMatch ? 0.1 : 0;
+  score += record.payload?.risk === "high" ? 0.08 : record.payload?.risk === "medium" ? 0.04 : 0;
+  score += record.payload?.change_type === "deployment" || record.payload?.change_type === "route" ? 0.04 : 0;
+
+  return {
+    key: record.key,
+    external_id: record.external_id,
+    source_system: record.source_system,
+    change_type: record.payload?.change_type || "change",
+    asset_type: record.payload?.asset_type || record.entity_type,
+    asset_key: record.payload?.asset_key || record.entity_key,
+    asset_name: record.payload?.asset_key || record.entity_key,
+    business_process_key: record.payload?.business_process_key,
+    business_process_name: record.payload?.business_process_name,
+    observed_at: record.observed_at,
+    minutes_from_alert: minutesFromAlert,
+    time_context: minutesFromAlert >= 0 ? `${minutesFromAlert} min before alert` : `${Math.abs(minutesFromAlert)} min after alert`,
+    summary: record.payload?.summary || "Recent operational change",
+    detail: record.payload?.detail,
+    risk: record.payload?.risk || "unknown",
+    actor: record.payload?.actor,
+    score: clampScore(score, 0.42, 0.92),
+    rationale: `${directAsset ? "Direct asset match" : "Adjacent context match"}; ${processMatch ? "business process match" : "process not mapped"}; ${minutesFromAlert >= 0 ? "occurred before" : "occurred after"} the alert window.`,
+    evidence: record.evidence || [],
+  };
+}
+
+function buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, impact, systemKeys, ownerKeys, evidence, relatedContext, changeCorrelation) {
   const impactedInterfaceKeys = [iface.key, ...(impact?.downstream_interfaces || []).map((i) => i.key)];
   const processKeys = (impact?.business_processes || []).map((p) => p.key);
   const relationshipMatch = {
@@ -442,6 +522,13 @@ function buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, im
       }),
     ]),
     related: stageTrace("Atlas retrieval for related operational context", [relatedContext.trace_operation]),
+    changes: stageTrace("Recent change correlation", [
+      op("SourceRecord", "source_records", "find", {
+        filter: changeCorrelation.filter,
+        chain: ".sort({ observed_at: -1 }).limit(8).lean()",
+        purpose: "Find recent deployment, config, route, and partner changes near the alert window that touch the interface, adjacent systems, or business process.",
+      }),
+    ]),
     evidence: stageTrace("Grounded evidence and provenance", [
       aggregateOp("Relationship", "relationships", downstreamPipeline(iface.key, relationshipMatch), "Read relationship documents whose evidence fields ground the dependency path."),
       {
@@ -604,9 +691,10 @@ function buildCaseTimeline(start, investigation) {
     { at: at(2), event: "topology_loaded", label: "Topology loaded", detail: `${investigation.topology.downstream_interfaces.length} downstream interfaces found.`, status: "complete" },
     { at: at(3), event: "impact_assessed", label: "Impact assessed", detail: `${investigation.affected_systems.length} affected systems identified.`, status: "complete" },
     { at: at(4), event: "related_context_retrieved", label: "Related context retrieved", detail: `${investigation.related_context?.documents?.length || 0} runbook/incident notes found.`, status: "complete" },
-    { at: at(5), event: "evidence_collected", label: "Evidence collected", detail: `${investigation.evidence.length} evidence items attached.`, status: "complete" },
-    { at: at(6), event: "fault_ranked", label: "Fault domain ranked", detail: `${top?.name || "Top candidate"} ranked highest.`, status: "complete" },
-    { at: at(7), event: "next_checks_ready", label: "Next checks ready", detail: `${investigation.recommended_next_actions.length} human-reviewable checks prepared.`, status: "complete" },
+    { at: at(5), event: "changes_correlated", label: "Recent changes correlated", detail: `${investigation.change_correlation?.documents?.length || 0} nearby changes evaluated.`, status: "complete" },
+    { at: at(6), event: "evidence_collected", label: "Evidence collected", detail: `${investigation.evidence.length} evidence items attached.`, status: "complete" },
+    { at: at(7), event: "fault_ranked", label: "Fault domain ranked", detail: `${top?.name || "Top candidate"} ranked highest.`, status: "complete" },
+    { at: at(8), event: "next_checks_ready", label: "Next checks ready", detail: `${investigation.recommended_next_actions.length} human-reviewable checks prepared.`, status: "complete" },
   ];
 }
 

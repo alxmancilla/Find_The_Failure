@@ -336,6 +336,11 @@ select { padding: 8px; border-radius: 8px; background: var(--panel-2); color: va
 .impact-metric-grid strong { display: block; margin-top: 5px; font-size: 12px; line-height: 1.35; }
 .first-check { margin-top: 8px; }
 .first-check p { margin: 5px 0 0; color: var(--text); font-size: 12px; line-height: 1.4; }
+.change-correlation-panel { border-color: rgba(143, 199, 255, 0.3); }
+.change-card { margin-top: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: rgba(11, 16, 32, 0.5); }
+.change-card span, .change-card small { display: block; color: #8fc7ff; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.45px; }
+.change-card strong { display: block; margin: 5px 0; font-size: 12px; line-height: 1.35; }
+.change-card p, .change-card em { display: block; margin: 4px 0 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
 .related-context-panel { border-color: rgba(0, 237, 100, 0.22); }
 .related-context-card { margin-top: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: rgba(11, 16, 32, 0.5); }
 .related-context-card span { display: inline-block; margin-bottom: 5px; color: var(--accent); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.45px; }

@@ -96,9 +96,11 @@ Hospital 123 → EDI Gateway → X12 Translator → Integration API → Apex ERP
    **Investigating** in local Workbench state.
 3. The likely fault domain is highlighted with confidence.
 4. Show impacted business process, downstream risk, owners, and related context.
-5. Open the related runbooks/prior incidents panel to explain how the agent gets
+5. Open **What changed?** to show recent deployment, config, and route changes
+   as correlated hypotheses, not confirmed cause.
+6. Open the related runbooks/prior incidents panel to explain how the agent gets
    operational memory before ranking.
-6. Review the safe next checks. No remediation is executed in Agent v1; the
+7. Review the safe next checks. No remediation is executed in Agent v1; the
    guardrail reminds the audience that action requires operator approval.
 
 > "In seconds we know what broke, what's downstream, who owns it, and what
@@ -205,9 +207,10 @@ pack is the primary ingestion story.
 Seeded footprint: **9 systems, 10 interfaces, 3 owners, 4 data entities**,
 plus **2 business processes, 17 relationships, 5 source records, 8 operational
 knowledge documents, 3 failure scenarios**, and **1 modernization scenario**.
-The optional enterprise fixture pack adds **7 raw source records** for ingestion
+The optional enterprise fixture pack adds **10 raw source records** for ingestion
 demonstrations, including **2 external Alertmanager alerts** that appear in the
-Workbench inbox, and can be cleared without reseeding.
+Workbench inbox and **3 recent change records** that power the Workbench
+"What changed?" panel. It can be cleared without reseeding.
 
 ---
 

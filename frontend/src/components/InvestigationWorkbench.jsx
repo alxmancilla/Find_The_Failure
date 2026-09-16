@@ -11,6 +11,7 @@ const STEP_TEMPLATE = [
   { id: "topology", label: "Loaded topology", detail: "Retrieve the dependency path and related systems." },
   { id: "impact", label: "Assessed impact", detail: "Identify business processes, owners, and downstream risk." },
   { id: "related", label: "Retrieved related context", detail: "Search runbooks and prior incidents for matching symptoms." },
+  { id: "changes", label: "Correlated recent changes", detail: "Check nearby deployment, config, and route changes." },
   { id: "evidence", label: "Collected evidence", detail: "Gather source records, relationship evidence, and events." },
   { id: "ranked", label: "Ranked fault domains", detail: "Score likely causes with supporting rationale." },
   { id: "summary", label: "Generated next checks", detail: "Produce safe, human-reviewable recommendations." },
@@ -20,6 +21,7 @@ const SUGGESTED_QUESTIONS = [
   "Why is this the likely fault domain?",
   "What business process is impacted?",
   "Who owns this interface?",
+  "What changed recently?",
   "What evidence supports this?",
   "What should I check first?",
 ];
@@ -30,6 +32,7 @@ const CASE_EVENT_TO_STEP = {
   topology_loaded: "topology",
   impact_assessed: "impact",
   related_context_retrieved: "related",
+  changes_correlated: "changes",
   evidence_collected: "evidence",
   fault_ranked: "ranked",
   next_checks_ready: "summary",
@@ -58,8 +61,8 @@ const PLAYBOOK_PHASES = [
   {
     id: "evidence",
     label: "Evidence",
-    detail: "Retrieve related context and collect auditable provenance.",
-    stageIds: ["related", "evidence"],
+    detail: "Retrieve related context, check recent changes, and collect provenance.",
+    stageIds: ["related", "changes", "evidence"],
   },
   {
     id: "recommendation",
@@ -104,6 +107,13 @@ const MONGODB_STAGE_EXPLANATIONS = {
     queryPattern: "Search runbooks, incident notes, and business context for text related to the active alert.",
     learns: "The agent sees similar incidents, relevant runbooks, and operational notes before ranking the fault domain.",
     demoLine: "Atlas Search provides immediate value; Automated Embeddings and reranking can be enabled for semantic retrieval when available.",
+  },
+  changes: {
+    capability: "Recent change correlation",
+    collections: ["source_records"],
+    queryPattern: "Find recent change source records near the alert window by interface, adjacent systems, and business process.",
+    learns: "The agent checks deployment, config, route, and partner changes as correlated hypotheses before final ranking.",
+    demoLine: "MongoDB can store change records beside alerts and topology, so the operator can ask what changed without switching tools.",
   },
   evidence: {
     capability: "Grounded evidence and provenance",
@@ -485,6 +495,34 @@ function RelatedContextPanel({ result }) {
   );
 }
 
+function ChangeCorrelationPanel({ result }) {
+  const correlation = result?.change_correlation;
+  const changes = correlation?.documents || [];
+  return (
+    <section className="panel-card change-correlation-panel">
+      <div className="panel-title-row compact">
+        <div>
+          <span className="eyebrow">What changed?</span>
+          <h3>Recent change correlation</h3>
+        </div>
+        {result && <span className="count-pill">{changes.length}</span>}
+      </div>
+      {!result && <p className="muted">Recent deployment, config, and route changes appear after investigation.</p>}
+      {correlation?.summary && <p className="mini-copy muted">{correlation.summary}</p>}
+      {changes.map((change) => (
+        <article key={change.key} className="change-card">
+          <span>{change.change_type} · {change.time_context}</span>
+          <strong>{change.summary}</strong>
+          <p>{change.detail}</p>
+          <small>{change.external_id} · {change.source_system} · {pct(change.score)} correlation</small>
+          <em>{change.rationale} Correlation is not confirmed root cause.</em>
+        </article>
+      ))}
+      {result && !changes.length && <p className="muted">No nearby changes matched this alert window.</p>}
+    </section>
+  );
+}
+
 function EvidencePanel({ result }) {
   const evidence = result?.evidence || [];
   const actions = result?.recommended_next_actions || [];
@@ -583,6 +621,12 @@ function answerQuestion(question, result) {
   if (q.includes("business") || q.includes("process") || q.includes("impact")) return `The impacted business process is ${processes}. Affected systems include ${(result.affected_systems || []).map((s) => s.name).join(", ") || "the mapped downstream systems"}.`;
   if (q.includes("owner") || q.includes("owns")) return `The mapped owner is ${owners}. Use the runbook/contact metadata before taking remediation steps.`;
   if (q.includes("related") || q.includes("similar") || q.includes("runbook") || q.includes("incident")) return `Related context: ${(result.related_context?.documents || []).slice(0, 3).map((d) => d.title).join("; ") || "no matching runbooks or incident notes were found"}.`;
+  if (q.includes("change") || q.includes("deploy") || q.includes("release") || q.includes("config")) {
+    const changes = result.change_correlation?.documents || [];
+    return changes.length
+      ? `Recent correlated changes: ${changes.slice(0, 3).map((c) => `${c.external_id} ${c.summary} (${c.time_context}, ${pct(c.score)})`).join("; ")}. These are hypotheses, not confirmed root cause.`
+      : "No recent deployment, route, or config changes matched the alert interface, adjacent systems, or business process window.";
+  }
   if (q.includes("evidence") || q.includes("support")) return `The strongest evidence is: ${(result.evidence || []).slice(0, 3).join(" ")}`;
   if (q.includes("check") || q.includes("next") || q.includes("first")) return actions || "Start by checking the top fault domain health and validating the interface logs for the alert window.";
   return `For this case, ${result.investigation_summary} Recommended next check: ${(result.recommended_next_actions || [])[0] || "review the top fault domain evidence."}`;
@@ -695,7 +739,7 @@ export default function InvestigationWorkbench() {
     },
     {
       label: "Review evidence",
-      detail: result ? "Impact, topology, related context ready" : "Follow the agent timeline",
+      detail: result ? "Impact, topology, changes, related context ready" : "Follow the agent timeline",
       status: result ? "complete" : activeCase ? "active" : "pending",
     },
   ], [activeCase, hasEnterpriseContext, result, selectedAlert]);
@@ -806,6 +850,10 @@ export default function InvestigationWorkbench() {
 
       mark("related", "running", "Searching related runbooks and incident notes.");
       mark("related", "complete", `${investigation.related_context?.documents?.length || 0} related context items retrieved.`);
+      await pause(250);
+
+      mark("changes", "running", "Checking recent deployment, config, and route changes.");
+      mark("changes", "complete", `${investigation.change_correlation?.documents?.length || 0} nearby changes correlated.`);
       await pause(250);
 
       mark("evidence", "running", "Collecting evidence and provenance.");
@@ -1031,6 +1079,7 @@ export default function InvestigationWorkbench() {
             <OperationalPriorityPanel selectedAlert={selectedAlert} result={result} />
             <SummaryPanel result={result} />
             <BusinessImpactPanel result={result} selectedAlert={selectedAlert} />
+            <ChangeCorrelationPanel result={result} />
             <RelatedContextPanel result={result} />
             <CaseTimeline caseRecord={activeCase} />
             <EvidencePanel result={result} />

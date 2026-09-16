@@ -78,6 +78,8 @@ across disconnected topology diagrams, CMDB records, runbooks, and prior tickets
   existing alert, impact, owner, and recommendation data.
 - **REQ-010:** Alerts shall expose a lightweight local lifecycle that supports
   demo-safe acknowledgement, investigation, escalation, resolution, and reopen.
+- **REQ-011:** Investigation results shall show recent correlated changes as
+  hypotheses grounded in source records.
 
 ## 8. UX design
 
@@ -97,6 +99,10 @@ The selected alert panel includes local lifecycle controls. These controls updat
 Workbench state in MongoDB only; they do not page teams, create ITSM tickets, or
 remediate systems.
 
+The active case area includes a "What changed?" card that shows recent
+deployment, config, and route changes near the alert window as correlated
+hypotheses, not confirmed root cause.
+
 ## 9. Data and API design
 
 - `POST /api/ingestion/fixtures` loads enterprise fixture `source_records`.
@@ -109,6 +115,8 @@ remediate systems.
 - `POST /api/alerts/:sourceRecordKey/lifecycle` updates local Workbench lifecycle
   status on an alert source record.
 - `POST /api/cases/investigate/:sourceRecordKey` creates persisted case memory.
+  Investigation responses include `change_correlation` when matching change
+  records are available.
 
 ## 10. MongoDB usage
 
@@ -130,11 +138,14 @@ remediate systems.
 - [x] Case output includes owner, impact, evidence, and recommended next checks.
 - [x] Active case output includes operational priority and an approval guardrail.
 - [x] Alert output includes local lifecycle status and demo-safe transitions.
+- [x] Active case output includes recent change correlation when fixture changes
+  match the alert context.
 
 ## 12. Product risks
 
 - Alert lifecycle is intentionally lightweight and local-only; it is not an ITSM
   replacement or external escalation workflow.
+- Change correlation can be mistaken for causation unless demo copy stays clear.
 - Fixture replay may be perceived as synthetic unless positioned as a safe
   enterprise ingestion rehearsal.
 - SLA/priority indicators are derived from demo data and should be positioned as
@@ -159,6 +170,7 @@ remediate systems.
 - [x] Align Alert received copy with current source-record/case-memory behavior.
 - [x] Add frontend-only Operational Priority card.
 - [x] Add lightweight alert lifecycle status and controls.
+- [x] Add fixture-backed recent change correlation.
 - [x] Update README and demo runbook.
 
 ## 15. Decisions
@@ -169,13 +181,11 @@ remediate systems.
 
 ## 16. Roadmap priority
 
-1. **Change correlation** — connects symptoms to recent deployments, config
-   changes, routing updates, and ownership changes.
-2. **Alert deduplication and noise reduction** — important for scale realism,
+1. **Alert deduplication and noise reduction** — important for scale realism,
    but less urgent for the curated demo size.
 
 ## 17. Follow-ups
 
 - Keep lifecycle read-only/demo-safe unless a future ITSM handoff spec is drafted.
-- Add a future spec for change correlation and recent deployment context.
+- Keep change correlation framed as hypothesis support, not root-cause proof.
 - Add a future spec for alert deduplication and noise reduction.

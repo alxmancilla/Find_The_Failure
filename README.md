@@ -79,12 +79,12 @@ auditable memory.
 - **Agent v1 Investigation Workbench** — alert-first supervised workflow with
   topology mapping, related runbook/incident retrieval, evidence, likely
   fault-domain ranking, grounded follow-up, case memory, a grouped investigation
-  playbook, local alert lifecycle tracking, a guided enterprise context replay
-  path, and collapsed secondary demo controls.
+  playbook, local alert lifecycle tracking, recent change correlation, a guided
+  enterprise context replay path, and collapsed secondary demo controls.
 - **Enterprise fixture ingestion** — optional Alertmanager, integration-catalog,
-  and CMDB-style records are captured as raw source evidence, resolved to
-  canonical keys, normalized into events/relationships, surfaced in the
-  Workbench inbox, and scored for trust.
+  CMDB-style, and change records are captured as raw source evidence, resolved
+  to canonical keys, normalized into events/relationships, surfaced in the
+  Workbench inbox, correlated to investigations, and scored for trust.
 
 ---
 
@@ -214,12 +214,13 @@ The `interfaces` collection uses a flexible schema so a single model can hold
 EDI, REST, FHIR, event, and SFTP interfaces. Seeded footprint: **9 systems,
 10 interfaces, 3 owners, 4 data entities, 2 business processes, 17 typed
 relationships, and 5 source records**. The Context Ingestion tab and Workbench
-can optionally load **7 enterprise fixture records** from Alertmanager, integration-catalog,
-and CMDB-style exports, then normalize them into additional relationship/event
-evidence with provenance. Two of those records are external Alertmanager alerts
-that appear in the Workbench inbox. The Workbench can also targeted-upsert **4
-additional simulated observability alerts**, retrieve **8 operational knowledge
-documents**, and persist investigation cases.
+can optionally load **10 enterprise fixture records** from Alertmanager,
+integration-catalog, CMDB-style, and change exports, then normalize them into
+additional relationship/event evidence with provenance. Two of those records are
+external Alertmanager alerts that appear in the Workbench inbox, and three are
+recent changes that feed the Workbench "What changed?" panel. The Workbench can
+also targeted-upsert **4 additional simulated observability alerts**, retrieve
+**8 operational knowledge documents**, and persist investigation cases.
 
 ---
 
@@ -291,8 +292,8 @@ npm run smoke
 
 This full demo smoke test exercises the running server across search, graph,
 impact, enterprise fixture ingestion, quality/provenance scoring, scenarios,
-modernization, Workbench investigation, alert lifecycle, related context
-retrieval, case memory, and reset/cleanup. It clears the optional fixture pack
+modernization, Workbench investigation, alert lifecycle, change correlation,
+related context retrieval, case memory, and reset/cleanup. It clears the optional fixture pack
 before the Workbench path so the normal rehearsal baseline remains stable.
 
 For the smaller backend-only check, run `cd backend && node smoke.mjs`.
