@@ -18,6 +18,52 @@ For a step-by-step presenter walkthrough, see [`DEMO.md`](./DEMO.md).
 
 ---
 
+## Recommended demo path
+
+The **Investigation Workbench** is the hero experience. Use the other tabs as
+supporting views only when the audience wants to go deeper.
+
+1. Start from an operational alert in the Workbench.
+2. Show how MongoDB maps the alert to a canonical interface and dependency graph.
+3. Explain business-process impact, accountable owners, and related runbooks.
+4. Open the MongoDB trace to prove each agent stage is grounded in real queries.
+5. Close with persisted case memory and human-reviewed next checks.
+
+Supporting views:
+
+- **Presenter Console** — scripted walkthrough and reset-friendly demo controls.
+- **Catalog Explorer** — the underlying systems, interfaces, owners, and graph.
+- **Context Ingestion** — how raw CMDB/inventory/observability records become context.
+- **Modernization** — the same graph used for change-planning impact analysis.
+
+---
+
+## Architecture at a glance
+
+```mermaid
+flowchart LR
+  sources[CMDB / Integration catalog / Observability / Runbooks]
+  atlas[(MongoDB Atlas context layer)]
+  capabilities[Atlas Search + Vector Search + Rerank + graphLookup]
+  workbench[Investigation Workbench]
+  caseMemory[(Auditable case memory)]
+  human[Human-reviewed next checks]
+
+  sources --> atlas
+  atlas --> capabilities
+  capabilities --> workbench
+  workbench --> caseMemory
+  workbench --> human
+  caseMemory --> workbench
+```
+
+MongoDB is the context layer: flexible documents capture heterogeneous integration
+metadata, typed relationships support graph traversal, Atlas Search and optional
+Vector Search retrieve operational knowledge, and investigation cases preserve
+auditable memory.
+
+---
+
 ## Features
 
 - **Search** across systems, interfaces, protocols, business terms, and owners —
@@ -222,11 +268,14 @@ Find_The_Failure/
 
 ---
 
-## Verifying the backend
+## Verifying the demo
 
 ```bash
-cd backend && node smoke.mjs
+npm run smoke
 ```
 
-This exercises every endpoint (search, flow, detail, simulate, scenarios,
-modernization, reset) against the running server.
+This full demo smoke test exercises the running server across search, graph,
+impact, ingestion, scenarios, modernization, Workbench investigation, related
+context retrieval, case memory, and reset/cleanup.
+
+For the smaller backend-only check, run `cd backend && node smoke.mjs`.

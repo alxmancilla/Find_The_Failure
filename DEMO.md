@@ -34,9 +34,23 @@ Optional Atlas AI mode: set `ATLAS_RETRIEVAL_MODE=auto` and
 `ENABLE_ATLAS_AUTO_EMBED_INDEX=true` only on an Atlas project where Automated
 Embedding and Native Reranking are enabled.
 
+### Pre-demo readiness checklist
+
+Before presenting:
+
+1. Start backend + frontend.
+2. Wait for backend startup to report Search indexes queryable.
+3. Run `npm run smoke` from the repository root.
+4. Confirm the smoke output reports `ok: true`.
+5. Open `http://localhost:5173` or `http://127.0.0.1:5173`.
+6. Start in **Investigation Workbench** with the single seeded alert.
+
+`npm run smoke` returns the Workbench to a clean rehearsal state by clearing
+demo-feed alerts/cases and resetting simulated failures.
+
 ---
 
-## 2. Presenter talk track reference (≈6 minutes)
+## 2. Recommended hero path (≈6 minutes)
 
 Open **Investigation Workbench**. Start from the alert inbox and let the agent
 workflow populate the timeline, topology, evidence, and recommended checks.
@@ -123,7 +137,7 @@ and **Case timeline** in the right panel.
    state back to the original single-alert inbox and empty case memory.
 
 ### Optional — Manual workflow view
-Go to **Demo Console** to manually step through topology reveal, failure
+Go to **Presenter Console** to manually step through topology reveal, failure
 injection, metadata normalization, and alert investigation.
 
 ### Optional — What-if modernization question
@@ -172,6 +186,29 @@ knowledge documents, 3 failure scenarios**, and **1 modernization scenario**.
 - **Atlas AI optional** — Automated Embedding Vector Search and Native Reranking
   can be enabled through `.env` for Atlas cloud projects that support them.
 
+```mermaid
+flowchart LR
+  sources[CMDB / Integration catalog / Observability / Runbooks]
+  atlas[(MongoDB Atlas context layer)]
+  search[Search + Vector Search + Rerank]
+  graph[Typed relationships + graphLookup]
+  workbench[Investigation Workbench]
+  cases[(Case memory)]
+  checks[Human-reviewed next checks]
+
+  sources --> atlas
+  atlas --> search
+  atlas --> graph
+  search --> workbench
+  graph --> workbench
+  workbench --> cases
+  workbench --> checks
+  cases --> workbench
+```
+
+Use the Workbench as the primary story. Use Catalog Explorer, Context Ingestion,
+Modernization, and Presenter Console as optional supporting views.
+
 ### Key endpoints
 | Method | Path | Purpose |
 |---|---|---|
@@ -194,4 +231,5 @@ knowledge documents, 3 failure scenarios**, and **1 modernization scenario**.
   building; wait ~15s and retry. The app falls back to regex so it never breaks.
 - **Port already in use** — a previous run is still up; `npm run stop` and re-run.
 - **Reset the whole dataset** — `npm run seed`.
-- **Verify the API** — `cd backend && node smoke.mjs` exercises every endpoint.
+- **Verify the whole demo** — `npm run smoke` exercises the main API paths and
+  returns the Workbench to a clean state.

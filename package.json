@@ -7,6 +7,7 @@
     "demo": "bash scripts/demo.sh",
     "start:app": "bash scripts/app.sh",
     "seed": "cd backend && npm run seed",
+    "smoke": "node scripts/full-smoke.mjs",
     "stop": "docker compose down"
   }
 }

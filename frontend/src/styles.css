@@ -47,6 +47,7 @@ button.danger { background: var(--danger); color: #2a0410; border-color: var(--d
 .header h1 { font-size: 18px; margin: 0; }
 .brand { display: flex; align-items: center; gap: 12px; min-width: 260px; }
 .brand .muted { font-size: 12px; }
+.hero-hint { display: block; margin-top: 2px; color: var(--accent); font-size: 11px; font-weight: 700; }
 .header .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 6px rgba(0, 237, 100, 0.12); }
 .header-meta { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .scope-pill, .count-pill, .progress-pill { border: 1px solid var(--accent-dim); color: var(--accent); background: rgba(0, 237, 100, 0.08); border-radius: 999px; font-size: 11px; font-weight: 700; padding: 4px 9px; white-space: nowrap; }

@@ -7,12 +7,12 @@ import Ingestion from "./components/Ingestion.jsx";
 import Investigation from "./components/Investigation.jsx";
 
 const NAV_ITEMS = [
-  { id: "workbench", label: "Workbench" },
-  { id: "demo", label: "Demo Console" },
-  { id: "explorer", label: "Impact Explorer" },
-  { id: "modernization", label: "Modernization" },
-  { id: "ingestion", label: "Ingestion" },
-  { id: "investigation", label: "Classic Investigation" },
+  { id: "workbench", label: "Investigation Workbench", hint: "Recommended demo path" },
+  { id: "demo", label: "Presenter Console", hint: "Guided walkthrough controls" },
+  { id: "explorer", label: "Catalog Explorer", hint: "Underlying context graph" },
+  { id: "modernization", label: "Modernization", hint: "Planning impact analysis" },
+  { id: "ingestion", label: "Context Ingestion", hint: "How source records become context" },
+  { id: "investigation", label: "Classic Investigation", hint: "Earlier read-only investigation view" },
 ];
 
 export default function App() {
@@ -26,6 +26,7 @@ export default function App() {
           <div>
             <h1>Find the Failure</h1>
             <span className="muted">Apex Health Supply · EDI Integration Impact Explorer</span>
+            <span className="hero-hint">Recommended path: start in Investigation Workbench</span>
           </div>
         </div>
         <div className="header-meta">
@@ -36,6 +37,7 @@ export default function App() {
                 key={item.id}
                 className={tab === item.id ? "active" : ""}
                 aria-pressed={tab === item.id}
+                title={item.hint}
                 onClick={() => setTab(item.id)}
               >
                 {item.label}
