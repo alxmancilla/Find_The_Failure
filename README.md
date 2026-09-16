@@ -9,7 +9,8 @@ instead of hours.
 > gives architects a flexible, searchable context layer **above** them so they
 > can understand how the landscape fits together.
 
-For a step-by-step presenter walkthrough, see [`DEMO.md`](./DEMO.md).
+For a step-by-step presenter walkthrough, see [`DEMO.md`](./DEMO.md). For future
+changes, use the lightweight spec workflow in [`specs/`](./specs/).
 
 > **Positioning:** this repository is an early-stage, seeded PoC. It demonstrates
 > the operating model and MongoDB fit; production readiness still requires real
