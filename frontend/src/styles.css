@@ -117,6 +117,7 @@ button.danger { background: var(--danger); color: #2a0410; border-color: var(--d
 .event.failed { border-left-color: var(--danger); }
 .event.degraded { border-left-color: var(--warn); }
 .event.success { border-left-color: var(--healthy); }
+.event.error { border-left-color: var(--danger); color: var(--danger); }
 .event .when { color: var(--muted); font-size: 11px; }
 .process-card { border-left-color: var(--warn); }
 .data-quality { font-size: 11px; color: var(--accent); margin-bottom: 8px; }
@@ -139,6 +140,15 @@ select { padding: 8px; border-radius: 8px; background: var(--panel-2); color: va
 .finding.critical strong { color: var(--danger); }
 .finding.ok strong { color: var(--healthy); }
 .source-record { font-size: 12px; padding: 10px; border-radius: 8px; background: var(--panel-2); margin-bottom: 8px; border-left: 3px solid var(--accent-dim); }
+.source-record-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 3px; }
+.badge.status-pending { background: #33260a; color: var(--warn); border-color: var(--warn); }
+.badge.status-ingested { background: #0f2a1e; color: var(--accent); border-color: var(--accent-dim); }
+.record-meta, .quality-note { margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.35; }
+.ingestion-pipeline { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.pipeline-step { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel-2); }
+.pipeline-step span { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; background: rgba(0, 237, 100, 0.1); color: var(--accent); font-size: 11px; font-weight: 800; }
+.pipeline-step p { margin: 3px 0 0; color: var(--muted); font-size: 11px; line-height: 1.35; }
+.pipeline-step b { color: var(--accent); font-size: 18px; }
 .hero-card { border-color: var(--accent-dim); }
 .candidate { padding: 9px; border-radius: 8px; background: var(--panel-2); margin-bottom: 8px; border-left: 3px solid var(--warn); font-size: 12px; }
 .next-action { font-size: 12px; margin-top: 6px; padding: 8px; border-radius: 8px; background: #0f2a1e; color: var(--healthy); }
@@ -318,6 +328,7 @@ select { padding: 8px; border-radius: 8px; background: var(--panel-2); color: va
   .scope-pill { align-self: flex-start; }
   .tabs { width: 100%; }
   .agent-timeline { grid-template-columns: 1fr; }
+  .ingestion-pipeline { grid-template-columns: 1fr; }
   .impact-metric-grid { grid-template-columns: 1fr; }
   .case-stats { width: 100%; }
   .followup-panel form { flex-direction: column; }

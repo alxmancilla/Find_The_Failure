@@ -17,6 +17,7 @@ const assert = (condition, message) => {
 };
 
 async function cleanup() {
+  await post("/ingestion/fixtures/clear").catch(() => null);
   await post("/workbench/clear-demo-state").catch(() => null);
   await post("/reset").catch(() => null);
 }
@@ -45,12 +46,20 @@ try {
   const modernization = await get("/modernization/x12-translator");
   assert(modernization.affected_interfaces.length >= 1, "modernization analysis incomplete");
 
+  await post("/ingestion/fixtures/clear");
+  const fixtureLoad = await post("/ingestion/fixtures");
+  assert(fixtureLoad.source_records_loaded >= 6, "enterprise fixture pack did not load");
   const ingestion = await get("/ingestion");
   assert(Array.isArray(ingestion.source_records), "ingestion dashboard missing source records");
+  assert(ingestion.quality.fixture_records >= 6, "fixture records missing from dashboard");
+  assert(ingestion.pipeline.length === 4, "ingestion pipeline summary missing");
   const ingestionRun = await post("/ingestion/run");
   assert(ingestionRun.ok === true, "ingestion run failed");
   const quality = await get("/ingestion/quality");
   assert(Array.isArray(quality.findings), "ingestion quality missing findings");
+  assert(quality.provenance_coverage > 0, "provenance coverage missing");
+  assert(quality.ownership_conflicts.length >= 1, "ownership conflict demo finding missing");
+  await post("/ingestion/fixtures/clear");
 
   const scenarios = await get("/scenarios");
   assert(scenarios.length >= 3, "scenarios missing");
@@ -76,7 +85,14 @@ try {
     interfaces: interfaces.length,
     flow: { nodes: flow.nodes.length, edges: flow.edges.length },
     impactSystems: impact.affected_systems.length,
-    ingestion: { records: ingestion.source_records.length, relationships: ingestionRun.relationship_upserts, events: ingestionRun.event_upserts },
+    ingestion: {
+      records: ingestion.source_records.length,
+      fixtureRecords: ingestion.quality.fixture_records,
+      relationships: ingestionRun.relationship_upserts,
+      events: ingestionRun.event_upserts,
+      provenanceCoverage: quality.provenance_coverage,
+      ownershipConflicts: quality.ownership_conflicts.length,
+    },
     qualityFindings: quality.findings.length,
     scenarios: scenarios.length,
     retrievalEngine: investigation.related_context.engine,

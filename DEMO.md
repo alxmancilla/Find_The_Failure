@@ -140,6 +140,20 @@ and **Case timeline** in the right panel.
 Go to **Presenter Console** to manually step through topology reveal, failure
 injection, metadata normalization, and alert investigation.
 
+### Optional — Enterprise context ingestion view
+Go to **Context Ingestion** when the audience asks, "Where does the topology
+come from, and can we trust it?"
+
+1. Click **Load enterprise fixture pack** to capture Alertmanager,
+   integration-catalog, and CMDB-style records as raw `source_records`.
+2. Click **Normalize source records** to upsert typed `relationships` and
+   alert `events` with provenance and an ingestion run id.
+3. Use the pipeline and data-quality cards to show alias resolution,
+   provenance coverage, trust score, stale evidence, inferred relationships,
+   and ownership conflicts.
+4. Click **Clear fixture pack** if you want to return to the default clean
+   Workbench rehearsal state.
+
 ### Optional — What-if modernization question
 1. Go to the **Modernization** tab.
 2. Select **X12 Translator** → **Analyze**.
@@ -159,8 +173,8 @@ injection, metadata normalization, and alert investigation.
 | Automated Embedding + Vector Search | Optional semantic retrieval over `operational_knowledge.text` |
 | Native Reranking | Optional `$rerank` stage to reorder retrieved operational context |
 | Relationship traversal | `$graphLookup` builds the upstream/downstream dependency path |
-| Federated ingestion | Raw inventory, CMDB, and observability records normalize into typed relationships |
-| Evidence and provenance | Source records and relationship evidence support trusted investigation |
+| Federated ingestion | Raw inventory, CMDB, and observability records normalize into typed relationships/events |
+| Evidence and provenance | Source records carry source id, adapter, alias resolution, trust level, and ingestion run metadata |
 | Event history alongside metadata | `events` power "similar recent failures" |
 | Foundation for AI | Same model can answer "what failed, who owns it, and what should we check next?" |
 
@@ -175,6 +189,8 @@ injection, metadata normalization, and alert investigation.
 Seeded footprint: **9 systems, 10 interfaces, 3 owners, 4 data entities**,
 plus **2 business processes, 17 relationships, 5 source records, 8 operational
 knowledge documents, 3 failure scenarios**, and **1 modernization scenario**.
+The optional enterprise fixture pack adds **6 raw source records** for ingestion
+demonstrations and can be cleared without reseeding.
 
 ---
 
@@ -220,7 +236,8 @@ Modernization, and Presenter Console as optional supporting views.
 | POST | `/api/reset` | Restore pristine demo state |
 | GET | `/api/scenarios` · POST `/api/scenarios/:id/run` | Named failure scenarios |
 | GET | `/api/modernization/:systemKey` | What-if impact of replacing a system |
-| GET/POST | `/api/ingestion` · `/api/ingestion/run` | Raw source records and normalization |
+| GET/POST | `/api/ingestion` · `/api/ingestion/run` | Raw source records, pipeline, quality, and normalization |
+| POST | `/api/ingestion/fixtures` · `/api/ingestion/fixtures/clear` | Load/clear optional enterprise fixture pack |
 | GET | `/api/alerts` · `/api/investigation/:sourceRecordKey` | Read-only alert investigation |
 
 ---

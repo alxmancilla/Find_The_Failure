@@ -33,7 +33,7 @@ Supporting views:
 
 - **Presenter Console** — scripted walkthrough and reset-friendly demo controls.
 - **Catalog Explorer** — the underlying systems, interfaces, owners, and graph.
-- **Context Ingestion** — how raw CMDB/inventory/observability records become context.
+- **Context Ingestion** — how raw CMDB/inventory/observability records become trusted context.
 - **Modernization** — the same graph used for change-planning impact analysis.
 
 ---
@@ -79,6 +79,9 @@ auditable memory.
   topology mapping, related runbook/incident retrieval, evidence, likely
   fault-domain ranking, grounded follow-up, case memory, and rehearsal-safe alert
   feed controls.
+- **Enterprise fixture ingestion** — optional Alertmanager, integration-catalog,
+  and CMDB-style records are captured as raw source evidence, resolved to
+  canonical keys, normalized into events/relationships, and scored for trust.
 
 ---
 
@@ -207,9 +210,12 @@ field type.
 The `interfaces` collection uses a flexible schema so a single model can hold
 EDI, REST, FHIR, event, and SFTP interfaces. Seeded footprint: **9 systems,
 10 interfaces, 3 owners, 4 data entities, 2 business processes, 17 typed
-relationships, and 5 source records**. The Workbench can targeted-upsert **4
-additional simulated observability alerts**, retrieve **8 operational knowledge
-documents**, and persist investigation cases.
+relationships, and 5 source records**. The Context Ingestion tab can optionally
+load **6 enterprise fixture records** from Alertmanager, integration-catalog,
+and CMDB-style exports, then normalize them into additional relationship/event
+evidence with provenance. The Workbench can targeted-upsert **4 additional
+simulated observability alerts**, retrieve **8 operational knowledge documents**,
+and persist investigation cases.
 
 ---
 
@@ -228,6 +234,10 @@ Base URL: `http://localhost:4000/api`
 | POST | `/reset` | Restore pristine demo state |
 | GET | `/scenarios` · POST `/scenarios/:id/run` | Named failure scenarios |
 | GET | `/modernization/:systemKey` | What-if impact of replacing a system |
+| GET | `/ingestion` · GET `/ingestion/quality` | Source records, pipeline, quality, provenance score |
+| POST | `/ingestion/fixtures` | Load optional enterprise fixture pack |
+| POST | `/ingestion/run` | Normalize source records into relationships/events |
+| POST | `/ingestion/fixtures/clear` | Remove optional fixture pack and normalized fixture evidence |
 | GET | `/alerts` | List observability alerts imported as source records |
 | POST | `/alerts/demo-feed` | Target-upsert simulated alert feed records |
 | GET/POST | `/cases` · `/cases/investigate/:sourceRecordKey` | Persist and list investigation cases |
@@ -275,7 +285,9 @@ npm run smoke
 ```
 
 This full demo smoke test exercises the running server across search, graph,
-impact, ingestion, scenarios, modernization, Workbench investigation, related
-context retrieval, case memory, and reset/cleanup.
+impact, enterprise fixture ingestion, quality/provenance scoring, scenarios,
+modernization, Workbench investigation, related context retrieval, case memory,
+and reset/cleanup. It clears the optional fixture pack before the Workbench path
+so the normal rehearsal baseline remains stable.
 
 For the smaller backend-only check, run `cd backend && node smoke.mjs`.

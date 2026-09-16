@@ -10,8 +10,10 @@ import {
 import { search } from "./services/search.js";
 import { traceInterfaceRelationships } from "./services/relationships.js";
 import {
+  clearEnterpriseFixtures,
   getDataQuality,
   getIngestionDashboard,
+  loadEnterpriseFixtures,
   runIngestion,
 } from "./services/ingestion.js";
 import {
@@ -151,6 +153,14 @@ router.get(
 router.post(
   "/ingestion/run",
   wrap(async (_req, res) => res.json(await runIngestion()))
+);
+router.post(
+  "/ingestion/fixtures",
+  wrap(async (_req, res) => res.json(await loadEnterpriseFixtures()))
+);
+router.post(
+  "/ingestion/fixtures/clear",
+  wrap(async (_req, res) => res.json(await clearEnterpriseFixtures()))
 );
 router.get(
   "/ingestion/quality",

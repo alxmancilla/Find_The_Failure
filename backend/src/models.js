@@ -103,6 +103,8 @@ const eventSchema = new Schema(
     severity: String, // info | warning | critical
     source_system: String,
     source_record_id: String,
+    fixture_group: String,
+    provenance: Schema.Types.Mixed,
   },
   { collection: "events", timestamps: true }
 );
@@ -120,6 +122,9 @@ const sourceRecordSchema = new Schema(
     entity_key: String,
     payload: Schema.Types.Mixed,
     evidence: [String],
+    provenance: Schema.Types.Mixed,
+    entity_resolution: Schema.Types.Mixed,
+    fixture_group: String,
     observed_at: Date,
     ingested_at: Date,
     ingestion_status: { type: String, default: "pending" },
@@ -196,6 +201,9 @@ const relationshipSchema = new Schema(
     relationship_type: { type: String, required: true },
     source_system: String,
     source_record_id: String,
+    fixture_group: String,
+    provenance: Schema.Types.Mixed,
+    evidence_source_records: [String],
     confidence: { type: Number, default: 1 },
     confirmed: { type: Boolean, default: true },
     evidence: [String],

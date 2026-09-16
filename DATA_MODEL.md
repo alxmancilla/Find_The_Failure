@@ -86,7 +86,9 @@ The `interfaces` schema uses `strict:false`, so different interface types can ca
 
 ### `events`
 
-An event is recent operational history for an interface. Key fields: `interface_key`, `timestamp`, `status`, `message_type`, `reason`, `detail`, `severity`.
+An event is recent operational history for an interface. Key fields:
+`interface_key`, `timestamp`, `status`, `message_type`, `reason`, `detail`,
+`severity`, `source_record_id`, and optional `provenance`.
 
 ### `business_processes`
 
@@ -97,13 +99,16 @@ A business process connects technical topology to business impact. Key fields:
 
 Canonical typed edges with provenance. Key fields: `from_type`, `from_key`,
 `to_type`, `to_key`, `relationship_type`, `confidence`, `confirmed`, `evidence`,
-`source_system`, and `source_record_id`.
+`source_system`, `source_record_id`, `evidence_source_records`, and optional
+`provenance`.
 
 ### `source_records`
 
 Raw or normalized source metadata from inventory, CMDB/app ownership, and
 observability feeds. Alerts are represented as `record_type: "alert"` and map to
-interfaces through `entity_key`.
+interfaces through `entity_key`. Enterprise fixture ingestion also stores
+`provenance`, `entity_resolution`, `fixture_group`, `ingestion_status`, and
+`ingestion_run_id` to demonstrate trust and stewardship controls.
 
 ### `operational_knowledge`
 
@@ -130,6 +135,9 @@ grounded follow-up Q&A.
 | Simulate failure | `/api/simulate/:key` | update interface + insert failed event |
 | Reset demo | `/api/reset` | `updateMany`, `deleteMany`, `insertMany` |
 | Modernization impact | `/api/modernization/:systemKey` | `$or` over `source`, `target`, `middleware` |
+| Load enterprise fixtures | `/api/ingestion/fixtures` | `bulkWrite` raw fixture records into `source_records` |
+| Normalize source records | `/api/ingestion/run` | Upsert `relationships` and `events` with provenance |
+| Clear enterprise fixtures | `/api/ingestion/fixtures/clear` | Delete fixture source records and derived fixture evidence |
 | Ingest simulated alerts | `/api/alerts/demo-feed` | Targeted `bulkWrite` into `source_records` |
 | Investigate alert | `/api/cases/investigate/:key` | Alert correlation + operational context retrieval + case insert |
 | Clear rehearsal state | `/api/workbench/clear-demo-state` | Delete feed alerts + case memory only |
@@ -203,6 +211,8 @@ The graph is only as correct as the provided relationships and
 does not spill to disk. Dynamic Atlas Search is great for the demo, but
 production should tune paths, analyzers, boosts, synonyms, and index limits.
 Failure simulation and rehearsal resets use separate writes; use transactions if
-atomicity matters. A real PoC also needs ingestion from CMDB, integration
-engines, APIs, observability feeds, or files, plus SME validation and access
+atomicity matters. The enterprise fixture pack demonstrates source contracts,
+alias resolution, provenance, and quality findings, but a real PoC still needs
+live connectors or governed file drops from CMDB, integration engines, APIs,
+observability feeds, or knowledge systems, plus SME validation and access
 controls.
