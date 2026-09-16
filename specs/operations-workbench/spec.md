@@ -5,6 +5,7 @@ status: validated
 owner: demo-team
 created: 2026-09-16
 updated: 2026-09-16
+release_type: operations demo baseline
 baseline_tag: operations-workbench-2026-09-16
 ---
 
@@ -29,14 +30,32 @@ across disconnected topology diagrams, CMDB records, runbooks, and prior tickets
   and impact case-specific.
 - Prove MongoDB usage through visible stage traces and auditable case memory.
 
-## 4. Non-goals
+## 4. Product outcomes
+
+- Reduce time spent finding blast radius, owner, evidence, and next checks.
+- Help support teams avoid paging the wrong owner during integration incidents.
+- Make source provenance visible enough for operators to trust the context.
+- Preserve investigation context for shift handoff, follow-up, and review.
+- Demonstrate MongoDB as the operational context layer above existing tools.
+
+## 5. Demo success criteria
+
+- A first-time viewer can identify the primary next action in the Workbench.
+- Enterprise replay visibly turns external context into Workbench alerts.
+- A selected alert produces business process impact, owner, likely fault domain,
+  evidence, related context, and recommended next checks in one flow.
+- MongoDB trace is available on demand but does not dominate the default UI.
+- The presenter can complete the hero path in about six minutes.
+- Reset reliably returns the demo to a clean rehearsal state.
+
+## 6. Non-goals
 
 - Do not perform autonomous remediation.
 - Do not replace ITSM, observability, or integration platforms.
 - Do not model every enterprise incident-management lifecycle state.
 - Do not require live external systems for the demo path.
 
-## 5. Requirements
+## 7. Requirements
 
 - **REQ-001:** The Workbench shall provide a primary `Replay enterprise context`
   action that loads fixture records and refreshes the alert inbox.
@@ -55,7 +74,7 @@ across disconnected topology diagrams, CMDB records, runbooks, and prior tickets
 - **REQ-008:** Each investigation case shall persist summary, evidence, likely
   fault domain, recommended checks, timeline, and follow-up messages.
 
-## 6. UX design
+## 8. UX design
 
 The default sidebar emphasizes one path: replay enterprise context, select an
 alert, open an investigation case, and review evidence. Secondary controls,
@@ -65,7 +84,7 @@ The main panel presents a grouped Investigation playbook. The four phases remain
 stable for every case, while the underlying checks, evidence, related context,
 topology, and recommendations are populated from the selected alert.
 
-## 7. Data and API design
+## 9. Data and API design
 
 - `POST /api/ingestion/fixtures` loads enterprise fixture `source_records`.
 - `POST /api/ingestion/run` normalizes pending source records into relationships
@@ -76,7 +95,7 @@ topology, and recommendations are populated from the selected alert.
   fixture-derived events/relationships.
 - `POST /api/cases/investigate/:sourceRecordKey` creates persisted case memory.
 
-## 8. MongoDB usage
+## 10. MongoDB usage
 
 - `source_records` stores raw enterprise evidence and alert payloads.
 - `relationships` supports dependency traversal and business-process mapping.
@@ -84,7 +103,7 @@ topology, and recommendations are populated from the selected alert.
 - Atlas Search / vector/rerank retrieval finds related operational knowledge.
 - `investigation_cases` stores auditable case memory and follow-up messages.
 
-## 9. Acceptance criteria
+## 11. Acceptance criteria
 
 - [x] Enterprise replay adds two external Alertmanager alerts to the inbox.
 - [x] Secondary demo controls are collapsed by default.
@@ -92,8 +111,20 @@ topology, and recommendations are populated from the selected alert.
 - [x] The playbook shows four high-level phases instead of eight top-level steps.
 - [x] Detailed checks still drive MongoDB stage explanations.
 - [x] Reset clears optional replay/demo state while preserving the baseline.
+- [x] The primary path is visually distinct from optional demo controls.
+- [x] Case output includes owner, impact, evidence, and recommended next checks.
 
-## 10. Validation plan
+## 12. Product risks
+
+- The Workbench is not yet a full operational queue because alert lifecycle
+  states are intentionally out of scope.
+- Fixture replay may be perceived as synthetic unless positioned as a safe
+  enterprise ingestion rehearsal.
+- Lack of explicit SLA/priority indicators may understate operational urgency.
+- Lack of change correlation may leave operators asking, "What changed?"
+- MongoDB traces can distract business users if opened too early in the demo.
+
+## 13. Validation plan
 
 - Frontend build: `cd frontend && npm run build`.
 - Full smoke: `npm run smoke`.
@@ -101,7 +132,7 @@ topology, and recommendations are populated from the selected alert.
 - Live inbox check: load enterprise fixtures, run ingestion, then verify two
   alerts with `source_system: alertmanager-webhook`.
 
-## 11. Implementation tasks
+## 14. Implementation tasks
 
 - [x] Add enterprise replay action to Workbench.
 - [x] Rename scripted alert action as secondary rehearsal data.
@@ -110,14 +141,25 @@ topology, and recommendations are populated from the selected alert.
 - [x] Align Alert received copy with current source-record/case-memory behavior.
 - [x] Update README and demo runbook.
 
-## 12. Decisions
+## 15. Decisions
 
 - Keep the agent playbook stable across cases; vary the data and evidence.
 - Keep the demo read-only from a remediation perspective.
 - Preserve scripted demo alerts as optional rehearsal data, not the primary story.
 
-## 13. Follow-ups
+## 16. Roadmap priority
 
-- Add a future spec for alert lifecycle and operational priority/SLA indicators.
+1. **Operational priority and SLA indicators** — highest value, low complexity;
+   strengthens the keep-the-lights-on story.
+2. **Alert lifecycle** — adds queue realism with acknowledge, investigate,
+   escalate, and resolve states.
+3. **Change correlation** — connects symptoms to recent deployments, config
+   changes, routing updates, and ownership changes.
+4. **Alert deduplication and noise reduction** — important for scale realism,
+   but less urgent for the curated demo size.
+
+## 17. Follow-ups
+
+- Add a future spec for alert lifecycle.
 - Add a future spec for change correlation and recent deployment context.
 - Add a future spec for alert deduplication and noise reduction.

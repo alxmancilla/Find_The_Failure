@@ -35,9 +35,11 @@ Each spec should include:
 - problem statement
 - target users and demo audience
 - goals and non-goals
+- product outcomes and demo success criteria
 - numbered requirements
 - UX/API/data design notes
 - acceptance criteria
+- product risks and roadmap priority
 - validation plan
 - implementation tasks
 - decisions and follow-ups
@@ -51,6 +53,7 @@ Create specs under `specs/<short-feature-name>/spec.md`.
 Examples:
 
 - `specs/operations-workbench/spec.md`
+- `specs/operational-priority/spec.md`
 - `specs/alert-lifecycle/spec.md`
 - `specs/change-correlation/spec.md`
 
