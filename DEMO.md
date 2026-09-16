@@ -90,11 +90,14 @@ Hospital 123 → EDI Gateway → X12 Translator → Integration API → Apex ERP
 > from a business symptom to technical dependencies without hand-built screens."
 
 ### Act 4 — Show impact, evidence, and owner
-1. The likely fault domain is highlighted with confidence.
-2. Show impacted business process, downstream risk, owners, and related context.
-3. Open the related runbooks/prior incidents panel to explain how the agent gets
+1. Start with **Operational priority**: severity, SLA/risk, process, owner,
+   likely fault domain, and first safe check.
+2. The likely fault domain is highlighted with confidence.
+3. Show impacted business process, downstream risk, owners, and related context.
+4. Open the related runbooks/prior incidents panel to explain how the agent gets
    operational memory before ranking.
-4. Review the safe next checks. No remediation is executed in Agent v1.
+5. Review the safe next checks. No remediation is executed in Agent v1; the
+   guardrail reminds the audience that action requires operator approval.
 
 > "In seconds we know what broke, what's downstream, who owns it, and what
 > business process is exposed."

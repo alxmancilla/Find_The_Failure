@@ -43,7 +43,8 @@ across disconnected topology diagrams, CMDB records, runbooks, and prior tickets
 - A first-time viewer can identify the primary next action in the Workbench.
 - Enterprise replay visibly turns external context into Workbench alerts.
 - A selected alert produces business process impact, owner, likely fault domain,
-  evidence, related context, and recommended next checks in one flow.
+  operational priority, evidence, related context, and recommended next checks in
+  one flow.
 - MongoDB trace is available on demand but does not dominate the default UI.
 - The presenter can complete the hero path in about six minutes.
 - Reset reliably returns the demo to a clean rehearsal state.
@@ -73,6 +74,8 @@ across disconnected topology diagrams, CMDB records, runbooks, and prior tickets
   usage for the selected stage.
 - **REQ-008:** Each investigation case shall persist summary, evidence, likely
   fault domain, recommended checks, timeline, and follow-up messages.
+- **REQ-009:** The active case area shall show operational priority derived from
+  existing alert, impact, owner, and recommendation data.
 
 ## 8. UX design
 
@@ -83,6 +86,10 @@ filters, and case memory are collapsed to reduce cognitive load.
 The main panel presents a grouped Investigation playbook. The four phases remain
 stable for every case, while the underlying checks, evidence, related context,
 topology, and recommendations are populated from the selected alert.
+
+The active case area also presents Operational Priority so operators can quickly
+see urgency, SLA/risk, business process, likely owner, likely fault domain, first
+safe check, and the human-approval guardrail.
 
 ## 9. Data and API design
 
@@ -113,6 +120,7 @@ topology, and recommendations are populated from the selected alert.
 - [x] Reset clears optional replay/demo state while preserving the baseline.
 - [x] The primary path is visually distinct from optional demo controls.
 - [x] Case output includes owner, impact, evidence, and recommended next checks.
+- [x] Active case output includes operational priority and an approval guardrail.
 
 ## 12. Product risks
 
@@ -120,7 +128,8 @@ topology, and recommendations are populated from the selected alert.
   states are intentionally out of scope.
 - Fixture replay may be perceived as synthetic unless positioned as a safe
   enterprise ingestion rehearsal.
-- Lack of explicit SLA/priority indicators may understate operational urgency.
+- SLA/priority indicators are derived from demo data and should be positioned as
+  operational guidance, not a production incident policy engine.
 - Lack of change correlation may leave operators asking, "What changed?"
 - MongoDB traces can distract business users if opened too early in the demo.
 
@@ -139,6 +148,7 @@ topology, and recommendations are populated from the selected alert.
 - [x] Collapse demo controls, filters, and case memory.
 - [x] Group the activity timeline into playbook phases.
 - [x] Align Alert received copy with current source-record/case-memory behavior.
+- [x] Add frontend-only Operational Priority card.
 - [x] Update README and demo runbook.
 
 ## 15. Decisions
@@ -149,13 +159,11 @@ topology, and recommendations are populated from the selected alert.
 
 ## 16. Roadmap priority
 
-1. **Operational priority and SLA indicators** — highest value, low complexity;
-   strengthens the keep-the-lights-on story.
-2. **Alert lifecycle** — adds queue realism with acknowledge, investigate,
+1. **Alert lifecycle** — adds queue realism with acknowledge, investigate,
    escalate, and resolve states.
-3. **Change correlation** — connects symptoms to recent deployments, config
+2. **Change correlation** — connects symptoms to recent deployments, config
    changes, routing updates, and ownership changes.
-4. **Alert deduplication and noise reduction** — important for scale realism,
+3. **Alert deduplication and noise reduction** — important for scale realism,
    but less urgent for the curated demo size.
 
 ## 17. Follow-ups

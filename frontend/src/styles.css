@@ -312,6 +312,15 @@ select { padding: 8px; border-radius: 8px; background: var(--panel-2); color: va
 .fault-callout { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 10px; margin: 12px 0; border-radius: 10px; background: #0f2a1e; border: 1px solid var(--accent-dim); }
 .fault-callout span { color: var(--accent); font-size: 12px; }
 .confidence-rationale { margin: -2px 0 12px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.operational-priority-card { border-color: rgba(255, 176, 32, 0.34); background: linear-gradient(180deg, rgba(61, 38, 9, 0.76), rgba(20, 26, 46, 0.94)); }
+.operational-priority-card.priority-critical { border-color: rgba(255, 84, 112, 0.52); background: linear-gradient(180deg, rgba(72, 20, 30, 0.78), rgba(20, 26, 46, 0.96)); }
+.operational-priority-card.priority-watch, .operational-priority-card.priority-none { border-color: rgba(120, 135, 170, 0.28); background: rgba(28, 36, 56, 0.56); }
+.priority-summary { margin: 10px 0; color: var(--text); font-size: 12px; line-height: 1.45; }
+.priority-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.priority-grid div { padding: 9px; border: 1px solid var(--border); border-radius: 10px; background: rgba(11, 16, 32, 0.46); }
+.priority-grid span { display: block; color: var(--muted); font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+.priority-grid strong { display: block; margin-top: 5px; font-size: 12px; line-height: 1.35; }
+.approval-guardrail { margin: 10px 0 0; padding: 9px; border: 1px solid rgba(0, 237, 100, 0.2); border-radius: 10px; color: var(--accent); background: rgba(0, 237, 100, 0.07); font-size: 11px; line-height: 1.35; }
 .business-impact-card { background: linear-gradient(180deg, rgba(15, 42, 30, 0.74), rgba(20, 26, 46, 0.94)); border-color: var(--accent-dim); }
 .impact-metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
 .impact-metric-grid div, .first-check { padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: rgba(11, 16, 32, 0.46); }
@@ -353,6 +362,7 @@ select { padding: 8px; border-radius: 8px; background: var(--panel-2); color: va
   .tabs { width: 100%; }
   .ingestion-pipeline { grid-template-columns: 1fr; }
   .impact-metric-grid { grid-template-columns: 1fr; }
+  .priority-grid { grid-template-columns: 1fr; }
   .case-stats { width: 100%; }
   .followup-panel form { flex-direction: column; }
 }

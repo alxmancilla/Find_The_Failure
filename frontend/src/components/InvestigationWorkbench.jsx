@@ -416,6 +416,31 @@ function BusinessImpactPanel({ result, selectedAlert }) {
   );
 }
 
+function OperationalPriorityPanel({ selectedAlert, result }) {
+  const priority = deriveOperationalPriority(selectedAlert, result);
+  return (
+    <section className={`panel-card operational-priority-card priority-${priority.level}`}>
+      <div className="panel-title-row compact">
+        <div>
+          <span className="eyebrow">Operational priority</span>
+          <h3>{priority.label}</h3>
+        </div>
+        <span className="count-pill">{priority.slaRisk}</span>
+      </div>
+      <p className="priority-summary">{priority.summary}</p>
+      <div className="priority-grid">
+        <div><span>Severity</span><strong>{priority.severity}</strong></div>
+        <div><span>Status</span><strong>{priority.status}</strong></div>
+        <div><span>Process</span><strong>{priority.process}</strong></div>
+        <div><span>Owner</span><strong>{priority.owner}</strong></div>
+        <div><span>Fault domain</span><strong>{priority.faultDomain}</strong></div>
+        <div><span>First check</span><strong>{priority.firstCheck}</strong></div>
+      </div>
+      <p className="approval-guardrail">Read-only investigation. Remediation or escalation requires operator approval.</p>
+    </section>
+  );
+}
+
 function RelatedContextPanel({ result }) {
   const related = result?.related_context;
   const docs = related?.documents || [];
@@ -483,6 +508,51 @@ function FollowUpPanel({ result, messages, question, setQuestion, onAsk }) {
       </form>
     </section>
   );
+}
+
+function deriveOperationalPriority(alert, result) {
+  if (!alert) {
+    return {
+      level: "none",
+      label: "Select an alert",
+      slaRisk: "Pending",
+      summary: "Choose an inbox alert to derive operational priority from severity, status, ownership, and impact context.",
+      severity: "—",
+      status: "—",
+      process: "—",
+      owner: "—",
+      faultDomain: "—",
+      firstCheck: "Open an alert",
+    };
+  }
+
+  const severity = alert.severity || "warning";
+  const status = alert.status || "open";
+  const top = result?.likely_fault_domains?.[0];
+  const process = result?.impacted_business_processes?.[0]?.name || alert.business_process_name || "Open case to confirm";
+  const owner = result?.owners?.[0]?.name || "Open case to identify";
+  const firstCheck = result?.recommended_next_actions?.[0] || "Open investigation case for safe next checks";
+  const failed = status === "failed";
+  const critical = severity === "critical";
+  const level = failed ? "critical" : critical ? "elevated" : "watch";
+  const label = failed ? "Immediate triage" : critical ? "High priority" : "Monitor";
+  const slaRisk = failed ? "SLA breach likely" : critical ? "SLA at risk" : "Watch";
+  const summary = result
+    ? `${process} is the priority context; start with ${owner} and verify ${top?.name || "the mapped fault domain"}.`
+    : `${severity.toUpperCase()} ${status} alert selected. Open a case to calculate owner, impact, and first check.`;
+
+  return {
+    level,
+    label,
+    slaRisk,
+    summary,
+    severity,
+    status,
+    process,
+    owner,
+    faultDomain: top?.name || "Open case to rank",
+    firstCheck,
+  };
 }
 
 function answerQuestion(question, result) {
@@ -918,6 +988,7 @@ export default function InvestigationWorkbench() {
           </div>
 
           <aside className="workbench-right">
+            <OperationalPriorityPanel selectedAlert={selectedAlert} result={result} />
             <SummaryPanel result={result} />
             <BusinessImpactPanel result={result} selectedAlert={selectedAlert} />
             <RelatedContextPanel result={result} />

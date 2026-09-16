@@ -1,7 +1,7 @@
 # Operational Priority Spec
 
 ---
-status: draft
+status: validated
 owner: demo-team
 created: 2026-09-16
 updated: 2026-09-16
@@ -100,14 +100,14 @@ context:
 
 ## 11. Acceptance criteria
 
-- [ ] Operational Priority card appears in the active case experience.
-- [ ] Before investigation, it shows selected-alert severity/status and a clear
+- [x] Operational Priority card appears in the active case experience.
+- [x] Before investigation, it shows selected-alert severity/status and a clear
   prompt to open a case for owner/process/priority detail.
-- [ ] After investigation, it shows SLA/risk, process, owner, top fault domain,
+- [x] After investigation, it shows SLA/risk, process, owner, top fault domain,
   and first check.
-- [ ] The card includes a read-only/human-approval guardrail.
-- [ ] It does not add new top-level sidebar controls.
-- [ ] Existing full smoke and frontend build still pass.
+- [x] The card includes a read-only/human-approval guardrail.
+- [x] It does not add new top-level sidebar controls.
+- [x] Existing full smoke and frontend build still pass.
 
 ## 12. Product risks
 
@@ -125,11 +125,11 @@ context:
 
 ## 14. Implementation tasks
 
-- [ ] Design compact card placement and copy.
-- [ ] Implement derived priority helper in the Workbench component.
-- [ ] Add card styling.
-- [ ] Update demo runbook and Operations Workbench spec if behavior changes.
-- [ ] Run validation plan and update this spec status.
+- [x] Design compact card placement and copy.
+- [x] Implement derived priority helper in the Workbench component.
+- [x] Add card styling.
+- [x] Update demo runbook and Operations Workbench spec if behavior changes.
+- [x] Run validation plan and update this spec status.
 
 ## 15. Decisions
 
