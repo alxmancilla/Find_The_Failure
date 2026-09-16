@@ -58,7 +58,13 @@ try {
   const fixtureAlerts = await get("/alerts");
   const externalAlerts = fixtureAlerts.alerts.filter((alert) => alert.source_system === "alertmanager-webhook");
   assert(externalAlerts.length >= 2, "external Alertmanager alerts missing");
-  const fixtureInvestigation = await get("/investigation/" + encodeURIComponent(externalAlerts[0].key));
+  assert(fixtureAlerts.raw_alerts_count > fixtureAlerts.alerts.length, "dedupe should preserve more raw alerts than visible inbox items");
+  assert(fixtureAlerts.suppressed_alerts_count >= 1, "dedupe suppressed count missing");
+  const groupedAlert = externalAlerts.find((alert) => alert.dedupe?.signal_count > 1);
+  assert(groupedAlert, "grouped Alertmanager alert missing");
+  const fixtureInvestigation = await get("/investigation/" + encodeURIComponent(groupedAlert.key));
+  assert(fixtureInvestigation.alert_deduplication.signal_count > 1, "investigation dedupe metadata missing");
+  assert(fixtureInvestigation.mongodb_trace.dedupe, "MongoDB dedupe trace missing");
   assert(fixtureInvestigation.change_correlation.documents.length > 0, "change correlation missing");
   assert(fixtureInvestigation.mongodb_trace.changes, "MongoDB change trace missing");
   const quality = await get("/ingestion/quality");
@@ -75,6 +81,7 @@ try {
 
   const feed = await post("/alerts/demo-feed");
   assert(feed.alerts.length >= 4, "demo feed alerts missing");
+  assert(feed.raw_alerts_count >= feed.alerts.length, "alert feed raw/group counts missing");
   assert(feed.alerts.every((alert) => alert.lifecycle_status === "new"), "alerts should default lifecycle to new");
   const acknowledged = await post(`/alerts/${encodeURIComponent(feed.alerts[0].key)}/lifecycle`, { status: "acknowledged" });
   assert(acknowledged.alert.lifecycle_status === "acknowledged", "alert lifecycle acknowledge failed");
@@ -83,6 +90,7 @@ try {
   assert(investigation.mongodb_trace.related, "MongoDB related trace missing");
   const created = await post("/cases/investigate/" + encodeURIComponent(feed.alerts[0].key));
   assert(created.investigation.alert.lifecycle_status === "investigating", "case create did not mark alert investigating");
+  assert(created.case?.timeline?.some((item) => item.event === "alert_deduplicated"), "case timeline missing dedupe step");
   assert(created.case?.timeline?.some((item) => item.event === "related_context_retrieved"), "case memory incomplete");
   const cases = await get("/cases");
   assert(cases.cases.length >= 1, "case list empty after create");
@@ -109,6 +117,8 @@ try {
     qualityFindings: quality.findings.length,
     scenarios: scenarios.length,
     retrievalEngine: investigation.related_context.engine,
+    dedupeSuppressed: fixtureAlerts.suppressed_alerts_count,
+    dedupeSignals: fixtureInvestigation.alert_deduplication.signal_count,
     changeCorrelation: fixtureInvestigation.change_correlation.documents.length,
     relatedContext: investigation.related_context.documents.length,
     lifecycleStatus: created.investigation.alert.lifecycle_status,

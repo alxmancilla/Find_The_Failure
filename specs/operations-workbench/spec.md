@@ -61,7 +61,7 @@ across disconnected topology diagrams, CMDB records, runbooks, and prior tickets
 - **REQ-001:** The Workbench shall provide a primary `Replay enterprise context`
   action that loads fixture records and refreshes the alert inbox.
 - **REQ-002:** Enterprise replay shall surface two Alertmanager-style alerts in
-  the Workbench inbox.
+  the Workbench inbox while preserving repeated raw alert signals.
 - **REQ-003:** Optional scripted alerts and reset actions shall be available under
   collapsed `Demo controls`.
 - **REQ-004:** Reset shall clear enterprise fixtures, scripted demo alerts, and
@@ -80,6 +80,8 @@ across disconnected topology diagrams, CMDB records, runbooks, and prior tickets
   demo-safe acknowledgement, investigation, escalation, resolution, and reopen.
 - **REQ-011:** Investigation results shall show recent correlated changes as
   hypotheses grounded in source records.
+- **REQ-012:** Alert listing shall collapse repeated signals into grouped inbox
+  items while exposing raw/suppressed signal counts.
 
 ## 8. UX design
 
@@ -103,12 +105,17 @@ The active case area includes a "What changed?" card that shows recent
 deployment, config, and route changes near the alert window as correlated
 hypotheses, not confirmed root cause.
 
+The alert inbox and active case area include lightweight noise reduction. Repeated
+signals are grouped into one Workbench alert card, with raw signal counts visible
+and raw `source_records` preserved for audit.
+
 ## 9. Data and API design
 
 - `POST /api/ingestion/fixtures` loads enterprise fixture `source_records`.
 - `POST /api/ingestion/run` normalizes pending source records into relationships
   and events.
-- `GET /api/alerts` returns all alert records formatted for the Workbench inbox.
+- `GET /api/alerts` returns grouped alert records plus raw and suppressed signal
+  counts for the Workbench inbox.
 - `POST /api/workbench/clear-demo-state` clears scripted demo alerts and cases.
 - `POST /api/ingestion/fixtures/clear` clears enterprise fixture records and
   fixture-derived events/relationships.
@@ -128,7 +135,8 @@ hypotheses, not confirmed root cause.
 
 ## 11. Acceptance criteria
 
-- [x] Enterprise replay adds two external Alertmanager alerts to the inbox.
+- [x] Enterprise replay adds two grouped Alertmanager inbox items while retaining
+  repeated raw signals.
 - [x] Secondary demo controls are collapsed by default.
 - [x] Alert filters and case memory are collapsed by default.
 - [x] The playbook shows four high-level phases instead of eight top-level steps.
@@ -140,12 +148,16 @@ hypotheses, not confirmed root cause.
 - [x] Alert output includes local lifecycle status and demo-safe transitions.
 - [x] Active case output includes recent change correlation when fixture changes
   match the alert context.
+- [x] Alert inbox groups repeated signals while preserving raw alert counts.
+- [x] Active case output includes alert deduplication/noise-reduction context.
 
 ## 12. Product risks
 
 - Alert lifecycle is intentionally lightweight and local-only; it is not an ITSM
   replacement or external escalation workflow.
 - Change correlation can be mistaken for causation unless demo copy stays clear.
+- Alert grouping can be mistaken for discarded evidence unless raw record
+  preservation is emphasized.
 - Fixture replay may be perceived as synthetic unless positioned as a safe
   enterprise ingestion rehearsal.
 - SLA/priority indicators are derived from demo data and should be positioned as
@@ -159,7 +171,7 @@ hypotheses, not confirmed root cause.
 - Full smoke: `npm run smoke`.
 - Live health check: `GET /api/health`.
 - Live inbox check: load enterprise fixtures, run ingestion, then verify two
-  alerts with `source_system: alertmanager-webhook`.
+  grouped Alertmanager inbox items with more raw alert signals than visible cards.
 
 ## 14. Implementation tasks
 
@@ -171,6 +183,7 @@ hypotheses, not confirmed root cause.
 - [x] Add frontend-only Operational Priority card.
 - [x] Add lightweight alert lifecycle status and controls.
 - [x] Add fixture-backed recent change correlation.
+- [x] Add lightweight alert deduplication/noise reduction.
 - [x] Update README and demo runbook.
 
 ## 15. Decisions
@@ -181,11 +194,11 @@ hypotheses, not confirmed root cause.
 
 ## 16. Roadmap priority
 
-1. **Alert deduplication and noise reduction** — important for scale realism,
-   but less urgent for the curated demo size.
+1. Consider ITSM handoff only if demo scope expands.
 
 ## 17. Follow-ups
 
 - Keep lifecycle read-only/demo-safe unless a future ITSM handoff spec is drafted.
 - Keep change correlation framed as hypothesis support, not root-cause proof.
-- Add a future spec for alert deduplication and noise reduction.
+- Keep alert deduplication positioned as a transparent demo view, not a full
+  production incident-correlation policy.

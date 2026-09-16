@@ -13,12 +13,20 @@ const ALERT_LIFECYCLE_LABELS = {
   escalated: "Escalated",
   resolved: "Resolved",
 };
+const SEVERITY_RANK = { critical: 4, error: 3, warning: 2, info: 1 };
+const STATUS_RANK = { failed: 4, degraded: 3, warning: 2, open: 1 };
 
 export async function listAlerts() {
-  const alerts = await SourceRecord.find({ record_type: "alert" })
+  const rawAlerts = await SourceRecord.find({ record_type: "alert" })
     .sort({ observed_at: -1 })
     .lean();
-  return { alerts: alerts.map(formatAlert) };
+  const groups = groupAlertRecords(rawAlerts);
+  return {
+    alerts: groups.map((group) => formatAlert(group.primary, formatAlertDedupe(group))),
+    raw_alerts_count: rawAlerts.length,
+    dedupe_groups_count: groups.length,
+    suppressed_alerts_count: Math.max(rawAlerts.length - groups.length, 0),
+  };
 }
 
 export async function updateAlertLifecycle(sourceRecordKey, status, actor = "demo-operator") {
@@ -41,7 +49,9 @@ export async function updateAlertLifecycle(sourceRecordKey, status, actor = "dem
     { new: true }
   ).lean();
 
-  return alert ? { alert: formatAlert(alert) } : null;
+  if (!alert) return null;
+  const dedupe = await findAlertDeduplication(alert);
+  return { alert: formatAlert(alert, dedupe) };
 }
 
 export async function ingestDemoAlerts() {
@@ -74,7 +84,7 @@ export async function ingestDemoAlerts() {
     ok: true,
     inserted_alerts: keys.filter((key) => !existingKeys.has(key)).length,
     upserted_alerts: keys.length,
-    alerts: listed.alerts,
+    ...listed,
   };
 }
 
@@ -86,7 +96,7 @@ export async function clearWorkbenchDemoState() {
     InvestigationCase.deleteMany({}),
     SourceRecord.updateMany({ record_type: "alert" }, { $unset: { workbench_lifecycle: "" } }),
   ]);
-  const [alerts, caseMemory] = await Promise.all([listAlerts(), listInvestigationCases()]);
+  const [alertList, caseMemory] = await Promise.all([listAlerts(), listInvestigationCases()]);
 
   return {
     ok: true,
@@ -94,7 +104,10 @@ export async function clearWorkbenchDemoState() {
     deleted_feed_events: events.deletedCount,
     deleted_cases: cases.deletedCount,
     reset_lifecycle_alerts: lifecycle.modifiedCount || 0,
-    alerts: alerts.alerts,
+    alerts: alertList.alerts,
+    raw_alerts_count: alertList.raw_alerts_count,
+    dedupe_groups_count: alertList.dedupe_groups_count,
+    suppressed_alerts_count: alertList.suppressed_alerts_count,
     cases: caseMemory.cases,
   };
 }
@@ -171,8 +184,11 @@ export async function investigateAlert(sourceRecordKey) {
   const alert = await SourceRecord.findOne({ key: sourceRecordKey, record_type: "alert" }).lean();
   if (!alert) return null;
 
-  const iface = await Interface.findOne({ key: alert.entity_key }).lean();
-  if (!iface) return { alert: formatAlert(alert), error: "mapped interface not found" };
+  const [iface, alertDeduplication] = await Promise.all([
+    Interface.findOne({ key: alert.entity_key }).lean(),
+    findAlertDeduplication(alert),
+  ]);
+  if (!iface) return { alert: formatAlert(alert, alertDeduplication), alert_deduplication: alertDeduplication, error: "mapped interface not found" };
 
   const [upstream, downstream, impact] = await Promise.all([
     traceInterfaceRelationships(iface.key, "upstream"),
@@ -198,16 +214,18 @@ export async function investigateAlert(sourceRecordKey) {
   ]);
   const relatedEvidence = formatRelatedEvidence(relatedContext.documents);
   const changeEvidence = formatChangeEvidence(changeCorrelation.documents);
-  const evidence = [...baseEvidence, ...changeEvidence, ...relatedEvidence];
+  const dedupeEvidence = formatDedupeEvidence(alertDeduplication);
+  const evidence = [...baseEvidence, ...dedupeEvidence, ...changeEvidence, ...relatedEvidence];
 
   const candidates = rankFaultDomains(alert, iface, upstream, downstream, systems, impact);
   return {
-    alert: formatAlert(alert),
+    alert: formatAlert(alert, alertDeduplication),
     investigation_summary: buildSummary(alert, iface, candidates, impact),
     likely_fault_domains: candidates,
     impacted_business_processes: impact?.business_processes || [],
     affected_systems: impact?.affected_systems || [],
     owners,
+    alert_deduplication: alertDeduplication,
     change_correlation: changeCorrelation,
     related_context: relatedContext,
     topology: {
@@ -224,11 +242,11 @@ export async function investigateAlert(sourceRecordKey) {
       relatedContext.documents[0] ? `Review related context: ${relatedContext.documents[0].title}.` : "Search related runbooks and incident notes for matching symptoms.",
       "Use relationship evidence to confirm blast radius with application owners.",
     ],
-    mongodb_trace: buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, impact, systemKeys, ownerKeys, evidence, relatedContext, changeCorrelation),
+    mongodb_trace: buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, impact, systemKeys, ownerKeys, evidence, relatedContext, changeCorrelation, alertDeduplication),
   };
 }
 
-function formatAlert(alert) {
+function formatAlert(alert, dedupe = null) {
   const lifecycle = formatLifecycle(alert.workbench_lifecycle);
   return {
     key: alert.key,
@@ -244,7 +262,105 @@ function formatAlert(alert) {
     business_process_name: alert.payload?.business_process_name,
     lifecycle,
     lifecycle_status: lifecycle.status,
+    dedupe,
     evidence: alert.evidence || [],
+  };
+}
+
+function groupAlertRecords(records = []) {
+  const byGroup = records.reduce((acc, record) => {
+    const groupKey = alertGroupKey(record);
+    if (!acc.has(groupKey)) acc.set(groupKey, { group_key: groupKey, records: [] });
+    acc.get(groupKey).records.push(record);
+    return acc;
+  }, new Map());
+
+  return [...byGroup.values()]
+    .map(makeAlertGroup)
+    .sort((a, b) => new Date(b.primary.observed_at || 0) - new Date(a.primary.observed_at || 0));
+}
+
+function makeAlertGroup(group) {
+  const records = [...group.records].sort(compareAlertRecords);
+  return { ...group, records, primary: records[0] };
+}
+
+function compareAlertRecords(a, b) {
+  return alertRecordPriority(b) - alertRecordPriority(a) ||
+    new Date(b.observed_at || 0) - new Date(a.observed_at || 0) ||
+    String(a.external_id || a.key).localeCompare(String(b.external_id || b.key));
+}
+
+function alertRecordPriority(record) {
+  const severity = SEVERITY_RANK[record.payload?.severity] || 0;
+  const status = STATUS_RANK[record.payload?.status] || 0;
+  return severity * 10 + status;
+}
+
+async function findAlertDeduplication(alert) {
+  const filter = alertDeduplicationFilter(alert);
+  const records = await SourceRecord.find(filter).sort({ observed_at: -1 }).lean();
+  const group = makeAlertGroup({ group_key: alertGroupKey(alert), records: records.length ? records : [alert] });
+  return { ...formatAlertDedupe(group), filter };
+}
+
+function alertDeduplicationFilter(alert) {
+  if (alert.payload?.alert_group_key) {
+    return { record_type: "alert", "payload.alert_group_key": alert.payload.alert_group_key };
+  }
+
+  const filter = {
+    record_type: "alert",
+    source_system: alert.source_system,
+    entity_key: alert.entity_key,
+  };
+  if (alert.payload?.business_process_key) filter["payload.business_process_key"] = alert.payload.business_process_key;
+  const alertName = alert.payload?.raw?.labels?.alertname || alert.payload?.alertname;
+  if (alertName) filter["payload.raw.labels.alertname"] = alertName;
+  else if (alert.payload?.reason) filter["payload.reason"] = alert.payload.reason;
+  else filter.external_id = alert.external_id;
+  return filter;
+}
+
+function alertGroupKey(alert) {
+  if (alert.payload?.alert_group_key) return alert.payload.alert_group_key;
+  const alertName = alert.payload?.raw?.labels?.alertname || alert.payload?.alertname || alert.payload?.reason || alert.external_id;
+  return [alert.source_system, alert.entity_key, alert.payload?.business_process_key, alertName]
+    .filter(Boolean)
+    .join(":");
+}
+
+function formatAlertDedupe(group) {
+  const orderedByTime = [...group.records].sort((a, b) => new Date(a.observed_at || 0) - new Date(b.observed_at || 0));
+  const duplicateRecords = group.records.filter((record) => record.key !== group.primary.key);
+  const signalCount = group.records.length;
+  return {
+    group_key: group.group_key,
+    signal_count: signalCount,
+    suppressed_count: Math.max(signalCount - 1, 0),
+    primary_alert_key: group.primary.key,
+    raw_alert_keys: group.records.map((record) => record.key),
+    sources: [...new Set(group.records.map((record) => record.source_system).filter(Boolean))],
+    first_observed_at: orderedByTime[0]?.observed_at,
+    last_observed_at: orderedByTime[orderedByTime.length - 1]?.observed_at,
+    duplicate_signals: duplicateRecords.map(formatAlertSignal),
+    signals: group.records.map(formatAlertSignal).slice(0, 5),
+    summary: signalCount > 1
+      ? `${signalCount} raw alert signals grouped into one Workbench inbox item.`
+      : "Single alert signal; no repeated noise suppressed.",
+  };
+}
+
+function formatAlertSignal(record) {
+  return {
+    key: record.key,
+    external_id: record.external_id,
+    source_system: record.source_system,
+    observed_at: record.observed_at,
+    severity: record.payload?.severity || "warning",
+    status: record.payload?.status || "degraded",
+    reason: record.payload?.reason || "Imported observability alert",
+    detail: record.payload?.detail,
   };
 }
 
@@ -384,6 +500,11 @@ function formatChangeEvidence(documents = []) {
   return documents.slice(0, 3).map((change) => `Recent change ${change.external_id}: ${change.summary} (${change.time_context}, ${Math.round(change.score * 100)}% correlation).`);
 }
 
+function formatDedupeEvidence(dedupe) {
+  if (!dedupe || dedupe.signal_count <= 1) return [];
+  return [`Alert deduplication: ${dedupe.signal_count} raw signals share group ${dedupe.group_key}; ${dedupe.suppressed_count} repeated signal${dedupe.suppressed_count === 1 ? "" : "s"} suppressed from the inbox view.`];
+}
+
 async function findChangeCorrelation(alert, iface, impact, systemKeys) {
   const windowMinutes = 180;
   const alertTime = new Date(alert.observed_at || Date.now());
@@ -456,7 +577,7 @@ function formatChangeRecord(record, alertTime, assetKeys, processKeys) {
   };
 }
 
-function buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, impact, systemKeys, ownerKeys, evidence, relatedContext, changeCorrelation) {
+function buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, impact, systemKeys, ownerKeys, evidence, relatedContext, changeCorrelation, alertDeduplication) {
   const impactedInterfaceKeys = [iface.key, ...(impact?.downstream_interfaces || []).map((i) => i.key)];
   const processKeys = (impact?.business_processes || []).map((p) => p.key);
   const relationshipMatch = {
@@ -471,6 +592,13 @@ function buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, im
         filter: { key: sourceRecordKey, record_type: "alert" },
         chain: ".lean()",
         purpose: "Load the raw observability alert selected from the Workbench inbox.",
+      }),
+    ]),
+    dedupe: stageTrace("Alert deduplication and noise reduction", [
+      op("SourceRecord", "source_records", "find", {
+        filter: alertDeduplication.filter,
+        chain: ".sort({ observed_at: -1 }).lean()",
+        purpose: "Load all raw alert records in the same dedupe group; the Workbench collapses repeat signals without deleting source evidence.",
       }),
     ]),
     mapped: stageTrace("Canonical interface mapping", [
@@ -687,14 +815,15 @@ function buildCaseTimeline(start, investigation) {
   const top = investigation.likely_fault_domains?.[0];
   return [
     { at: at(0), event: "case_opened", label: "Case opened", detail: `Created from ${alert.reason}.`, status: "complete" },
-    { at: at(1), event: "alert_mapped", label: "Alert mapped", detail: `Mapped ${alert.external_id} to ${iface.name}.`, status: "complete" },
-    { at: at(2), event: "topology_loaded", label: "Topology loaded", detail: `${investigation.topology.downstream_interfaces.length} downstream interfaces found.`, status: "complete" },
-    { at: at(3), event: "impact_assessed", label: "Impact assessed", detail: `${investigation.affected_systems.length} affected systems identified.`, status: "complete" },
-    { at: at(4), event: "related_context_retrieved", label: "Related context retrieved", detail: `${investigation.related_context?.documents?.length || 0} runbook/incident notes found.`, status: "complete" },
-    { at: at(5), event: "changes_correlated", label: "Recent changes correlated", detail: `${investigation.change_correlation?.documents?.length || 0} nearby changes evaluated.`, status: "complete" },
-    { at: at(6), event: "evidence_collected", label: "Evidence collected", detail: `${investigation.evidence.length} evidence items attached.`, status: "complete" },
-    { at: at(7), event: "fault_ranked", label: "Fault domain ranked", detail: `${top?.name || "Top candidate"} ranked highest.`, status: "complete" },
-    { at: at(8), event: "next_checks_ready", label: "Next checks ready", detail: `${investigation.recommended_next_actions.length} human-reviewable checks prepared.`, status: "complete" },
+    { at: at(1), event: "alert_deduplicated", label: "Alert deduplicated", detail: `${alert.dedupe?.signal_count || 1} raw signal${(alert.dedupe?.signal_count || 1) === 1 ? "" : "s"} evaluated; ${alert.dedupe?.suppressed_count || 0} hidden from the inbox view.`, status: "complete" },
+    { at: at(2), event: "alert_mapped", label: "Alert mapped", detail: `Mapped ${alert.external_id} to ${iface.name}.`, status: "complete" },
+    { at: at(3), event: "topology_loaded", label: "Topology loaded", detail: `${investigation.topology.downstream_interfaces.length} downstream interfaces found.`, status: "complete" },
+    { at: at(4), event: "impact_assessed", label: "Impact assessed", detail: `${investigation.affected_systems.length} affected systems identified.`, status: "complete" },
+    { at: at(5), event: "related_context_retrieved", label: "Related context retrieved", detail: `${investigation.related_context?.documents?.length || 0} runbook/incident notes found.`, status: "complete" },
+    { at: at(6), event: "changes_correlated", label: "Recent changes correlated", detail: `${investigation.change_correlation?.documents?.length || 0} nearby changes evaluated.`, status: "complete" },
+    { at: at(7), event: "evidence_collected", label: "Evidence collected", detail: `${investigation.evidence.length} evidence items attached.`, status: "complete" },
+    { at: at(8), event: "fault_ranked", label: "Fault domain ranked", detail: `${top?.name || "Top candidate"} ranked highest.`, status: "complete" },
+    { at: at(9), event: "next_checks_ready", label: "Next checks ready", detail: `${investigation.recommended_next_actions.length} human-reviewable checks prepared.`, status: "complete" },
   ];
 }
 

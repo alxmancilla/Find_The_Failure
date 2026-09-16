@@ -65,7 +65,7 @@ playbook populate topology, evidence, and recommended checks.
 The playbook follows the same supervised pattern for every alert, with
 case-specific evidence inside each phase:
 
-- **Intake** — alert received and mapped to a known interface
+- **Intake** — alert received, repeated signals grouped, and mapped to a known interface
 - **Impact** — topology loaded and business impact assessed
 - **Evidence** — related context retrieved and provenance collected
 - **Recommendation** — fault domains ranked and next checks generated
@@ -94,13 +94,15 @@ Hospital 123 → EDI Gateway → X12 Translator → Integration API → Apex ERP
    likely fault domain, and first safe check.
 2. Point to the alert lifecycle tag: opening the case marks the alert
    **Investigating** in local Workbench state.
-3. The likely fault domain is highlighted with confidence.
-4. Show impacted business process, downstream risk, owners, and related context.
-5. Open **What changed?** to show recent deployment, config, and route changes
+3. Point to **Noise reduction**: repeated Alertmanager signals are grouped into
+   one inbox item while all raw `source_records` remain available.
+4. The likely fault domain is highlighted with confidence.
+5. Show impacted business process, downstream risk, owners, and related context.
+6. Open **What changed?** to show recent deployment, config, and route changes
    as correlated hypotheses, not confirmed cause.
-6. Open the related runbooks/prior incidents panel to explain how the agent gets
+7. Open the related runbooks/prior incidents panel to explain how the agent gets
    operational memory before ranking.
-7. Review the safe next checks. No remediation is executed in Agent v1; the
+8. Review the safe next checks. No remediation is executed in Agent v1; the
    guardrail reminds the audience that action requires operator approval.
 
 > "In seconds we know what broke, what's downstream, who owns it, and what
@@ -164,8 +166,8 @@ come from, and can we trust it?"
    Workbench rehearsal state.
 
 In the **Investigation Workbench**, click **Replay enterprise context** to run
-the same fixture capture/normalization path and immediately show the two
-external Alertmanager alerts in the alert inbox. The sidebar now presents this
+the same fixture capture/normalization path and immediately show three raw
+Alertmanager signals collapsed into two external alert inbox items. The sidebar now presents this
 as the primary path: replay context, select alert, open case, review evidence.
 
 Open **Demo controls** only when you need **Add extra demo alerts** or **Reset
@@ -207,9 +209,9 @@ pack is the primary ingestion story.
 Seeded footprint: **9 systems, 10 interfaces, 3 owners, 4 data entities**,
 plus **2 business processes, 17 relationships, 5 source records, 8 operational
 knowledge documents, 3 failure scenarios**, and **1 modernization scenario**.
-The optional enterprise fixture pack adds **10 raw source records** for ingestion
-demonstrations, including **2 external Alertmanager alerts** that appear in the
-Workbench inbox and **3 recent change records** that power the Workbench
+The optional enterprise fixture pack adds **11 raw source records** for ingestion
+demonstrations, including **3 external Alertmanager signals** that collapse into
+**2 Workbench inbox items** and **3 recent change records** that power the Workbench
 "What changed?" panel. It can be cleared without reseeding.
 
 ---

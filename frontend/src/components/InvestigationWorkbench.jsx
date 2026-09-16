@@ -7,6 +7,7 @@ const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const STEP_TEMPLATE = [
   { id: "received", label: "Alert received", detail: "Load the selected raw alert from the Workbench inbox." },
+  { id: "dedupe", label: "Grouped signals", detail: "Find repeated alert records and collapse inbox noise without deleting raw evidence." },
   { id: "mapped", label: "Mapped to interface", detail: "Resolve the alert to canonical integration metadata." },
   { id: "topology", label: "Loaded topology", detail: "Retrieve the dependency path and related systems." },
   { id: "impact", label: "Assessed impact", detail: "Identify business processes, owners, and downstream risk." },
@@ -28,6 +29,7 @@ const SUGGESTED_QUESTIONS = [
 
 const CASE_EVENT_TO_STEP = {
   case_opened: "received",
+  alert_deduplicated: "dedupe",
   alert_mapped: "mapped",
   topology_loaded: "topology",
   impact_assessed: "impact",
@@ -49,8 +51,8 @@ const PLAYBOOK_PHASES = [
   {
     id: "intake",
     label: "Intake",
-    detail: "Capture the alert and map it to a known integration asset.",
-    stageIds: ["received", "mapped"],
+    detail: "Capture the alert, group repeated signals, and map it to a known integration asset.",
+    stageIds: ["received", "dedupe", "mapped"],
   },
   {
     id: "impact",
@@ -79,6 +81,13 @@ const MONGODB_STAGE_EXPLANATIONS = {
     queryPattern: "Find the selected alert source record and create an auditable case document.",
     learns: "The agent captures the raw observability signal, source system, severity, status, and alert-to-interface key.",
     demoLine: "MongoDB gives the workflow a durable starting point instead of a transient alert notification.",
+  },
+  dedupe: {
+    capability: "Alert deduplication and noise reduction",
+    collections: ["source_records"],
+    queryPattern: "Find alerts with the same deterministic group key, then collapse repeat signals for the inbox view.",
+    learns: "The agent sees whether this is a single symptom or repeated observability noise from the same interface and process.",
+    demoLine: "MongoDB keeps every raw alert record while the Workbench presents one calm operational item.",
   },
   mapped: {
     capability: "Canonical interface mapping",
@@ -153,11 +162,15 @@ function Stat({ label, value }) {
 
 function AlertCard({ alert, active, onClick }) {
   const lifecycleStatus = alert.lifecycle_status || alert.lifecycle?.status || "new";
+  const signalCount = alertSignalCount(alert);
   return (
     <button type="button" className={`alert-card ${active ? "active" : ""}`} aria-current={active ? "true" : undefined} onClick={onClick}>
       <span className="alert-card-top">
         <span className={`badge status-${alert.status}`}>{alert.severity || "alert"}</span>
-        <span className={`lifecycle-pill lifecycle-${lifecycleStatus}`}>{alert.lifecycle?.label || "New"}</span>
+        <span className="alert-card-pills">
+          {signalCount > 1 && <span className="signal-pill">{signalCount} signals</span>}
+          <span className={`lifecycle-pill lifecycle-${lifecycleStatus}`}>{alert.lifecycle?.label || "New"}</span>
+        </span>
       </span>
       <strong>{alert.reason}</strong>
       <small>{alert.source_system} · {alert.interface_key}</small>
@@ -330,6 +343,7 @@ function SelectedAlertPanel({ alert, busy, lifecycleBusy, activeCase, isHiddenBy
   }
 
   const lifecycleStatus = alert.lifecycle_status || alert.lifecycle?.status || "new";
+  const signalCount = alertSignalCount(alert);
   const lifecycleActions = [
     { status: "acknowledged", label: "Acknowledge" },
     { status: "escalated", label: "Escalate" },
@@ -347,6 +361,7 @@ function SelectedAlertPanel({ alert, busy, lifecycleBusy, activeCase, isHiddenBy
       </span>
       <strong>{alert.reason}</strong>
       <small>{alert.source_system} · {alert.interface_key}</small>
+      {signalCount > 1 && <div className="dedupe-callout"><strong>{signalCount} raw signals grouped</strong><span>{alert.dedupe?.suppressed_count || signalCount - 1} repeated signal{(alert.dedupe?.suppressed_count || signalCount - 1) === 1 ? "" : "s"} hidden from the inbox view.</span></div>}
       {isHiddenByFilters && <span className="saved-case-pill">Hidden by current filters</span>}
       {activeCase?.key && <span className="saved-case-pill">Saved case: {activeCase.key}</span>}
       <div className="lifecycle-actions" aria-label="Alert lifecycle actions">
@@ -465,6 +480,33 @@ function OperationalPriorityPanel({ selectedAlert, result }) {
         <div><span>First check</span><strong>{priority.firstCheck}</strong></div>
       </div>
       <p className="approval-guardrail">Read-only investigation. Remediation or escalation requires operator approval.</p>
+    </section>
+  );
+}
+
+function AlertDeduplicationPanel({ selectedAlert, result }) {
+  const dedupe = result?.alert_deduplication || selectedAlert?.dedupe;
+  const signalCount = dedupe?.signal_count || (selectedAlert ? 1 : 0);
+  const duplicateSignals = dedupe?.duplicate_signals || [];
+  return (
+    <section className="panel-card alert-dedupe-panel">
+      <div className="panel-title-row compact">
+        <div>
+          <span className="eyebrow">Noise reduction</span>
+          <h3>Grouped alert signals</h3>
+        </div>
+        {selectedAlert && <span className="count-pill">{signalCount} signal{signalCount === 1 ? "" : "s"}</span>}
+      </div>
+      {!selectedAlert && <p className="muted">Select an alert to see grouping details.</p>}
+      {selectedAlert && <p className="mini-copy muted">{dedupe?.summary || "Single alert signal; no repeated noise suppressed."}</p>}
+      {duplicateSignals.map((signal) => (
+        <article key={signal.key} className="signal-card">
+          <span>{signal.source_system} · {signal.external_id}</span>
+          <strong>{signal.reason}</strong>
+          <p>{signal.detail}</p>
+        </article>
+      ))}
+      {selectedAlert && signalCount === 1 && <p className="muted">No duplicate signals are currently grouped with this alert.</p>}
     </section>
   );
 }
@@ -620,6 +662,12 @@ function answerQuestion(question, result) {
   if (q.includes("why") || q.includes("fault")) return `${top?.name || "The top candidate"} is ranked highest because ${top?.reason || "the alert maps directly to this domain"}`;
   if (q.includes("business") || q.includes("process") || q.includes("impact")) return `The impacted business process is ${processes}. Affected systems include ${(result.affected_systems || []).map((s) => s.name).join(", ") || "the mapped downstream systems"}.`;
   if (q.includes("owner") || q.includes("owns")) return `The mapped owner is ${owners}. Use the runbook/contact metadata before taking remediation steps.`;
+  if (q.includes("duplicate") || q.includes("dedupe") || q.includes("noise") || q.includes("group")) {
+    const dedupe = result.alert_deduplication;
+    return dedupe?.signal_count > 1
+      ? `Noise reduction grouped ${dedupe.signal_count} raw alert signals under ${dedupe.group_key}; ${dedupe.suppressed_count} repeated signal${dedupe.suppressed_count === 1 ? "" : "s"} are hidden from the inbox, but all raw source records remain available.`
+      : "This alert currently has one raw signal, so no repeated alert noise was suppressed.";
+  }
   if (q.includes("related") || q.includes("similar") || q.includes("runbook") || q.includes("incident")) return `Related context: ${(result.related_context?.documents || []).slice(0, 3).map((d) => d.title).join("; ") || "no matching runbooks or incident notes were found"}.`;
   if (q.includes("change") || q.includes("deploy") || q.includes("release") || q.includes("config")) {
     const changes = result.change_correlation?.documents || [];
@@ -672,7 +720,20 @@ function groupAlertsByProcess(alerts) {
 
 function mergeUpdatedAlert(alerts, updatedAlert) {
   if (!updatedAlert?.key) return alerts;
-  return alerts.map((alert) => alert.key === updatedAlert.key ? updatedAlert : alert);
+  return alerts.map((alert) => alert.key === updatedAlert.key ? { ...updatedAlert, dedupe: updatedAlert.dedupe || alert.dedupe } : alert);
+}
+
+function responseAlertStats(res, alerts) {
+  const rawAlertsCount = res.raw_alerts_count ?? alerts.reduce((sum, alert) => sum + alertSignalCount(alert), 0);
+  return {
+    rawAlertsCount,
+    dedupeGroupsCount: res.dedupe_groups_count ?? alerts.length,
+    suppressedAlertsCount: res.suppressed_alerts_count ?? Math.max(rawAlertsCount - alerts.length, 0),
+  };
+}
+
+function alertSignalCount(alert) {
+  return alert?.dedupe?.signal_count || 1;
 }
 
 function processName(alert) {
@@ -705,6 +766,7 @@ export default function InvestigationWorkbench() {
   const [selectedStageId, setSelectedStageId] = useState("received");
   const [alertQuery, setAlertQuery] = useState("");
   const [processFilter, setProcessFilter] = useState(PROCESS_FILTER_ALL);
+  const [alertStats, setAlertStats] = useState({ rawAlertsCount: 0, dedupeGroupsCount: 0, suppressedAlertsCount: 0 });
 
   const selectedAlert = useMemo(() => alerts.find((a) => a.key === selectedKey), [alerts, selectedKey]);
   const processOptions = useMemo(() => {
@@ -748,6 +810,7 @@ export default function InvestigationWorkbench() {
     const res = await api.alerts();
     const nextAlerts = res.alerts || [];
     setAlerts(nextAlerts);
+    setAlertStats(responseAlertStats(res, nextAlerts));
     setSelectedKey((current) => nextAlerts.some((alert) => alert.key === current) ? current : nextAlerts[0]?.key || "");
     return nextAlerts;
   }, []);
@@ -827,7 +890,7 @@ export default function InvestigationWorkbench() {
       await pause(250);
       mark("received", "complete", `Alert ${selectedAlert.external_id} received.`);
 
-      mark("mapped", "running", "Resolving alert entity to canonical interface.");
+      mark("dedupe", "running", "Grouping repeated alert signals without deleting raw records.");
       const [{ case: nextCase, investigation }, graph] = await Promise.all([
         api.createInvestigationCase(selectedAlert.key),
         api.flow(selectedAlert.interface_key),
@@ -835,6 +898,10 @@ export default function InvestigationWorkbench() {
       setAlerts((current) => mergeUpdatedAlert(current, investigation.alert));
       setActiveCase(nextCase);
       setCaseStatus(`Case ${nextCase.key} opened; alert marked investigating.`);
+      mark("dedupe", "complete", `${investigation.alert_deduplication?.signal_count || 1} raw signal${(investigation.alert_deduplication?.signal_count || 1) === 1 ? "" : "s"} evaluated; ${investigation.alert_deduplication?.suppressed_count || 0} hidden from inbox.`);
+      await pause(250);
+
+      mark("mapped", "running", "Resolving alert entity to canonical interface.");
       mark("mapped", "complete", `Mapped to ${investigation.topology.alert_interface.name}.`);
       await pause(250);
 
@@ -914,7 +981,9 @@ export default function InvestigationWorkbench() {
     setFeedStatus("Loading scripted demo alerts for rehearsal…");
     try {
       const res = await api.ingestDemoAlerts();
-      setAlerts(res.alerts || []);
+      const nextAlerts = res.alerts || [];
+      setAlerts(nextAlerts);
+      setAlertStats(responseAlertStats(res, nextAlerts));
       setSelectedKey((current) => (res.alerts || []).some((alert) => alert.key === current) ? current : res.alerts?.[0]?.key || "");
       const refreshed = Math.max((res.upserted_alerts || 0) - (res.inserted_alerts || 0), 0);
       setFeedStatus(
@@ -937,8 +1006,10 @@ export default function InvestigationWorkbench() {
       const normalized = await api.runIngestion();
       const res = await api.alerts();
       const nextAlerts = res.alerts || [];
+      const stats = responseAlertStats(res, nextAlerts);
       const externalAlerts = nextAlerts.filter((alert) => alert.source_system === "alertmanager-webhook");
       setAlerts(nextAlerts);
+      setAlertStats(stats);
       setProcessFilter(PROCESS_FILTER_ALL);
       setAlertQuery("");
       setSelectedKey(externalAlerts[0]?.key || nextAlerts[0]?.key || "");
@@ -949,7 +1020,8 @@ export default function InvestigationWorkbench() {
       setSelectedStageId("received");
       setSteps(STEP_TEMPLATE.map((s) => ({ ...s, status: "pending" })));
       setFeedStatus(
-        `${externalAlerts.length} external Alertmanager alerts added from ${loaded.source_records_loaded} source records; ` +
+        `${externalAlerts.length} external Alertmanager inbox items from ${stats.rawAlertsCount} raw alert signals; ` +
+        `${stats.suppressedAlertsCount} repeat signal${stats.suppressedAlertsCount === 1 ? "" : "s"} grouped. ` +
         `${normalized.relationship_upserts} relationships and ${normalized.event_upserts} events normalized.`
       );
     } catch (err) {
@@ -967,6 +1039,7 @@ export default function InvestigationWorkbench() {
       const res = await api.clearWorkbenchDemoState();
       const nextAlerts = res.alerts || [];
       setAlerts(nextAlerts);
+      setAlertStats(responseAlertStats(res, nextAlerts));
       setCases(res.cases || []);
       setSelectedKey(nextAlerts[0]?.key || "");
       setActiveCase(null);
@@ -997,7 +1070,7 @@ export default function InvestigationWorkbench() {
         </div>
         <div className={`replay-card ${hasEnterpriseContext ? "ready" : ""}`}>
           <strong>{hasEnterpriseContext ? "Enterprise context is loaded" : "Start here"}</strong>
-          <p>{hasEnterpriseContext ? "External Alertmanager alerts are available in the inbox." : "Replay enterprise context to load raw Alertmanager, catalog, and CMDB records into the inbox."}</p>
+          <p>{hasEnterpriseContext ? "External Alertmanager signals are grouped into inbox items." : "Replay enterprise context to load raw Alertmanager, catalog, and CMDB records into the inbox."}</p>
           <button type="button" className="primary" disabled={feedBusy || resetBusy || busy} onClick={ingestEnterpriseContext}>{feedBusy ? "Replaying…" : "Replay enterprise context"}</button>
         </div>
         <details className="sidebar-disclosure demo-controls">
@@ -1011,8 +1084,9 @@ export default function InvestigationWorkbench() {
         <p className="feed-status">{feedStatus || "Enterprise context is the primary demo path. Extra scripted alerts are optional rehearsal data."}</p>
         <div className="alert-inbox-head">
           <h3>Alert inbox</h3>
-          <span className="count-pill">{alerts.length}</span>
+          <span className="count-pill">{alerts.length} items</span>
         </div>
+        {alertStats.suppressedAlertsCount > 0 && <p className="noise-summary">Noise reduction grouped {alertStats.rawAlertsCount} raw alert signals into {alertStats.dedupeGroupsCount} inbox items; {alertStats.suppressedAlertsCount} repeated signal{alertStats.suppressedAlertsCount === 1 ? "" : "s"} hidden.</p>}
         <SelectedAlertPanel alert={selectedAlert} busy={busy} lifecycleBusy={lifecycleBusy} activeCase={activeCase} isHiddenByFilters={Boolean(selectedAlert && !selectedAlertVisible)} onInvestigate={startInvestigation} onLifecycleChange={updateLifecycle} />
         <details className="sidebar-disclosure">
           <summary>Filter alerts <span>{hiddenAlertCount ? `${hiddenAlertCount} hidden` : "optional"}</span></summary>
@@ -1054,6 +1128,7 @@ export default function InvestigationWorkbench() {
                 <span>{selectedAlert.source_system}</span>
                 <span>{selectedAlert.interface_key}</span>
                 <span>{selectedAlert.lifecycle?.label || "New"}</span>
+                {alertSignalCount(selectedAlert) > 1 && <span>{alertSignalCount(selectedAlert)} grouped signals</span>}
                 {activeCase?.key && <span>Saved as {activeCase.key}</span>}
               </div>
             )}
@@ -1061,6 +1136,7 @@ export default function InvestigationWorkbench() {
           <div className="case-stats">
             <Stat label="Severity" value={selectedAlert?.severity || "—"} />
             <Stat label="Ranking confidence" value={result?.likely_fault_domains?.[0] ? pct(result.likely_fault_domains[0].score) : busy ? "Building" : "—"} />
+            <Stat label="Signals" value={selectedAlert ? alertSignalCount(selectedAlert) : "—"} />
             <Stat label="Evidence" value={result?.evidence?.length ?? "—"} />
           </div>
         </section>
@@ -1077,6 +1153,7 @@ export default function InvestigationWorkbench() {
 
           <aside className="workbench-right">
             <OperationalPriorityPanel selectedAlert={selectedAlert} result={result} />
+            <AlertDeduplicationPanel selectedAlert={selectedAlert} result={result} />
             <SummaryPanel result={result} />
             <BusinessImpactPanel result={result} selectedAlert={selectedAlert} />
             <ChangeCorrelationPanel result={result} />

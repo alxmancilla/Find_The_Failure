@@ -26,6 +26,7 @@ const processNames = {
 const alertmanagerFixtures = [
   {
     fingerprint: "amr-erp-order-create-timeout-001",
+    alertGroupKey: "alertmanager:if-integration-erp:hospital-order-fulfillment:ApexERPOrderCreateLatencyHigh",
     labels: {
       alertname: "ApexERPOrderCreateLatencyHigh",
       severity: "critical",
@@ -41,7 +42,25 @@ const alertmanagerFixtures = [
     startsAt: minutesAgo(14),
   },
   {
+    fingerprint: "amr-erp-order-create-timeout-001-repeat",
+    alertGroupKey: "alertmanager:if-integration-erp:hospital-order-fulfillment:ApexERPOrderCreateLatencyHigh",
+    labels: {
+      alertname: "ApexERPOrderCreateLatencyHigh",
+      severity: "critical",
+      interface_alias: "ERP_ORDER_CREATE",
+      service_alias: "APEXERP01",
+      business_process: "hospital-order-fulfillment",
+    },
+    annotations: {
+      summary: "Apex ERP order-create latency exceeded threshold",
+      description: "Repeat Alertmanager evaluation fired for the same order-create latency window.",
+      runbook_url: "https://runbooks.example-health.com/erp-endpoint",
+    },
+    startsAt: minutesAgo(12),
+  },
+  {
     fingerprint: "amr-supplier-ack-timeout-002",
+    alertGroupKey: "alertmanager:if-inventory-supplier:supplier-replenishment:SupplierEDITransportAckMissing",
     labels: {
       alertname: "SupplierEDITransportAckMissing",
       severity: "critical",
@@ -156,6 +175,7 @@ function alertRecord(fixture, capturedAt) {
       message_type: fixture.labels.message_type || "order-create",
       business_process_key: processKey,
       business_process_name: processNames[processKey],
+      alert_group_key: fixture.alertGroupKey,
       raw: fixture,
     },
     capturedAt,
