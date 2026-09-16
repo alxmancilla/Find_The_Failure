@@ -15,6 +15,7 @@ const systemAliases = {
   INTEGRATION_API: "integration-api",
   EDI_GATEWAY: "edi-gateway",
   X12_TRANSLATOR: "x12-translator",
+  SUPPLIER_EDI: "supplier-edi",
 };
 
 const processNames = {
@@ -38,6 +39,24 @@ const alertmanagerFixtures = [
       runbook_url: "https://runbooks.example-health.com/erp-endpoint",
     },
     startsAt: minutesAgo(14),
+  },
+  {
+    fingerprint: "amr-supplier-ack-timeout-002",
+    labels: {
+      alertname: "SupplierEDITransportAckMissing",
+      severity: "critical",
+      status: "failed",
+      interface_alias: "SUPPLIER_REPLENISH_850",
+      service_alias: "SUPPLIER_EDI",
+      business_process: "supplier-replenishment",
+      message_type: "850",
+    },
+    annotations: {
+      summary: "Supplier EDI acknowledgment timeout from external monitor",
+      description: "Alertmanager received no supplier transport ACK for replenishment 850 within the 30-minute SLA.",
+      runbook_url: "https://runbooks.example-health.com/supplier-edi-ack",
+    },
+    startsAt: minutesAgo(28),
   },
 ];
 
@@ -87,11 +106,11 @@ function alertRecord(fixture, capturedAt) {
     evidence: [fixture.annotations.description],
     resolution: resolution(alias, interfaceKey, "interface_alias"),
     payload: {
-      status: "degraded",
+      status: fixture.labels.status || "degraded",
       severity: fixture.labels.severity,
       reason: fixture.annotations.summary,
       detail: fixture.annotations.description,
-      message_type: "order-create",
+      message_type: fixture.labels.message_type || "order-create",
       business_process_key: processKey,
       business_process_name: processNames[processKey],
       raw: fixture,

@@ -81,7 +81,8 @@ auditable memory.
   feed controls.
 - **Enterprise fixture ingestion** — optional Alertmanager, integration-catalog,
   and CMDB-style records are captured as raw source evidence, resolved to
-  canonical keys, normalized into events/relationships, and scored for trust.
+  canonical keys, normalized into events/relationships, surfaced in the
+  Workbench inbox, and scored for trust.
 
 ---
 
@@ -210,12 +211,13 @@ field type.
 The `interfaces` collection uses a flexible schema so a single model can hold
 EDI, REST, FHIR, event, and SFTP interfaces. Seeded footprint: **9 systems,
 10 interfaces, 3 owners, 4 data entities, 2 business processes, 17 typed
-relationships, and 5 source records**. The Context Ingestion tab can optionally
-load **6 enterprise fixture records** from Alertmanager, integration-catalog,
+relationships, and 5 source records**. The Context Ingestion tab and Workbench
+can optionally load **7 enterprise fixture records** from Alertmanager, integration-catalog,
 and CMDB-style exports, then normalize them into additional relationship/event
-evidence with provenance. The Workbench can targeted-upsert **4 additional
-simulated observability alerts**, retrieve **8 operational knowledge documents**,
-and persist investigation cases.
+evidence with provenance. Two of those records are external Alertmanager alerts
+that appear in the Workbench inbox. The Workbench can also targeted-upsert **4
+additional simulated observability alerts**, retrieve **8 operational knowledge
+documents**, and persist investigation cases.
 
 ---
 

@@ -48,10 +48,10 @@ try {
 
   await post("/ingestion/fixtures/clear");
   const fixtureLoad = await post("/ingestion/fixtures");
-  assert(fixtureLoad.source_records_loaded >= 6, "enterprise fixture pack did not load");
+  assert(fixtureLoad.source_records_loaded >= 7, "enterprise fixture pack did not load");
   const ingestion = await get("/ingestion");
   assert(Array.isArray(ingestion.source_records), "ingestion dashboard missing source records");
-  assert(ingestion.quality.fixture_records >= 6, "fixture records missing from dashboard");
+  assert(ingestion.quality.fixture_records >= 7, "fixture records missing from dashboard");
   assert(ingestion.pipeline.length === 4, "ingestion pipeline summary missing");
   const ingestionRun = await post("/ingestion/run");
   assert(ingestionRun.ok === true, "ingestion run failed");

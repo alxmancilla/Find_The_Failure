@@ -154,6 +154,10 @@ come from, and can we trust it?"
 4. Click **Clear fixture pack** if you want to return to the default clean
    Workbench rehearsal state.
 
+In the **Investigation Workbench**, click **Ingest enterprise context pack** to
+run the same fixture capture/normalization path and immediately show the two
+external Alertmanager alerts in the alert inbox.
+
 ### Optional — What-if modernization question
 1. Go to the **Modernization** tab.
 2. Select **X12 Translator** → **Analyze**.
@@ -189,8 +193,9 @@ come from, and can we trust it?"
 Seeded footprint: **9 systems, 10 interfaces, 3 owners, 4 data entities**,
 plus **2 business processes, 17 relationships, 5 source records, 8 operational
 knowledge documents, 3 failure scenarios**, and **1 modernization scenario**.
-The optional enterprise fixture pack adds **6 raw source records** for ingestion
-demonstrations and can be cleared without reseeding.
+The optional enterprise fixture pack adds **7 raw source records** for ingestion
+demonstrations, including **2 external Alertmanager alerts** that appear in the
+Workbench inbox, and can be cleared without reseeding.
 
 ---
 

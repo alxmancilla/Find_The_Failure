@@ -108,7 +108,9 @@ Raw or normalized source metadata from inventory, CMDB/app ownership, and
 observability feeds. Alerts are represented as `record_type: "alert"` and map to
 interfaces through `entity_key`. Enterprise fixture ingestion also stores
 `provenance`, `entity_resolution`, `fixture_group`, `ingestion_status`, and
-`ingestion_run_id` to demonstrate trust and stewardship controls.
+`ingestion_run_id` to demonstrate trust and stewardship controls. The optional
+fixture pack currently adds 7 raw records, including 2 Alertmanager-style alerts
+that can be surfaced in the Workbench inbox.
 
 ### `operational_knowledge`
 

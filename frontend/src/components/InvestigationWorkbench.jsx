@@ -683,10 +683,41 @@ export default function InvestigationWorkbench() {
     }
   };
 
+  const ingestEnterpriseContext = async () => {
+    setFeedBusy(true);
+    setFeedStatus("Capturing enterprise fixture records and refreshing the inbox…");
+    try {
+      const loaded = await api.loadEnterpriseFixtures();
+      const normalized = await api.runIngestion();
+      const res = await api.alerts();
+      const nextAlerts = res.alerts || [];
+      const externalAlerts = nextAlerts.filter((alert) => alert.source_system === "alertmanager-webhook");
+      setAlerts(nextAlerts);
+      setProcessFilter(PROCESS_FILTER_ALL);
+      setAlertQuery("");
+      setSelectedKey(externalAlerts[0]?.key || nextAlerts[0]?.key || "");
+      setActiveCase(null);
+      setResult(null);
+      setImpacted(null);
+      setMessages([]);
+      setSelectedStageId("received");
+      setSteps(STEP_TEMPLATE.map((s) => ({ ...s, status: "pending" })));
+      setFeedStatus(
+        `${externalAlerts.length} external Alertmanager alerts added from ${loaded.source_records_loaded} source records; ` +
+        `${normalized.relationship_upserts} relationships and ${normalized.event_upserts} events normalized.`
+      );
+    } catch (err) {
+      setFeedStatus(err.message || "Unable to ingest enterprise context pack.");
+    } finally {
+      setFeedBusy(false);
+    }
+  };
+
   const clearDemoState = async () => {
     setResetBusy(true);
-    setFeedStatus("Clearing simulated feed alerts and case memory…");
+    setFeedStatus("Clearing simulated alerts, enterprise fixtures, and case memory…");
     try {
+      const fixtureClear = await api.clearEnterpriseFixtures();
       const res = await api.clearWorkbenchDemoState();
       const nextAlerts = res.alerts || [];
       setAlerts(nextAlerts);
@@ -699,7 +730,7 @@ export default function InvestigationWorkbench() {
       setQuestion("");
       setSelectedStageId("received");
       setSteps(STEP_TEMPLATE.map((s) => ({ ...s, status: "pending" })));
-      setFeedStatus(`${res.deleted_feed_alerts} feed alerts cleared; ${res.deleted_cases} cases removed.`);
+      setFeedStatus(`${res.deleted_feed_alerts} demo feed alerts and ${fixtureClear.deleted_source_records} enterprise fixture records cleared; ${res.deleted_cases} cases removed.`);
       setCaseStatus("Case memory cleared for the next rehearsal.");
     } catch (err) {
       setFeedStatus(err.message || "Unable to clear rehearsal state.");
@@ -724,9 +755,10 @@ export default function InvestigationWorkbench() {
         </div>
         <div className="alert-inbox-actions">
           <button type="button" disabled={feedBusy || resetBusy || busy} onClick={ingestLatestAlerts}>{feedBusy ? "Ingesting…" : "Ingest latest feed alerts"}</button>
+          <button type="button" disabled={feedBusy || resetBusy || busy} onClick={ingestEnterpriseContext}>{feedBusy ? "Ingesting…" : "Ingest enterprise context pack"}</button>
           <button type="button" className="danger" disabled={feedBusy || resetBusy || busy} onClick={clearDemoState}>{resetBusy ? "Resetting…" : "Reset rehearsal state"}</button>
         </div>
-        <p className="feed-status">{feedStatus || "Simulates a targeted observability feed ingest without resetting demo data."}</p>
+        <p className="feed-status">{feedStatus || "Use the curated feed for scripted alerts, or the enterprise context pack to replay raw Alertmanager + catalog + CMDB records into the inbox."}</p>
         <SelectedAlertPanel alert={selectedAlert} busy={busy} activeCase={activeCase} isHiddenByFilters={Boolean(selectedAlert && !selectedAlertVisible)} onInvestigate={startInvestigation} />
         <div className="inbox-filter-panel">
           <label>
