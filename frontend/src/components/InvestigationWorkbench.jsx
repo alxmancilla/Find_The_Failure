@@ -17,6 +17,7 @@ const STEP_TEMPLATE = [
   { id: "evidence", label: "Collected evidence", detail: "Gather source records, relationship evidence, and events." },
   { id: "ranked", label: "Ranked fault domains", detail: "Score likely causes with supporting rationale." },
   { id: "summary", label: "Generated next checks", detail: "Produce safe, human-reviewable recommendations." },
+  { id: "handoff", label: "Prepared handoff", detail: "Generate a read-only ITSM handoff preview for operator approval." },
 ];
 
 const SUGGESTED_QUESTIONS = [
@@ -24,6 +25,7 @@ const SUGGESTED_QUESTIONS = [
   "What business process is impacted?",
   "Who owns this interface?",
   "What changed recently?",
+  "What is in the handoff preview?",
   "What evidence supports this?",
   "What should I check first?",
 ];
@@ -40,6 +42,7 @@ const CASE_EVENT_TO_STEP = {
   evidence_collected: "evidence",
   fault_ranked: "ranked",
   next_checks_ready: "summary",
+  handoff_prepared: "handoff",
 };
 
 const ALERT_GROUP_ORDER = [
@@ -71,8 +74,8 @@ const PLAYBOOK_PHASES = [
   {
     id: "recommendation",
     label: "Recommendation",
-    detail: "Rank fault domains and prepare safe next checks.",
-    stageIds: ["ranked", "summary"],
+    detail: "Rank fault domains, prepare safe next checks, and draft the handoff preview.",
+    stageIds: ["ranked", "summary", "handoff"],
   },
 ];
 
@@ -153,6 +156,13 @@ const MONGODB_STAGE_EXPLANATIONS = {
     queryPattern: "Persist the investigation summary, recommended checks, timeline, and follow-up Q&A to the case record.",
     learns: "The agent produces safe next checks and keeps a resumable investigation history.",
     demoLine: "MongoDB turns the agent run into an auditable case, not a one-off chat answer.",
+  },
+  handoff: {
+    capability: "Read-only ITSM handoff preview",
+    collections: ["source_records", "investigation_cases"],
+    queryPattern: "Use the saved investigation context to prepare a human-reviewable escalation package inside case memory.",
+    learns: "The agent formats target queue, urgency, assignment, impact, evidence, and recommended checks for review.",
+    demoLine: "MongoDB keeps the handoff package auditable while the demo avoids external ticket, page, or remediation side effects.",
   },
 };
 
@@ -462,6 +472,37 @@ function BusinessImpactPanel({ result, selectedAlert }) {
             <div><span>Topology at risk</span><strong>{affectedSystems} systems · {downstreamInterfaces} interfaces</strong></div>
           </div>
           {firstAction && <div className="first-check"><span>Recommended first check</span><p>{firstAction}</p></div>}
+        </>
+      )}
+    </section>
+  );
+}
+
+function HandoffPreviewPanel({ result }) {
+  const handoff = result?.handoff_preview;
+  return (
+    <section className="panel-card handoff-preview-panel">
+      <div className="panel-title-row compact">
+        <div>
+          <span className="eyebrow">ITSM handoff</span>
+          <h3>Handoff preview</h3>
+        </div>
+        {handoff && <span className="count-pill">Ready for review</span>}
+      </div>
+      {!handoff && <p className="muted">Open an investigation to prepare a read-only escalation package.</p>}
+      {handoff && (
+        <>
+          <strong className="handoff-title">{handoff.draft_title}</strong>
+          <p className="mini-copy muted">{handoff.draft_summary}</p>
+          <div className="handoff-field-grid">
+            <div><span>Target queue</span><strong>{handoff.target_queue}</strong></div>
+            <div><span>Urgency</span><strong>{handoff.urgency}</strong></div>
+            <div><span>Assignment group</span><strong>{handoff.assignment_group}</strong></div>
+            <div><span>Owner contact</span><strong>{handoff.owner_contact}</strong></div>
+          </div>
+          <div className="first-check"><span>Business impact</span><p>{handoff.business_impact}</p></div>
+          <div className="handoff-chip-row">{(handoff.included_context || []).map((item) => <span key={item}>{item}</span>)}</div>
+          <p className="approval-guardrail">{handoff.guardrail}</p>
         </>
       )}
     </section>
@@ -947,8 +988,12 @@ export default function InvestigationWorkbench() {
       await pause(250);
 
       mark("summary", "running", "Preparing human-reviewable next checks.");
-      setResult(investigation);
       mark("summary", "complete", `${investigation.recommended_next_actions.length} recommended checks ready.`);
+      await pause(250);
+
+      mark("handoff", "running", "Preparing read-only ITSM handoff preview.");
+      setResult(investigation);
+      mark("handoff", "complete", `${investigation.handoff_preview?.target_queue || "Handoff preview"} ready; no external ticket sent.`);
       setSteps(stepsFromCase(nextCase));
       loadCases().catch(() => {});
     } catch (err) {
@@ -1173,6 +1218,7 @@ export default function InvestigationWorkbench() {
             <AlertDeduplicationPanel selectedAlert={selectedAlert} result={result} />
             <SummaryPanel result={result} />
             <BusinessImpactPanel result={result} selectedAlert={selectedAlert} />
+            <HandoffPreviewPanel result={result} />
             <SimilarCasesPanel result={result} />
             <ChangeCorrelationPanel result={result} />
             <RelatedContextPanel result={result} />

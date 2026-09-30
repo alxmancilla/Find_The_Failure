@@ -71,6 +71,8 @@ try {
   assert(fixtureInvestigation.mongodb_trace.dedupe, "MongoDB dedupe trace missing");
   assert(fixtureInvestigation.change_correlation.documents.length > 0, "change correlation missing");
   assert(fixtureInvestigation.mongodb_trace.changes, "MongoDB change trace missing");
+  assert(fixtureInvestigation.handoff_preview?.approval_required === true, "handoff preview approval guardrail missing");
+  assert(fixtureInvestigation.mongodb_trace.handoff, "MongoDB handoff trace missing");
   const quality = await get("/ingestion/quality");
   assert(Array.isArray(quality.findings), "ingestion quality missing findings");
   assert(quality.provenance_coverage > 0, "provenance coverage missing");
@@ -103,6 +105,8 @@ try {
   assert(created.case?.timeline?.some((item) => item.event === "alert_deduplicated"), "case timeline missing dedupe step");
   assert(created.case?.timeline?.some((item) => item.event === "related_context_retrieved"), "case memory incomplete");
   assert(created.case?.timeline?.some((item) => item.event === "similar_cases_retrieved"), "case timeline missing similar-case step");
+  assert(created.case?.timeline?.some((item) => item.event === "handoff_prepared"), "case timeline missing handoff-prepared step");
+  assert(created.investigation.handoff_preview?.target_queue, "created investigation missing handoff preview");
   const repeatedInvestigation = await get("/investigation/" + encodeURIComponent(feed.alerts[0].key));
   assert(repeatedInvestigation.similar_cases.documents.length >= 1, "similar-case retrieval missing prior case");
   assert(repeatedInvestigation.similar_cases.documents.some((item) => item.key === created.case.key), "similar-case retrieval did not include created case");
@@ -114,6 +118,10 @@ try {
   assert(followup.answer.mongodb_trace?.operations?.length >= 2, "grounded follow-up MongoDB trace missing");
   assert(followup.case.messages.length === 2, "grounded follow-up messages not persisted");
   assert(followup.case.messages[1].grounded_in.includes("evidence"), "persisted agent message missing grounding metadata");
+  const handoffFollowup = await post(`/cases/${encodeURIComponent(created.case.key)}/messages`, { question: "What is in the handoff preview?" });
+  assert(handoffFollowup.answer.grounded_in.includes("handoff_preview"), "handoff follow-up missing handoff grounding");
+  assert(handoffFollowup.answer.text.includes("Approval is required"), "handoff follow-up missing approval guardrail");
+  assert(handoffFollowup.case.messages.length === 4, "handoff follow-up messages not persisted");
   const cases = await get("/cases");
   assert(cases.cases.length >= 1, "case list empty after create");
   await cleanup();
@@ -144,9 +152,10 @@ try {
     changeCorrelation: fixtureInvestigation.change_correlation.documents.length,
     relatedContext: investigation.related_context.documents.length,
     similarCases: repeatedInvestigation.similar_cases.documents.length,
-    groundedFollowUps: followup.case.messages.length / 2,
+    handoffPreview: fixtureInvestigation.handoff_preview.target_queue,
+    groundedFollowUps: handoffFollowup.case.messages.length / 2,
     lifecycleStatus: created.investigation.alert.lifecycle_status,
-    caseTimelineEvents: followup.case.timeline.length,
+    caseTimelineEvents: handoffFollowup.case.timeline.length,
     finalState: "workbench feed/cases cleared and demo reset",
   }, null, 2));
 } catch (err) {

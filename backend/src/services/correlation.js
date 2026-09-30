@@ -227,6 +227,15 @@ function buildGroundedFollowUpAnswer(caseDoc, question) {
       ["impacted_business_processes", "affected_systems", "topology"],
       ["impacted_business_processes", "affected_systems"]
     );
+  } else if (q.includes("handoff") || q.includes("escalat") || q.includes("ticket") || q.includes("itsm") || q.includes("servicenow") || q.includes("jira") || q.includes("page")) {
+    const handoff = investigation.handoff_preview || {};
+    answer = response(
+      handoff.draft_title
+        ? `The read-only handoff preview targets ${handoff.target_queue} with ${handoff.urgency} urgency and assignment group ${handoff.assignment_group}. Draft title: ${handoff.draft_title}. Approval is required; no ticket, page, or remediation has been sent.`
+        : "No handoff preview is attached to this saved case. Re-run the investigation to prepare a human-reviewable escalation package.",
+      ["handoff_preview", "investigation_cases"],
+      ["handoff_preview"]
+    );
   } else if (q.includes("owner") || q.includes("owns")) {
     answer = response(
       `The mapped owner is ${owners.join(", ") || "no mapped owner"}. Use the owner/runbook metadata before taking any remediation step.`,
@@ -351,6 +360,14 @@ export async function investigateAlert(sourceRecordKey) {
 
   const candidates = rankFaultDomains(alert, iface, upstream, downstream, systems, impact);
   const similarCases = await findSimilarCases(alert, iface, impact, candidates, alertDeduplication, relatedContext, changeCorrelation);
+  const recommendedNextActions = [
+    `Page ${owners[0]?.name || "the owning integration team"}.`,
+    `Check ${iface.target} health before restarting upstream senders.`,
+    changeCorrelation.top_change ? `Review recent change ${changeCorrelation.top_change.external_id}: ${changeCorrelation.top_change.summary}.` : "Review recent deployment, config, and route changes for the alert window.",
+    relatedContext.documents[0] ? `Review related context: ${relatedContext.documents[0].title}.` : "Search related runbooks and incident notes for matching symptoms.",
+    "Use relationship evidence to confirm blast radius with application owners.",
+  ];
+  const handoffPreview = buildHandoffPreview(alert, iface, impact, owners, candidates, evidence, recommendedNextActions, alertDeduplication, changeCorrelation, relatedContext, similarCases);
   return {
     alert: formatAlert(alert, alertDeduplication),
     investigation_summary: buildSummary(alert, iface, candidates, impact),
@@ -362,6 +379,7 @@ export async function investigateAlert(sourceRecordKey) {
     similar_cases: similarCases,
     change_correlation: changeCorrelation,
     related_context: relatedContext,
+    handoff_preview: handoffPreview,
     topology: {
       alert_interface: iface,
       upstream_interfaces: upstream.interfaces.filter((i) => i.key !== iface.key),
@@ -369,14 +387,8 @@ export async function investigateAlert(sourceRecordKey) {
       relationship_edges: [...upstream.relationships, ...downstream.relationships],
     },
     evidence,
-    recommended_next_actions: [
-      `Page ${owners[0]?.name || "the owning integration team"}.`,
-      `Check ${iface.target} health before restarting upstream senders.`,
-      changeCorrelation.top_change ? `Review recent change ${changeCorrelation.top_change.external_id}: ${changeCorrelation.top_change.summary}.` : "Review recent deployment, config, and route changes for the alert window.",
-      relatedContext.documents[0] ? `Review related context: ${relatedContext.documents[0].title}.` : "Search related runbooks and incident notes for matching symptoms.",
-      "Use relationship evidence to confirm blast radius with application owners.",
-    ],
-    mongodb_trace: buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, impact, systemKeys, ownerKeys, evidence, relatedContext, similarCases, changeCorrelation, alertDeduplication),
+    recommended_next_actions: recommendedNextActions,
+    mongodb_trace: buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, impact, systemKeys, ownerKeys, evidence, relatedContext, similarCases, changeCorrelation, alertDeduplication, handoffPreview),
   };
 }
 
@@ -668,6 +680,41 @@ function buildSummary(alert, iface, candidates, impact) {
     `Potential business impact: ${process}.`;
 }
 
+function buildHandoffPreview(alert, iface, impact, owners, candidates, evidence, recommendedNextActions, alertDeduplication, changeCorrelation, relatedContext, similarCases) {
+  const process = impact?.business_processes?.[0];
+  const owner = owners[0] || {};
+  const top = candidates[0] || {};
+  const severity = alert.payload?.severity || "warning";
+  const failed = alert.payload?.status === "failed";
+  const urgency = failed ? "P1 - immediate triage" : severity === "critical" ? "P2 - high priority" : "P3 - monitor";
+  const targetQueue = process?.name === "Supplier Replenishment" ? "ITSM / Supplier integration support" : "ITSM / Order fulfillment integration support";
+  const impactText = process?.name
+    ? `${process.name}: ${iface.business_impact || process.description || "mapped process at risk"}`
+    : iface.business_impact || "Mapped integration path is at risk.";
+
+  return {
+    target_system: "ITSM escalation preview",
+    target_queue: targetQueue,
+    urgency,
+    assignment_group: owner.team || owner.name || "Integration operations",
+    owner_contact: owner.email || owner.slack || owner.on_call || "Use configured on-call rotation",
+    draft_title: `[${urgency.split(" - ")[0]}] ${alert.payload?.reason || "Integration alert"} on ${iface.name}`,
+    draft_summary: `${alert.payload?.reason || "Alert"} maps to ${iface.name}; likely fault domain is ${top.name || "pending review"}.`,
+    business_impact: impactText,
+    evidence_summary: evidence.slice(0, 4),
+    recommended_checks: recommendedNextActions.slice(0, 4),
+    included_context: [
+      `${alertDeduplication?.signal_count || 1} raw alert signal${(alertDeduplication?.signal_count || 1) === 1 ? "" : "s"}`,
+      `${changeCorrelation?.documents?.length || 0} nearby change${(changeCorrelation?.documents?.length || 0) === 1 ? "" : "s"}`,
+      `${relatedContext?.documents?.length || 0} related context item${(relatedContext?.documents?.length || 0) === 1 ? "" : "s"}`,
+      `${similarCases?.documents?.length || 0} similar prior case${(similarCases?.documents?.length || 0) === 1 ? "" : "s"}`,
+    ],
+    approval_required: true,
+    external_side_effects: false,
+    guardrail: "Preview only. No ServiceNow/Jira ticket, page, email, or remediation action was sent.",
+  };
+}
+
 function collectEvidence(alert, upstream, downstream, impact) {
   const relationshipEvidence = [...upstream.relationships, ...downstream.relationships, ...(impact?.process_relationships || [])]
     .flatMap((r) => r.evidence || [])
@@ -863,7 +910,7 @@ function intersection(a = [], b = []) {
   return [...new Set(a.filter((item) => values.has(item)))];
 }
 
-function buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, impact, systemKeys, ownerKeys, evidence, relatedContext, similarCases, changeCorrelation, alertDeduplication) {
+function buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, impact, systemKeys, ownerKeys, evidence, relatedContext, similarCases, changeCorrelation, alertDeduplication, handoffPreview) {
   const impactedInterfaceKeys = [iface.key, ...(impact?.downstream_interfaces || []).map((i) => i.key)];
   const processKeys = (impact?.business_processes || []).map((p) => p.key);
   const relationshipMatch = {
@@ -983,6 +1030,17 @@ function buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, im
         purpose: "Persist generated next checks, evidence, timeline, and summary as resumable case memory when the Workbench opens a case.",
       },
     ]),
+    handoff: stageTrace("Read-only ITSM handoff preview", [
+      op("SourceRecord", "source_records", "findOne", {
+        filter: { key: sourceRecordKey, record_type: "alert" },
+        chain: ".lean()",
+        purpose: "Use the selected raw alert and correlated investigation context to prepare a draft escalation package.",
+      }),
+      op("InvestigationCase", "investigation_cases", "insertOne", {
+        filter: { alert_key: sourceRecordKey, "investigation_result.handoff_preview.target_queue": handoffPreview.target_queue },
+        purpose: "Persist the read-only handoff preview inside case memory for human review; no external ITSM system is called.",
+      }),
+    ]),
   };
 }
 
@@ -1013,6 +1071,16 @@ function addCaseWriteTrace(trace, caseKey, sourceRecordKey) {
         }
         : operation),
     },
+    handoff: trace.handoff ? {
+      ...trace.handoff,
+      operations: trace.handoff.operations.map((operation) => operation.collection === "investigation_cases"
+        ? {
+          ...operation,
+          filter: { key: caseKey, alert_key: sourceRecordKey, "investigation_result.handoff_preview.approval_required": true },
+          code: `db.investigation_cases.insertOne(${queryLiteral(caseInsertTraceDoc(caseKey, sourceRecordKey))})`,
+        }
+        : operation),
+    } : trace.handoff,
   };
 }
 
@@ -1098,6 +1166,7 @@ function caseInsertTraceDoc(caseKey, sourceRecordKey) {
     investigation_result: "<full grounded investigation result>",
     evidence: "<evidence strings>",
     recommended_next_actions: "<generated next checks>",
+    handoff_preview: "<read-only ITSM handoff preview>",
     timeline: "<case timeline events>",
     messages: [],
   };
@@ -1147,6 +1216,7 @@ function buildCaseTimeline(start, investigation) {
     { at: at(8), event: "evidence_collected", label: "Evidence collected", detail: `${investigation.evidence.length} evidence items attached.`, status: "complete" },
     { at: at(9), event: "fault_ranked", label: "Fault domain ranked", detail: `${top?.name || "Top candidate"} ranked highest.`, status: "complete" },
     { at: at(10), event: "next_checks_ready", label: "Next checks ready", detail: `${investigation.recommended_next_actions.length} human-reviewable checks prepared.`, status: "complete" },
+    { at: at(11), event: "handoff_prepared", label: "Handoff preview prepared", detail: `${investigation.handoff_preview?.target_queue || "ITSM preview"} ready for human approval; no external ticket or page sent.`, status: "complete" },
   ];
 }
 

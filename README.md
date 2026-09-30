@@ -80,8 +80,8 @@ auditable memory.
   topology mapping, related runbook/incident retrieval, evidence, likely
   fault-domain ranking, grounded follow-up, case memory, a grouped investigation
   playbook, alert deduplication/noise reduction, local alert lifecycle tracking,
-  recent change correlation, a guided enterprise context replay path, and
-  collapsed secondary demo controls.
+  recent change correlation, a read-only ITSM handoff preview, a guided enterprise
+  context replay path, and collapsed secondary demo controls.
 - **Enterprise fixture ingestion** — optional Alertmanager, integration-catalog,
   CMDB-style, and change records are captured as raw source evidence, resolved
   to canonical keys, normalized into events/relationships, grouped into calm
@@ -306,9 +306,9 @@ npm run smoke
 This full demo smoke test exercises the running server across search, graph,
 impact, enterprise fixture ingestion, quality/provenance scoring, scenarios,
 modernization, Workbench investigation, alert deduplication, alert lifecycle,
-change correlation, related context retrieval, similar-case retrieval,
-backend-grounded follow-up Q&A, score breakdowns, projected case memory fields,
-and reset/cleanup. It clears the
+change correlation, read-only ITSM handoff preview, related context retrieval,
+similar-case retrieval, backend-grounded follow-up Q&A, score breakdowns,
+projected case memory fields, and reset/cleanup. It clears the
 optional fixture pack before the Workbench path so the normal rehearsal baseline
 remains stable.
 

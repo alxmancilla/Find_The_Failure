@@ -104,7 +104,9 @@ Hospital 123 → EDI Gateway → X12 Translator → Integration API → Apex ERP
    investigations, including why the prior case matched.
 8. Open the related runbooks/prior incidents panel to explain how the agent gets
    operational memory before ranking.
-9. Review the safe next checks. No remediation is executed in Agent v1; the
+9. Open **Handoff preview** to show the draft ITSM/escalation package: target
+   queue, urgency, assignment group, impact, evidence, and approval guardrail.
+10. Review the safe next checks. No remediation is executed in Agent v1; the
    guardrail reminds the audience that action requires operator approval.
 
 > "In seconds we know what broke, what's downstream, who owns it, and what
@@ -117,6 +119,7 @@ Use the follow-up panel to ask:
 - "What business process is impacted?"
 - "Who owns this interface?"
 - "What changed recently?"
+- "What is in the handoff preview?"
 - "Are there similar prior cases?"
 - "What evidence supports this?"
 - "What should I check first?"
