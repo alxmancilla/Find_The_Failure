@@ -14,6 +14,11 @@ const ALERT_LIFECYCLE_LABELS = {
   escalated: "Escalated",
   resolved: "Resolved",
 };
+const APPROVAL_DECISION_LABELS = {
+  approved: "Approved",
+  deferred: "Deferred",
+  rejected: "Rejected",
+};
 const SEVERITY_RANK = { critical: 4, error: 3, warning: 2, info: 1 };
 const STATUS_RANK = { failed: 4, degraded: 3, warning: 2, open: 1 };
 
@@ -148,6 +153,8 @@ export async function createInvestigationCase(sourceRecordKey) {
     summary: persistedInvestigation.investigation_summary,
     top_fault_domain: persistedInvestigation.likely_fault_domains?.[0],
     investigation_result: persistedInvestigation,
+    approval_state: initialApprovalState(now),
+    approval_decisions: [],
     evidence: persistedInvestigation.evidence || [],
     recommended_next_actions: persistedInvestigation.recommended_next_actions || [],
     timeline: buildCaseTimeline(now, persistedInvestigation),
@@ -155,6 +162,54 @@ export async function createInvestigationCase(sourceRecordKey) {
   });
 
   return { case: formatCase(doc.toObject()), investigation: persistedInvestigation };
+}
+
+export async function recordApprovalDecision(caseKey, { decision, actor = "demo-operator", note = "" } = {}) {
+  if (!APPROVAL_DECISION_LABELS[decision]) {
+    return { error: `unsupported approval decision: ${decision}` };
+  }
+
+  const now = new Date();
+  const normalizedNote = String(note || approvalDecisionDefaultNote(decision)).trim();
+  const entry = {
+    at: now,
+    decision,
+    label: APPROVAL_DECISION_LABELS[decision],
+    actor: String(actor || "demo-operator"),
+    note: normalizedNote,
+    external_side_effects: false,
+    guardrail: "Local decision only; no ticket, page, email, or remediation action was sent.",
+  };
+
+  const doc = await InvestigationCase.findOneAndUpdate(
+    { key: caseKey },
+    {
+      $set: {
+        approval_state: {
+          status: decision,
+          label: entry.label,
+          updated_at: now,
+          updated_by: entry.actor,
+          note: entry.note,
+          external_side_effects: false,
+          guardrail: entry.guardrail,
+        },
+      },
+      $push: {
+        approval_decisions: entry,
+        timeline: {
+          at: now,
+          event: "approval_decision_recorded",
+          label: `Approval ${entry.label.toLowerCase()}`,
+          detail: `${entry.actor} recorded ${entry.label.toLowerCase()} for the handoff preview. ${entry.guardrail}`,
+          status: "complete",
+        },
+      },
+    },
+    { new: true }
+  ).lean();
+
+  return doc ? { case: formatCase(doc), decision: entry, mongodb_trace: buildApprovalDecisionTrace(caseKey, decision) } : null;
 }
 
 export async function answerCaseFollowUp(caseKey, question) {
@@ -315,6 +370,36 @@ function buildFollowUpTrace(caseKey, groundedIn) {
       purpose: "Append the user question, backend-generated answer, grounding labels, citations, and answer trace to auditable case memory.",
     }),
   ]);
+}
+
+function buildApprovalDecisionTrace(caseKey, decision) {
+  return stageTrace("Human approval decision log", [
+    op("InvestigationCase", "investigation_cases", "findOneAndUpdate", {
+      filter: { key: caseKey, "approval_state.status": decision },
+      chain: ".lean()",
+      purpose: "Append the operator approval decision and update current approval state in local case memory; no external system is called.",
+    }),
+  ]);
+}
+
+function initialApprovalState(now) {
+  return {
+    status: "pending",
+    label: "Pending review",
+    updated_at: now,
+    updated_by: "agent-workbench",
+    note: "Handoff preview prepared; waiting for operator decision.",
+    external_side_effects: false,
+    guardrail: "No ticket, page, email, or remediation action has been sent.",
+  };
+}
+
+function approvalDecisionDefaultNote(decision) {
+  return {
+    approved: "Operator approved the handoff preview for manual escalation.",
+    deferred: "Operator deferred escalation pending more evidence.",
+    rejected: "Operator rejected escalation from this preview.",
+  }[decision] || "Operator recorded a handoff decision.";
 }
 
 function scorePercent(value) {
@@ -1167,6 +1252,8 @@ function caseInsertTraceDoc(caseKey, sourceRecordKey) {
     evidence: "<evidence strings>",
     recommended_next_actions: "<generated next checks>",
     handoff_preview: "<read-only ITSM handoff preview>",
+    approval_state: "<current local approval decision>",
+    approval_decisions: "<local approval decision history>",
     timeline: "<case timeline events>",
     messages: [],
   };
@@ -1244,6 +1331,8 @@ function formatCase(doc) {
     investigation_result: doc.investigation_result,
     evidence_count: doc.evidence?.length || 0,
     recommended_next_actions: doc.recommended_next_actions || [],
+    approval_state: doc.approval_state || initialApprovalState(doc.createdAt || new Date()),
+    approval_decisions: doc.approval_decisions || [],
     timeline: doc.timeline || [],
     messages: doc.messages || [],
     createdAt: doc.createdAt,

@@ -106,7 +106,9 @@ Hospital 123 → EDI Gateway → X12 Translator → Integration API → Apex ERP
    operational memory before ranking.
 9. Open **Handoff preview** to show the draft ITSM/escalation package: target
    queue, urgency, assignment group, impact, evidence, and approval guardrail.
-10. Review the safe next checks. No remediation is executed in Agent v1; the
+10. Use **Approval decision** to record a local approve/defer/reject decision.
+    Emphasize this is a decision log only; no external escalation was sent.
+11. Review the safe next checks. No remediation is executed in Agent v1; the
    guardrail reminds the audience that action requires operator approval.
 
 > "In seconds we know what broke, what's downstream, who owns it, and what

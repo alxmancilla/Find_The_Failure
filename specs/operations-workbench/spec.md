@@ -90,6 +90,8 @@ across disconnected topology diagrams, CMDB records, runbooks, and prior tickets
   case memory and saved with grounding metadata.
 - **REQ-016:** Investigation results shall include a read-only ITSM handoff
   preview for human review without calling external systems.
+- **REQ-017:** Persisted cases shall support local operator approval decisions for
+  handoff previews without calling external systems.
 
 ## 8. UX design
 
@@ -122,6 +124,10 @@ urgency, assignment group, impact, evidence, and recommended checks for human
 approval. It is explicitly a preview and does not create tickets, pages, emails,
 or remediation actions.
 
+The active case area includes an "Approval decision" card that records local
+approve, defer, and reject decisions into case memory. These decisions document
+human review only; they do not trigger ITSM, paging, email, or remediation.
+
 ## 9. Data and API design
 
 - `POST /api/ingestion/fixtures` loads enterprise fixture `source_records`.
@@ -145,6 +151,8 @@ or remediation actions.
   package snapshot stored inside the persisted case result.
 - `POST /api/cases/:caseKey/messages` generates a backend-grounded answer from
   the persisted case snapshot and appends the question/answer to case memory.
+- `POST /api/cases/:caseKey/approval-decision` records a local approve, defer, or
+  reject decision on the persisted case.
 
 ## 10. MongoDB usage
 
@@ -159,6 +167,8 @@ or remediation actions.
   unpacking the full case snapshot for every query.
 - `investigation_cases.investigation_result.handoff_preview` stores the generated
   handoff package as auditable case memory.
+- `investigation_cases.approval_state` and `approval_decisions` store local
+  human-in-the-loop decisions beside the case timeline.
 - Follow-up answers read and update `investigation_cases` so Q&A is auditable
   across sessions.
 
@@ -185,6 +195,8 @@ or remediation actions.
 - [x] Follow-up Q&A is generated backend-side from persisted case memory.
 - [x] Active case output includes a read-only ITSM handoff preview and approval
   guardrail.
+- [x] Persisted cases support local approve, defer, and reject decisions for the
+  handoff preview without external side effects.
 
 ## 12. Product risks
 
@@ -192,6 +204,8 @@ or remediation actions.
   replacement or external escalation workflow.
 - Handoff preview can be mistaken for a created ticket unless demo copy continues
   to state that no external ticket, page, email, or remediation was sent.
+- Approval decisions can be mistaken for external escalation unless the Workbench
+  continues to label them as local case-memory decisions only.
 - Change correlation can be mistaken for causation unless demo copy stays clear.
 - Alert grouping can be mistaken for discarded evidence unless raw record
   preservation is emphasized.

@@ -52,6 +52,11 @@ export const api = {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body || {}),
   }),
+  recordApprovalDecision: (caseKey, body) => json(`/cases/${encodeURIComponent(caseKey)}/approval-decision`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body || {}),
+  }),
   systems: () => json(`/systems`),
   scenarios: () => json(`/scenarios`),
   runScenario: (id) => json(`/scenarios/${id}/run`, { method: "POST" }),

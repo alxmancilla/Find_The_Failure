@@ -509,6 +509,46 @@ function HandoffPreviewPanel({ result }) {
   );
 }
 
+function ApprovalDecisionPanel({ activeCase, busy, onDecision }) {
+  const state = activeCase?.approval_state;
+  const decisions = activeCase?.approval_decisions || [];
+  const actions = [
+    { decision: "approved", label: "Approve preview" },
+    { decision: "deferred", label: "Defer" },
+    { decision: "rejected", label: "Reject" },
+  ];
+  return (
+    <section className="panel-card approval-decision-panel">
+      <div className="panel-title-row compact">
+        <div>
+          <span className="eyebrow">Human approval</span>
+          <h3>Approval decision</h3>
+        </div>
+        {state && <span className={`approval-state approval-${state.status}`}>{state.label}</span>}
+      </div>
+      {!activeCase && <p className="muted">Open a case to record a local approve, defer, or reject decision.</p>}
+      {activeCase && (
+        <>
+          <p className="mini-copy muted">{state?.note || "Waiting for operator review."}</p>
+          <div className="approval-actions">
+            {actions.map((action) => (
+              <button key={action.decision} type="button" disabled={busy} onClick={() => onDecision(action.decision)}>{action.label}</button>
+            ))}
+          </div>
+          <p className="approval-guardrail">{state?.guardrail || "Local decision only; no external ticket, page, email, or remediation action is sent."}</p>
+          {decisions.slice(-3).reverse().map((item) => (
+            <article key={`${item.decision}-${item.at}`} className="approval-decision-card">
+              <span>{item.label} · {item.actor}</span>
+              <p>{item.note}</p>
+              <small>{item.at ? new Date(item.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "local decision"}</small>
+            </article>
+          ))}
+        </>
+      )}
+    </section>
+  );
+}
+
 function OperationalPriorityPanel({ selectedAlert, result }) {
   const priority = deriveOperationalPriority(selectedAlert, result);
   return (
@@ -809,6 +849,7 @@ export default function InvestigationWorkbench() {
   const [resetBusy, setResetBusy] = useState(false);
   const [lifecycleBusy, setLifecycleBusy] = useState(false);
   const [followupBusy, setFollowupBusy] = useState(false);
+  const [approvalBusy, setApprovalBusy] = useState(false);
   const [feedStatus, setFeedStatus] = useState("");
   const [messages, setMessages] = useState([]);
   const [question, setQuestion] = useState("");
@@ -1038,6 +1079,21 @@ export default function InvestigationWorkbench() {
     }
   };
 
+  const recordApprovalDecision = async (decision) => {
+    if (!activeCase?.key || approvalBusy) return;
+    setApprovalBusy(true);
+    try {
+      const res = await api.recordApprovalDecision(activeCase.key, { decision });
+      setActiveCase(res.case);
+      setCaseStatus(`${res.decision.label} recorded locally; no external escalation was sent.`);
+      loadCases().catch(() => {});
+    } catch (err) {
+      setCaseStatus(err.message || "Unable to record approval decision.");
+    } finally {
+      setApprovalBusy(false);
+    }
+  };
+
   const loadScriptedDemoAlerts = async () => {
     setFeedBusy(true);
     setFeedStatus("Loading scripted demo alerts for rehearsal…");
@@ -1219,6 +1275,7 @@ export default function InvestigationWorkbench() {
             <SummaryPanel result={result} />
             <BusinessImpactPanel result={result} selectedAlert={selectedAlert} />
             <HandoffPreviewPanel result={result} />
+            <ApprovalDecisionPanel activeCase={activeCase} busy={approvalBusy || busy} onDecision={recordApprovalDecision} />
             <SimilarCasesPanel result={result} />
             <ChangeCorrelationPanel result={result} />
             <RelatedContextPanel result={result} />

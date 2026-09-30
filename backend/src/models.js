@@ -191,6 +191,8 @@ const investigationCaseSchema = new Schema(
     summary: String,
     top_fault_domain: Schema.Types.Mixed,
     investigation_result: Schema.Types.Mixed,
+    approval_state: Schema.Types.Mixed,
+    approval_decisions: [Schema.Types.Mixed],
     evidence: [String],
     recommended_next_actions: [String],
     timeline: [

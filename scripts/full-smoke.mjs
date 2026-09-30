@@ -122,6 +122,16 @@ try {
   assert(handoffFollowup.answer.grounded_in.includes("handoff_preview"), "handoff follow-up missing handoff grounding");
   assert(handoffFollowup.answer.text.includes("Approval is required"), "handoff follow-up missing approval guardrail");
   assert(handoffFollowup.case.messages.length === 4, "handoff follow-up messages not persisted");
+  const approved = await post(`/cases/${encodeURIComponent(created.case.key)}/approval-decision`, { decision: "approved" });
+  assert(approved.case.approval_state.status === "approved", "approval decision did not update case state");
+  assert(approved.decision.external_side_effects === false, "approval decision should be local-only");
+  assert(approved.mongodb_trace?.operations?.length === 1, "approval decision MongoDB trace missing");
+  const deferred = await post(`/cases/${encodeURIComponent(created.case.key)}/approval-decision`, { decision: "deferred" });
+  assert(deferred.case.approval_state.status === "deferred", "defer decision did not update case state");
+  const rejected = await post(`/cases/${encodeURIComponent(created.case.key)}/approval-decision`, { decision: "rejected" });
+  assert(rejected.case.approval_state.status === "rejected", "reject decision did not update case state");
+  assert(rejected.case.approval_decisions.length === 3, "approval decision history missing entries");
+  assert(rejected.case.timeline.filter((item) => item.event === "approval_decision_recorded").length === 3, "approval decisions missing timeline events");
   const cases = await get("/cases");
   assert(cases.cases.length >= 1, "case list empty after create");
   await cleanup();
@@ -154,8 +164,10 @@ try {
     similarCases: repeatedInvestigation.similar_cases.documents.length,
     handoffPreview: fixtureInvestigation.handoff_preview.target_queue,
     groundedFollowUps: handoffFollowup.case.messages.length / 2,
+    approvalDecisions: rejected.case.approval_decisions.length,
+    approvalState: rejected.case.approval_state.status,
     lifecycleStatus: created.investigation.alert.lifecycle_status,
-    caseTimelineEvents: handoffFollowup.case.timeline.length,
+    caseTimelineEvents: rejected.case.timeline.length,
     finalState: "workbench feed/cases cleared and demo reset",
   }, null, 2));
 } catch (err) {
