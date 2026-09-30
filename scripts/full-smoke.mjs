@@ -108,6 +108,12 @@ try {
   assert(repeatedInvestigation.similar_cases.documents.some((item) => item.key === created.case.key), "similar-case retrieval did not include created case");
   assert(repeatedInvestigation.similar_cases.documents[0].match_reasons.length >= 1, "similar-case match reasons missing");
   assert(repeatedInvestigation.mongodb_trace.similar, "MongoDB similar-case trace missing");
+  const followup = await post(`/cases/${encodeURIComponent(created.case.key)}/messages`, { question: "What evidence supports this?" });
+  assert(followup.answer.text.includes("strongest evidence"), "grounded follow-up answer missing expected content");
+  assert(followup.answer.grounded_in.includes("evidence"), "grounded follow-up sources missing evidence grounding");
+  assert(followup.answer.mongodb_trace?.operations?.length >= 2, "grounded follow-up MongoDB trace missing");
+  assert(followup.case.messages.length === 2, "grounded follow-up messages not persisted");
+  assert(followup.case.messages[1].grounded_in.includes("evidence"), "persisted agent message missing grounding metadata");
   const cases = await get("/cases");
   assert(cases.cases.length >= 1, "case list empty after create");
   await cleanup();
@@ -138,8 +144,9 @@ try {
     changeCorrelation: fixtureInvestigation.change_correlation.documents.length,
     relatedContext: investigation.related_context.documents.length,
     similarCases: repeatedInvestigation.similar_cases.documents.length,
+    groundedFollowUps: followup.case.messages.length / 2,
     lifecycleStatus: created.investigation.alert.lifecycle_status,
-    caseTimelineEvents: created.case.timeline.length,
+    caseTimelineEvents: followup.case.timeline.length,
     finalState: "workbench feed/cases cleared and demo reset",
   }, null, 2));
 } catch (err) {

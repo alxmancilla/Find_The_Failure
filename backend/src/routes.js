@@ -17,7 +17,7 @@ import {
   runIngestion,
 } from "./services/ingestion.js";
 import {
-  appendCaseMessages,
+  answerCaseFollowUp,
   clearWorkbenchDemoState,
   createInvestigationCase,
   getInvestigationCase,
@@ -224,11 +224,11 @@ router.get(
 router.post(
   "/cases/:caseKey/messages",
   wrap(async (req, res) => {
-    const { question, answer } = req.body || {};
-    if (!question || !answer) return res.status(400).json({ error: "question and answer are required" });
-    const result = await appendCaseMessages(req.params.caseKey, question, answer);
+    const { question } = req.body || {};
+    if (!question) return res.status(400).json({ error: "question is required" });
+    const result = await answerCaseFollowUp(req.params.caseKey, question);
     if (!result) return res.status(404).json({ error: "case not found" });
-    res.json({ case: result });
+    res.json(result);
   })
 );
 

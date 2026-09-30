@@ -231,6 +231,8 @@ key fields such as interface, business process, dedupe group, confidence score,
 related-context keys, and change keys at the top level while preserving the full
 investigation snapshot. New investigations use those projections to retrieve
 similar prior cases from case memory with match reasons and similarity scores.
+Follow-up questions are answered by the backend from the persisted case snapshot
+and saved with grounding labels, citations, and a MongoDB trace.
 
 ---
 
@@ -257,6 +259,7 @@ Base URL: `http://localhost:4000/api`
 | POST | `/alerts/demo-feed` | Target-upsert simulated alert feed records |
 | POST | `/alerts/:sourceRecordKey/lifecycle` | Update local Workbench alert lifecycle status |
 | GET/POST | `/cases` · `/cases/investigate/:sourceRecordKey` | Persist and list investigation cases |
+| POST | `/cases/:caseKey/messages` | Generate and persist backend-grounded follow-up Q&A |
 | POST | `/workbench/clear-demo-state` | Clear simulated feed alerts, lifecycle state, and case memory |
 | GET | `/systems` · `/owners` | Listings |
 
@@ -303,8 +306,9 @@ npm run smoke
 This full demo smoke test exercises the running server across search, graph,
 impact, enterprise fixture ingestion, quality/provenance scoring, scenarios,
 modernization, Workbench investigation, alert deduplication, alert lifecycle,
-change correlation, related context retrieval, similar-case retrieval, score
-breakdowns, projected case memory fields, and reset/cleanup. It clears the
+change correlation, related context retrieval, similar-case retrieval,
+backend-grounded follow-up Q&A, score breakdowns, projected case memory fields,
+and reset/cleanup. It clears the
 optional fixture pack before the Workbench path so the normal rehearsal baseline
 remains stable.
 

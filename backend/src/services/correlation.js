@@ -157,7 +157,14 @@ export async function createInvestigationCase(sourceRecordKey) {
   return { case: formatCase(doc.toObject()), investigation: persistedInvestigation };
 }
 
-export async function appendCaseMessages(caseKey, question, answer) {
+export async function answerCaseFollowUp(caseKey, question) {
+  const trimmed = String(question || "").trim();
+  if (!trimmed) return { error: "question is required" };
+
+  const caseDoc = await InvestigationCase.findOne({ key: caseKey }).lean();
+  if (!caseDoc) return null;
+
+  const answer = buildGroundedFollowUpAnswer(caseDoc, trimmed);
   const now = new Date();
   const doc = await InvestigationCase.findOneAndUpdate(
     { key: caseKey },
@@ -165,22 +172,144 @@ export async function appendCaseMessages(caseKey, question, answer) {
       $push: {
         messages: {
           $each: [
-            { at: now, role: "user", text: question },
-            { at: now, role: "agent", text: answer, grounded_in: ["investigation_result", "evidence", "topology"] },
+            { at: now, role: "user", text: trimmed },
+            {
+              at: now,
+              role: "agent",
+              text: answer.text,
+              grounded_in: answer.grounded_in,
+              citations: answer.citations,
+              mongodb_trace: answer.mongodb_trace,
+            },
           ],
         },
         timeline: {
           at: now,
           event: "follow_up_answered",
           label: "Grounded follow-up answered",
-          detail: question,
+          detail: trimmed,
           status: "complete",
         },
       },
     },
     { new: true }
   ).lean();
-  return doc ? formatCase(doc) : null;
+  return doc ? { case: formatCase(doc), answer } : null;
+}
+
+function buildGroundedFollowUpAnswer(caseDoc, question) {
+  const q = question.toLowerCase();
+  const investigation = caseDoc.investigation_result || {};
+  const top = investigation.likely_fault_domains?.[0] || caseDoc.top_fault_domain || {};
+  const processes = (investigation.impacted_business_processes || []).map((p) => p.name).filter(Boolean);
+  const owners = (investigation.owners || []).map((o) => o.name).filter(Boolean);
+  const actions = investigation.recommended_next_actions || caseDoc.recommended_next_actions || [];
+  const baseGrounding = ["investigation_cases", "investigation_result"];
+
+  const response = (text, groundedIn, citations = []) => ({
+    question,
+    text,
+    grounded_in: [...new Set([...baseGrounding, ...groundedIn])],
+    citations: [...new Set(citations)],
+  });
+
+  let answer;
+  if (q.includes("why") || q.includes("fault")) {
+    answer = response(
+      `${top.name || "The top candidate"} is ranked highest because ${top.reason || "the alert maps directly to this domain"}. Ranking confidence is ${scorePercent(top.score || caseDoc.confidence_score)} and remains evidence-based, not an automated root-cause declaration.`,
+      ["likely_fault_domains", "score_components", "evidence"],
+      ["likely_fault_domains[0]", "evidence"]
+    );
+  } else if (q.includes("business") || q.includes("process") || q.includes("impact")) {
+    const systems = (investigation.affected_systems || []).map((s) => s.name).filter(Boolean);
+    answer = response(
+      `The impacted business process is ${processes.join(", ") || caseDoc.business_process_name || "no mapped business process"}. Affected systems include ${systems.join(", ") || "the mapped downstream systems"}.`,
+      ["impacted_business_processes", "affected_systems", "topology"],
+      ["impacted_business_processes", "affected_systems"]
+    );
+  } else if (q.includes("owner") || q.includes("owns")) {
+    answer = response(
+      `The mapped owner is ${owners.join(", ") || "no mapped owner"}. Use the owner/runbook metadata before taking any remediation step.`,
+      ["owners", "topology"],
+      ["owners"]
+    );
+  } else if (q.includes("duplicate") || q.includes("dedupe") || q.includes("noise") || q.includes("group")) {
+    const dedupe = investigation.alert_deduplication || {};
+    answer = response(
+      dedupe.signal_count > 1
+        ? `Noise reduction grouped ${dedupe.signal_count} raw alert signals under ${dedupe.group_key}; ${dedupe.suppressed_count || 0} repeated signal${(dedupe.suppressed_count || 0) === 1 ? "" : "s"} are hidden from the inbox while all raw source records remain available.`
+        : "This alert currently has one raw signal, so no repeated alert noise was suppressed.",
+      ["alert_deduplication", "source_records"],
+      ["alert_deduplication"]
+    );
+  } else if (q.includes("similar") || q.includes("prior case") || q.includes("previous case")) {
+    const cases = investigation.similar_cases?.documents || [];
+    answer = response(
+      cases.length
+        ? `Similar prior cases: ${cases.slice(0, 3).map((item) => `${item.key} matched on ${item.match_reasons.join(", ")} (${scorePercent(item.similarity_score)})`).join("; ")}. Similarity is prior context, not confirmed root cause.`
+        : "No prior case-memory matches were found when this case was opened. Saving this case still creates reusable memory for future investigations.",
+      ["similar_cases", "investigation_cases"],
+      ["similar_cases.documents"]
+    );
+  } else if (q.includes("related") || q.includes("runbook") || q.includes("incident")) {
+    const docs = investigation.related_context?.documents || [];
+    answer = response(
+      `Related context: ${docs.slice(0, 3).map((doc) => doc.title).join("; ") || "no matching runbooks or incident notes were found"}.`,
+      ["related_context", "operational_knowledge"],
+      ["related_context.documents"]
+    );
+  } else if (q.includes("change") || q.includes("deploy") || q.includes("release") || q.includes("config")) {
+    const changes = investigation.change_correlation?.documents || [];
+    answer = response(
+      changes.length
+        ? `Recent correlated changes: ${changes.slice(0, 3).map((change) => `${change.external_id} ${change.summary} (${change.time_context}, ${scorePercent(change.score)})`).join("; ")}. These are hypotheses, not confirmed root cause.`
+        : "No recent deployment, route, or config changes matched the alert interface, adjacent systems, or business process window.",
+      ["change_correlation", "source_records"],
+      ["change_correlation.documents"]
+    );
+  } else if (q.includes("evidence") || q.includes("support")) {
+    answer = response(
+      `The strongest evidence is: ${(investigation.evidence || caseDoc.evidence || []).slice(0, 3).join(" ") || "no evidence strings were attached to this case"}.`,
+      ["evidence", "relationships", "source_records"],
+      ["evidence"]
+    );
+  } else if (q.includes("check") || q.includes("next") || q.includes("first")) {
+    answer = response(
+      actions.slice(0, 2).join(" ") || "Start by checking the top fault domain health and validating interface logs for the alert window.",
+      ["recommended_next_actions", "owners", "topology"],
+      ["recommended_next_actions"]
+    );
+  } else {
+    answer = response(
+      `For this case, ${caseDoc.summary || investigation.investigation_summary || "the investigation is grounded in the saved case record"}. Recommended next check: ${actions[0] || "review the top fault-domain evidence"}.`,
+      ["summary", "recommended_next_actions", "evidence"],
+      ["summary", "recommended_next_actions"]
+    );
+  }
+
+  return {
+    ...answer,
+    mongodb_trace: buildFollowUpTrace(caseDoc.key, answer.grounded_in),
+  };
+}
+
+function buildFollowUpTrace(caseKey, groundedIn) {
+  return stageTrace("Backend-grounded follow-up answer", [
+    op("InvestigationCase", "investigation_cases", "findOne", {
+      filter: { key: caseKey },
+      chain: ".lean()",
+      purpose: "Load the persisted investigation case and full grounded result before answering a follow-up question.",
+    }),
+    op("InvestigationCase", "investigation_cases", "findOneAndUpdate", {
+      filter: { key: caseKey, grounded_in: groundedIn },
+      chain: ".lean()",
+      purpose: "Append the user question, backend-generated answer, grounding labels, citations, and answer trace to auditable case memory.",
+    }),
+  ]);
+}
+
+function scorePercent(value) {
+  return typeof value === "number" ? `${Math.round(value * 100)}%` : "n/a";
 }
 
 export async function investigateAlert(sourceRecordKey) {

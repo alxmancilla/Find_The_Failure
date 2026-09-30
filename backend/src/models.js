@@ -208,6 +208,8 @@ const investigationCaseSchema = new Schema(
         role: String,
         text: String,
         grounded_in: [String],
+        citations: [String],
+        mongodb_trace: Schema.Types.Mixed,
       },
     ],
   },

@@ -47,7 +47,7 @@ export const api = {
   cases: () => json(`/cases`),
   case: (caseKey) => json(`/cases/${encodeURIComponent(caseKey)}`),
   createInvestigationCase: (sourceRecordKey) => json(`/cases/investigate/${encodeURIComponent(sourceRecordKey)}`, { method: "POST" }),
-  appendCaseMessages: (caseKey, body) => json(`/cases/${encodeURIComponent(caseKey)}/messages`, {
+  answerCaseFollowUp: (caseKey, body) => json(`/cases/${encodeURIComponent(caseKey)}/messages`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body || {}),
