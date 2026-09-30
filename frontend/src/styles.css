@@ -365,6 +365,16 @@ select { padding: 8px; border-radius: 8px; background: var(--panel-2); color: va
 .approval-decision-card { margin-top: 8px; padding: 9px; border: 1px solid var(--border); border-radius: 10px; background: rgba(11, 16, 32, 0.5); }
 .approval-decision-card span, .approval-decision-card small { display: block; color: var(--warn); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.45px; }
 .approval-decision-card p { margin: 5px 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
+.case-outcome-panel { border-color: rgba(143, 199, 255, 0.28); background: linear-gradient(180deg, rgba(13, 31, 52, 0.56), rgba(20, 26, 46, 0.94)); }
+.case-outcome-state { padding: 4px 8px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; }
+.case-outcome-state.outcome-resolved { color: var(--accent); border-color: var(--accent-dim); }
+.case-outcome-state.outcome-monitoring { color: #8fc7ff; border-color: rgba(143, 199, 255, 0.38); }
+.case-outcome-state.outcome-transferred { color: var(--warn); border-color: rgba(255, 176, 32, 0.38); }
+.case-outcome-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+.case-outcome-actions button { padding: 7px 6px; font-size: 11px; }
+.case-outcome-card { margin-top: 8px; padding: 9px; border: 1px solid var(--border); border-radius: 10px; background: rgba(11, 16, 32, 0.5); }
+.case-outcome-card span, .case-outcome-card small { display: block; color: #8fc7ff; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.45px; }
+.case-outcome-card p { margin: 5px 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
 .change-correlation-panel { border-color: rgba(143, 199, 255, 0.3); }
 .change-card { margin-top: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: rgba(11, 16, 32, 0.5); }
 .change-card span, .change-card small { display: block; color: #8fc7ff; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.45px; }
@@ -412,6 +422,7 @@ select { padding: 8px; border-radius: 8px; background: var(--panel-2); color: va
   .priority-grid { grid-template-columns: 1fr; }
   .handoff-field-grid { grid-template-columns: 1fr; }
   .approval-actions { grid-template-columns: 1fr; }
+  .case-outcome-actions { grid-template-columns: 1fr; }
   .case-stats { width: 100%; }
   .followup-panel form { flex-direction: column; }
 }

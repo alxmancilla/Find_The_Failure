@@ -19,6 +19,11 @@ const APPROVAL_DECISION_LABELS = {
   deferred: "Deferred",
   rejected: "Rejected",
 };
+const CASE_OUTCOME_LABELS = {
+  resolved: "Resolved",
+  monitoring: "Monitoring",
+  transferred: "Transferred",
+};
 const SEVERITY_RANK = { critical: 4, error: 3, warning: 2, info: 1 };
 const STATUS_RANK = { failed: 4, degraded: 3, warning: 2, open: 1 };
 
@@ -155,6 +160,8 @@ export async function createInvestigationCase(sourceRecordKey) {
     investigation_result: persistedInvestigation,
     approval_state: initialApprovalState(now),
     approval_decisions: [],
+    case_outcome: initialCaseOutcome(now),
+    case_outcomes: [],
     evidence: persistedInvestigation.evidence || [],
     recommended_next_actions: persistedInvestigation.recommended_next_actions || [],
     timeline: buildCaseTimeline(now, persistedInvestigation),
@@ -210,6 +217,55 @@ export async function recordApprovalDecision(caseKey, { decision, actor = "demo-
   ).lean();
 
   return doc ? { case: formatCase(doc), decision: entry, mongodb_trace: buildApprovalDecisionTrace(caseKey, decision) } : null;
+}
+
+export async function recordCaseOutcome(caseKey, { outcome, actor = "demo-operator", note = "" } = {}) {
+  if (!CASE_OUTCOME_LABELS[outcome]) {
+    return { error: `unsupported case outcome: ${outcome}` };
+  }
+
+  const now = new Date();
+  const normalizedNote = String(note || caseOutcomeDefaultNote(outcome)).trim();
+  const entry = {
+    at: now,
+    outcome,
+    label: CASE_OUTCOME_LABELS[outcome],
+    actor: String(actor || "demo-operator"),
+    note: normalizedNote,
+    external_side_effects: false,
+    guardrail: "Local case outcome only; no external ticket, page, email, or remediation state was changed.",
+  };
+
+  const doc = await InvestigationCase.findOneAndUpdate(
+    { key: caseKey },
+    {
+      $set: {
+        status: outcome,
+        case_outcome: {
+          status: outcome,
+          label: entry.label,
+          updated_at: now,
+          updated_by: entry.actor,
+          note: entry.note,
+          external_side_effects: false,
+          guardrail: entry.guardrail,
+        },
+      },
+      $push: {
+        case_outcomes: entry,
+        timeline: {
+          at: now,
+          event: "case_outcome_recorded",
+          label: `Case ${entry.label.toLowerCase()}`,
+          detail: `${entry.actor} marked the case ${entry.label.toLowerCase()}. ${entry.guardrail}`,
+          status: "complete",
+        },
+      },
+    },
+    { new: true }
+  ).lean();
+
+  return doc ? { case: formatCase(doc), outcome: entry, mongodb_trace: buildCaseOutcomeTrace(caseKey, outcome) } : null;
 }
 
 export async function answerCaseFollowUp(caseKey, question) {
@@ -382,6 +438,16 @@ function buildApprovalDecisionTrace(caseKey, decision) {
   ]);
 }
 
+function buildCaseOutcomeTrace(caseKey, outcome) {
+  return stageTrace("Local case outcome update", [
+    op("InvestigationCase", "investigation_cases", "findOneAndUpdate", {
+      filter: { key: caseKey, status: outcome },
+      chain: ".lean()",
+      purpose: "Record the operator case outcome in local case memory and append an auditable timeline event; no external ticket or remediation state is changed.",
+    }),
+  ]);
+}
+
 function initialApprovalState(now) {
   return {
     status: "pending",
@@ -394,12 +460,32 @@ function initialApprovalState(now) {
   };
 }
 
+function initialCaseOutcome(now) {
+  return {
+    status: "open",
+    label: "Open",
+    updated_at: now,
+    updated_by: "agent-workbench",
+    note: "Case opened; outcome not yet recorded.",
+    external_side_effects: false,
+    guardrail: "No external ticket, page, email, or remediation state has been changed.",
+  };
+}
+
 function approvalDecisionDefaultNote(decision) {
   return {
     approved: "Operator approved the handoff preview for manual escalation.",
     deferred: "Operator deferred escalation pending more evidence.",
     rejected: "Operator rejected escalation from this preview.",
   }[decision] || "Operator recorded a handoff decision.";
+}
+
+function caseOutcomeDefaultNote(outcome) {
+  return {
+    resolved: "Operator marked the case resolved in local Workbench memory.",
+    monitoring: "Operator moved the case to monitoring pending continued observation.",
+    transferred: "Operator marked the case transferred for manual owner follow-up.",
+  }[outcome] || "Operator recorded a case outcome.";
 }
 
 function scorePercent(value) {
@@ -1254,6 +1340,8 @@ function caseInsertTraceDoc(caseKey, sourceRecordKey) {
     handoff_preview: "<read-only ITSM handoff preview>",
     approval_state: "<current local approval decision>",
     approval_decisions: "<local approval decision history>",
+    case_outcome: "<current local case outcome>",
+    case_outcomes: "<local case outcome history>",
     timeline: "<case timeline events>",
     messages: [],
   };
@@ -1333,6 +1421,8 @@ function formatCase(doc) {
     recommended_next_actions: doc.recommended_next_actions || [],
     approval_state: doc.approval_state || initialApprovalState(doc.createdAt || new Date()),
     approval_decisions: doc.approval_decisions || [],
+    case_outcome: doc.case_outcome || initialCaseOutcome(doc.createdAt || new Date()),
+    case_outcomes: doc.case_outcomes || [],
     timeline: doc.timeline || [],
     messages: doc.messages || [],
     createdAt: doc.createdAt,

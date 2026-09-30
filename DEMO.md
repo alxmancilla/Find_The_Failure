@@ -108,7 +108,9 @@ Hospital 123 → EDI Gateway → X12 Translator → Integration API → Apex ERP
    queue, urgency, assignment group, impact, evidence, and approval guardrail.
 10. Use **Approval decision** to record a local approve/defer/reject decision.
     Emphasize this is a decision log only; no external escalation was sent.
-11. Review the safe next checks. No remediation is executed in Agent v1; the
+11. Use **Case outcome** to mark the investigation resolved, monitoring, or
+    transferred in local case memory without closing an external ticket.
+12. Review the safe next checks. No remediation is executed in Agent v1; the
    guardrail reminds the audience that action requires operator approval.
 
 > "In seconds we know what broke, what's downstream, who owns it, and what

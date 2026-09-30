@@ -344,7 +344,7 @@ function CaseMemory({ cases, activeCase, onSelect }) {
       {cases.map((item) => (
         <button key={item.key} type="button" className={`case-card ${activeCase?.key === item.key ? "active" : ""}`} onClick={() => onSelect(item.key)}>
           <strong>{item.alert_snapshot?.reason || "Investigation case"}</strong>
-          <small>{item.top_fault_domain?.name || "Fault domain pending"} · {item.status}</small>
+          <small>{item.top_fault_domain?.name || "Fault domain pending"} · {item.case_outcome?.label || item.status}</small>
         </button>
       ))}
     </section>
@@ -541,6 +541,46 @@ function ApprovalDecisionPanel({ activeCase, busy, onDecision }) {
               <span>{item.label} · {item.actor}</span>
               <p>{item.note}</p>
               <small>{item.at ? new Date(item.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "local decision"}</small>
+            </article>
+          ))}
+        </>
+      )}
+    </section>
+  );
+}
+
+function CaseOutcomePanel({ activeCase, busy, onOutcome }) {
+  const outcome = activeCase?.case_outcome;
+  const history = activeCase?.case_outcomes || [];
+  const actions = [
+    { outcome: "resolved", label: "Resolved" },
+    { outcome: "monitoring", label: "Monitor" },
+    { outcome: "transferred", label: "Transfer" },
+  ];
+  return (
+    <section className="panel-card case-outcome-panel">
+      <div className="panel-title-row compact">
+        <div>
+          <span className="eyebrow">Case closure</span>
+          <h3>Case outcome</h3>
+        </div>
+        {outcome && <span className={`case-outcome-state outcome-${outcome.status}`}>{outcome.label}</span>}
+      </div>
+      {!activeCase && <p className="muted">Open a case to record a local outcome.</p>}
+      {activeCase && (
+        <>
+          <p className="mini-copy muted">{outcome?.note || "Outcome not yet recorded."}</p>
+          <div className="case-outcome-actions">
+            {actions.map((action) => (
+              <button key={action.outcome} type="button" disabled={busy} onClick={() => onOutcome(action.outcome)}>{action.label}</button>
+            ))}
+          </div>
+          <p className="approval-guardrail">{outcome?.guardrail || "Local case outcome only; no external ticket, page, email, or remediation state is changed."}</p>
+          {history.slice(-3).reverse().map((item) => (
+            <article key={`${item.outcome}-${item.at}`} className="case-outcome-card">
+              <span>{item.label} · {item.actor}</span>
+              <p>{item.note}</p>
+              <small>{item.at ? new Date(item.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "local outcome"}</small>
             </article>
           ))}
         </>
@@ -850,6 +890,7 @@ export default function InvestigationWorkbench() {
   const [lifecycleBusy, setLifecycleBusy] = useState(false);
   const [followupBusy, setFollowupBusy] = useState(false);
   const [approvalBusy, setApprovalBusy] = useState(false);
+  const [outcomeBusy, setOutcomeBusy] = useState(false);
   const [feedStatus, setFeedStatus] = useState("");
   const [messages, setMessages] = useState([]);
   const [question, setQuestion] = useState("");
@@ -1094,6 +1135,21 @@ export default function InvestigationWorkbench() {
     }
   };
 
+  const recordCaseOutcome = async (outcome) => {
+    if (!activeCase?.key || outcomeBusy) return;
+    setOutcomeBusy(true);
+    try {
+      const res = await api.recordCaseOutcome(activeCase.key, { outcome });
+      setActiveCase(res.case);
+      setCaseStatus(`Case marked ${res.outcome.label.toLowerCase()} locally; no external system was changed.`);
+      loadCases().catch(() => {});
+    } catch (err) {
+      setCaseStatus(err.message || "Unable to record case outcome.");
+    } finally {
+      setOutcomeBusy(false);
+    }
+  };
+
   const loadScriptedDemoAlerts = async () => {
     setFeedBusy(true);
     setFeedStatus("Loading scripted demo alerts for rehearsal…");
@@ -1276,6 +1332,7 @@ export default function InvestigationWorkbench() {
             <BusinessImpactPanel result={result} selectedAlert={selectedAlert} />
             <HandoffPreviewPanel result={result} />
             <ApprovalDecisionPanel activeCase={activeCase} busy={approvalBusy || busy} onDecision={recordApprovalDecision} />
+            <CaseOutcomePanel activeCase={activeCase} busy={outcomeBusy || busy} onOutcome={recordCaseOutcome} />
             <SimilarCasesPanel result={result} />
             <ChangeCorrelationPanel result={result} />
             <RelatedContextPanel result={result} />

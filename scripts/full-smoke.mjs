@@ -132,6 +132,16 @@ try {
   assert(rejected.case.approval_state.status === "rejected", "reject decision did not update case state");
   assert(rejected.case.approval_decisions.length === 3, "approval decision history missing entries");
   assert(rejected.case.timeline.filter((item) => item.event === "approval_decision_recorded").length === 3, "approval decisions missing timeline events");
+  const resolved = await post(`/cases/${encodeURIComponent(created.case.key)}/outcome`, { outcome: "resolved" });
+  assert(resolved.case.status === "resolved", "resolved outcome did not update case status");
+  assert(resolved.outcome.external_side_effects === false, "case outcome should be local-only");
+  assert(resolved.mongodb_trace?.operations?.length === 1, "case outcome MongoDB trace missing");
+  const monitoring = await post(`/cases/${encodeURIComponent(created.case.key)}/outcome`, { outcome: "monitoring" });
+  assert(monitoring.case.case_outcome.status === "monitoring", "monitoring outcome did not update case outcome");
+  const transferred = await post(`/cases/${encodeURIComponent(created.case.key)}/outcome`, { outcome: "transferred" });
+  assert(transferred.case.status === "transferred", "transferred outcome did not update case status");
+  assert(transferred.case.case_outcomes.length === 3, "case outcome history missing entries");
+  assert(transferred.case.timeline.filter((item) => item.event === "case_outcome_recorded").length === 3, "case outcomes missing timeline events");
   const cases = await get("/cases");
   assert(cases.cases.length >= 1, "case list empty after create");
   await cleanup();
@@ -166,8 +176,10 @@ try {
     groundedFollowUps: handoffFollowup.case.messages.length / 2,
     approvalDecisions: rejected.case.approval_decisions.length,
     approvalState: rejected.case.approval_state.status,
+    caseOutcomes: transferred.case.case_outcomes.length,
+    caseOutcome: transferred.case.case_outcome.status,
     lifecycleStatus: created.investigation.alert.lifecycle_status,
-    caseTimelineEvents: rejected.case.timeline.length,
+    caseTimelineEvents: transferred.case.timeline.length,
     finalState: "workbench feed/cases cleared and demo reset",
   }, null, 2));
 } catch (err) {

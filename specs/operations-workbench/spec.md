@@ -92,6 +92,8 @@ across disconnected topology diagrams, CMDB records, runbooks, and prior tickets
   preview for human review without calling external systems.
 - **REQ-017:** Persisted cases shall support local operator approval decisions for
   handoff previews without calling external systems.
+- **REQ-018:** Persisted cases shall support local resolved, monitoring, and
+  transferred outcomes without calling external systems.
 
 ## 8. UX design
 
@@ -128,6 +130,10 @@ The active case area includes an "Approval decision" card that records local
 approve, defer, and reject decisions into case memory. These decisions document
 human review only; they do not trigger ITSM, paging, email, or remediation.
 
+The active case area includes a "Case outcome" card that records local resolved,
+monitoring, and transferred outcomes into case memory. These outcomes document
+Workbench case state only; they do not close tickets or modify external systems.
+
 ## 9. Data and API design
 
 - `POST /api/ingestion/fixtures` loads enterprise fixture `source_records`.
@@ -153,6 +159,8 @@ human review only; they do not trigger ITSM, paging, email, or remediation.
   the persisted case snapshot and appends the question/answer to case memory.
 - `POST /api/cases/:caseKey/approval-decision` records a local approve, defer, or
   reject decision on the persisted case.
+- `POST /api/cases/:caseKey/outcome` records a local resolved, monitoring, or
+  transferred outcome on the persisted case.
 
 ## 10. MongoDB usage
 
@@ -169,6 +177,8 @@ human review only; they do not trigger ITSM, paging, email, or remediation.
   handoff package as auditable case memory.
 - `investigation_cases.approval_state` and `approval_decisions` store local
   human-in-the-loop decisions beside the case timeline.
+- `investigation_cases.case_outcome` and `case_outcomes` store local case closure
+  state and outcome history beside the case timeline.
 - Follow-up answers read and update `investigation_cases` so Q&A is auditable
   across sessions.
 
@@ -197,6 +207,8 @@ human review only; they do not trigger ITSM, paging, email, or remediation.
   guardrail.
 - [x] Persisted cases support local approve, defer, and reject decisions for the
   handoff preview without external side effects.
+- [x] Persisted cases support local resolved, monitoring, and transferred outcomes
+  without external side effects.
 
 ## 12. Product risks
 
@@ -206,6 +218,8 @@ human review only; they do not trigger ITSM, paging, email, or remediation.
   to state that no external ticket, page, email, or remediation was sent.
 - Approval decisions can be mistaken for external escalation unless the Workbench
   continues to label them as local case-memory decisions only.
+- Case outcomes can be mistaken for closing an external ticket unless the
+  Workbench continues to label them as local case-memory outcomes only.
 - Change correlation can be mistaken for causation unless demo copy stays clear.
 - Alert grouping can be mistaken for discarded evidence unless raw record
   preservation is emphasized.

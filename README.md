@@ -81,8 +81,8 @@ auditable memory.
   fault-domain ranking, grounded follow-up, case memory, a grouped investigation
   playbook, alert deduplication/noise reduction, local alert lifecycle tracking,
   recent change correlation, a read-only ITSM handoff preview, local operator
-  approval decisions, a guided enterprise context replay path, and collapsed
-  secondary demo controls.
+  approval decisions, local case closure outcomes, a guided enterprise context
+  replay path, and collapsed secondary demo controls.
 - **Enterprise fixture ingestion** — optional Alertmanager, integration-catalog,
   CMDB-style, and change records are captured as raw source evidence, resolved
   to canonical keys, normalized into events/relationships, grouped into calm
@@ -262,6 +262,7 @@ Base URL: `http://localhost:4000/api`
 | GET/POST | `/cases` · `/cases/investigate/:sourceRecordKey` | Persist and list investigation cases |
 | POST | `/cases/:caseKey/messages` | Generate and persist backend-grounded follow-up Q&A |
 | POST | `/cases/:caseKey/approval-decision` | Record a local approve/defer/reject handoff decision |
+| POST | `/cases/:caseKey/outcome` | Record a local resolved/monitoring/transferred case outcome |
 | POST | `/workbench/clear-demo-state` | Clear simulated feed alerts, lifecycle state, and case memory |
 | GET | `/systems` · `/owners` | Listings |
 
@@ -309,8 +310,9 @@ This full demo smoke test exercises the running server across search, graph,
 impact, enterprise fixture ingestion, quality/provenance scoring, scenarios,
 modernization, Workbench investigation, alert deduplication, alert lifecycle,
 change correlation, read-only ITSM handoff preview, local operator approval
-decisions, related context retrieval, similar-case retrieval, backend-grounded
-follow-up Q&A, score breakdowns, projected case memory fields, and reset/cleanup. It clears the
+decisions, local case closure outcomes, related context retrieval, similar-case
+retrieval, backend-grounded follow-up Q&A, score breakdowns, projected case
+memory fields, and reset/cleanup. It clears the
 optional fixture pack before the Workbench path so the normal rehearsal baseline
 remains stable.
 

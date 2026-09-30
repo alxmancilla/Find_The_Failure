@@ -193,6 +193,8 @@ const investigationCaseSchema = new Schema(
     investigation_result: Schema.Types.Mixed,
     approval_state: Schema.Types.Mixed,
     approval_decisions: [Schema.Types.Mixed],
+    case_outcome: Schema.Types.Mixed,
+    case_outcomes: [Schema.Types.Mixed],
     evidence: [String],
     recommended_next_actions: [String],
     timeline: [

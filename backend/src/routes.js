@@ -26,6 +26,7 @@ import {
   listAlerts,
   listInvestigationCases,
   recordApprovalDecision,
+  recordCaseOutcome,
   updateAlertLifecycle,
 } from "./services/correlation.js";
 import { scenarios, getScenario } from "./scenarios.js";
@@ -236,6 +237,15 @@ router.post(
   "/cases/:caseKey/approval-decision",
   wrap(async (req, res) => {
     const result = await recordApprovalDecision(req.params.caseKey, req.body || {});
+    if (!result) return res.status(404).json({ error: "case not found" });
+    if (result.error) return res.status(400).json({ error: result.error });
+    res.json(result);
+  })
+);
+router.post(
+  "/cases/:caseKey/outcome",
+  wrap(async (req, res) => {
+    const result = await recordCaseOutcome(req.params.caseKey, req.body || {});
     if (!result) return res.status(404).json({ error: "case not found" });
     if (result.error) return res.status(400).json({ error: result.error });
     res.json(result);
