@@ -43,7 +43,8 @@ Before presenting:
 3. Run `npm run smoke` from the repository root.
 4. Confirm the smoke output reports `ok: true`.
 5. Open `http://localhost:5173` or `http://127.0.0.1:5173`.
-6. Start in **Investigation Workbench** with the single seeded alert.
+6. Start in **Investigation Workbench**. Use the top **Next best action** coach
+   and the left-side **Recommended flow** as the presenter guide.
 
 `npm run smoke` returns the Workbench to a clean rehearsal state by clearing
 demo-feed alerts, lifecycle state, cases, and simulated failures.
@@ -52,14 +53,25 @@ demo-feed alerts, lifecycle state, cases, and simulated failures.
 
 ## 2. Recommended hero path (≈6 minutes)
 
-Open **Investigation Workbench**. Start from the alert inbox and let the agent
-playbook populate topology, evidence, and recommended checks.
+Open **Investigation Workbench**. The current hero flow is guided by two cues:
+
+- the top **Next best action** card, which tells the operator exactly what to do
+  next, and
+- the left-side **Recommended flow**, which tracks replay context, select alert,
+  open case, review evidence, and approve/close.
+
+Let the agent playbook populate topology, evidence, handoff, and local closure
+state while you narrate the business value.
 
 ### Act 1 — Start from the business symptom
-1. Select the **ERP endpoint timeout** alert.
-2. Say: "We are starting where operations starts: a rejected purchase order, not
+1. If the **Next best action** card says **Replay enterprise context**, click it.
+   This loads Alertmanager, integration catalog, CMDB, and change fixture records,
+   normalizes them, and groups repeated signals.
+2. Select an external Alertmanager inbox item such as **ERP order API timeout**.
+3. Say: "We are starting where operations starts: a rejected purchase order, not
    a static architecture diagram."
-3. Click **Open investigation case**.
+4. Click **Open investigation case** from either the selected-alert card or the
+   top **Next best action** card.
 
 ### Act 2 — Watch the investigation playbook
 The playbook follows the same supervised pattern for every alert, with
@@ -67,7 +79,7 @@ case-specific evidence inside each phase:
 
 - **Intake** — alert received, repeated signals grouped, and mapped to a known interface
 - **Impact** — topology loaded and business impact assessed
-- **Evidence** — related context retrieved and provenance collected
+- **Evidence** — related context, similar cases, recent changes, and provenance collected
 - **Recommendation** — fault domains ranked and next checks generated
 
 Expand a phase to show the underlying checks, then click a check to show the
@@ -94,30 +106,29 @@ Hospital 123 → EDI Gateway → X12 Translator → Integration API → Apex ERP
    likely fault domain, and first safe check.
 2. Point to the alert lifecycle tag: opening the case marks the alert
    **Investigating** in local Workbench state.
-3. Point to **Noise reduction**: repeated Alertmanager signals are grouped into
-   one inbox item while all raw `source_records` remain available.
-4. The likely fault domain is highlighted with confidence.
-5. Show impacted business process, downstream risk, owners, and related context.
-6. Open **What changed?** to show recent deployment, config, and route changes
-   as correlated hypotheses, not confirmed cause.
-7. Open **Similar prior cases** to show reusable case memory from prior
-   investigations, including why the prior case matched.
-8. Open the related runbooks/prior incidents panel to explain how the agent gets
-   operational memory before ranking.
-9. Open **Handoff preview** to show the draft ITSM/escalation package: target
+3. Point to **Grouped alert signals**: repeated Alertmanager signals are grouped
+   into one calm inbox item while all raw `source_records` remain available.
+4. The investigation summary highlights the likely fault domain and confidence.
+5. Show **Impact summary**: impacted business process, downstream risk, owners,
+   and first recommended check.
+6. Open **Handoff preview** to show the draft ITSM/escalation package: target
    queue, urgency, assignment group, impact, evidence, and approval guardrail.
-10. Use **Approval decision** to record a local approve/defer/reject decision.
-    Emphasize this is a decision log only; no external escalation was sent.
-11. Use **Case outcome** to mark the investigation resolved, monitoring, or
-    transferred in local case memory without closing an external ticket.
-12. Review the safe next checks. No remediation is executed in Agent v1; the
-   guardrail reminds the audience that action requires operator approval.
+7. Use **Operator action → Decision and closure** to record an approve, defer, or
+   reject decision. Emphasize this is local case memory only; no external
+   escalation was sent.
+8. In the same **Operator action** panel, mark the case **Resolved**,
+   **Monitoring**, or **Transferred**. The top stats update the **Case outcome**.
+9. Open **Supporting evidence and audit trail** when the audience asks for more:
+   grouped signals, similar prior cases, recent changes, related runbooks,
+   grounding evidence, and the persisted case timeline are disclosed there.
+10. Review the safe next checks. No remediation is executed in Agent v1; the
+    guardrail reminds the audience that action requires operator approval.
 
 > "In seconds we know what broke, what's downstream, who owns it, and what
 > business process is exposed."
 
 ### Act 5 — Ask grounded follow-up questions
-Use the follow-up panel to ask:
+Use **Ask follow-up** to ask:
 
 - "Why is this the likely fault domain?"
 - "What business process is impacted?"
@@ -136,11 +147,12 @@ back into `investigation_cases` with grounding labels and a MongoDB trace.
 
 ### Act 6 — Show case memory and audit trail
 After the investigation completes, point to **Case memory** in the Alert Inbox
-and **Case timeline** in the right panel.
+and **Supporting evidence and audit trail** in the right panel.
 
 - Each investigation creates a persisted case record.
 - The case stores the alert snapshot, summary, likely fault domain, evidence,
-  recommended checks, timeline, and grounded follow-up Q&A.
+  recommended checks, approval decisions, case outcomes, timeline, and grounded
+  follow-up Q&A.
 - Follow-up Q&A is generated server-side from case memory rather than local
   browser helper logic.
 - Later investigations can retrieve similar prior cases by interface, business
@@ -185,8 +197,9 @@ come from, and can we trust it?"
 
 In the **Investigation Workbench**, click **Replay enterprise context** to run
 the same fixture capture/normalization path and immediately show three raw
-Alertmanager signals collapsed into two external alert inbox items. The sidebar now presents this
-as the primary path: replay context, select alert, open case, review evidence.
+Alertmanager signals collapsed into two external alert inbox items. The sidebar
+and top coach now present this as the primary path: replay context, select alert,
+open case, review evidence, then approve and close locally.
 
 Open **Demo controls** only when you need **Add extra demo alerts** or **Reset
 demo**. The scripted alerts are secondary rehearsal data; the enterprise context
@@ -215,6 +228,7 @@ pack is the primary ingestion story.
 | Evidence and provenance | Source records carry source id, adapter, alias resolution, trust level, and ingestion run metadata |
 | Event history alongside metadata | `events` power "similar recent failures" |
 | Production-shaped agent memory | Tenant/environment scope, query-aligned indexes, score components, and projected case fields |
+| Human-in-the-loop workflow memory | `investigation_cases` stores handoff previews, approval decisions, case outcomes, timeline, and grounded Q&A |
 | Foundation for AI | Same model can answer "what failed, who owns it, and what should we check next?" |
 
 ---
@@ -237,7 +251,10 @@ Operational agent records include tenant/environment scope for the fictional
 `apex-health-supply` production tenant. Saved cases keep the complete
 investigation result and also project queryable fields such as interface,
 business process, dedupe group, related context, change keys, and confidence
-score for future similar-case retrieval.
+score for future similar-case retrieval. Cases also persist local approval
+decisions, case closure outcomes, grounded follow-up messages, and timeline
+events. These records are demo-safe case memory only; no external ticket, page,
+email, or remediation state is changed.
 
 ---
 
@@ -285,8 +302,14 @@ Modernization, and Presenter Console as optional supporting views.
 | GET | `/api/modernization/:systemKey` | What-if impact of replacing a system |
 | GET/POST | `/api/ingestion` · `/api/ingestion/run` | Raw source records, pipeline, quality, and normalization |
 | POST | `/api/ingestion/fixtures` · `/api/ingestion/fixtures/clear` | Load/clear optional enterprise fixture pack |
-| GET | `/api/alerts` · `/api/investigation/:sourceRecordKey` | Read-only alert investigation |
+| GET | `/api/alerts` | Deduplicated Workbench inbox items with raw signal counts |
+| POST | `/api/alerts/demo-feed` | Add/refresh optional scripted observability alerts |
 | POST | `/api/alerts/:sourceRecordKey/lifecycle` | Local Workbench lifecycle transition |
+| GET/POST | `/api/cases` · `/api/cases/investigate/:sourceRecordKey` | Persist and list investigation cases |
+| POST | `/api/cases/:caseKey/messages` | Generate and persist backend-grounded follow-up Q&A |
+| POST | `/api/cases/:caseKey/approval-decision` | Record local approve/defer/reject handoff decisions |
+| POST | `/api/cases/:caseKey/outcome` | Record local resolved/monitoring/transferred case outcomes |
+| POST | `/api/workbench/clear-demo-state` | Clear simulated feed alerts, lifecycle state, and case memory |
 
 ---
 
