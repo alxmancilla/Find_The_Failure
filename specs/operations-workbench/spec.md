@@ -82,6 +82,8 @@ across disconnected topology diagrams, CMDB records, runbooks, and prior tickets
   hypotheses grounded in source records.
 - **REQ-012:** Alert listing shall collapse repeated signals into grouped inbox
   items while exposing raw/suppressed signal counts.
+- **REQ-013:** Operational agent records shall support tenant/environment scope,
+  query-aligned indexes, projected case fields, and score component breakdowns.
 
 ## 8. UX design
 
@@ -124,6 +126,8 @@ and raw `source_records` preserved for audit.
 - `POST /api/cases/investigate/:sourceRecordKey` creates persisted case memory.
   Investigation responses include `change_correlation` when matching change
   records are available.
+- Investigation cases project interface, process, dedupe, confidence,
+  related-context, and change keys at the top level for case-memory queries.
 
 ## 10. MongoDB usage
 
@@ -132,6 +136,8 @@ and raw `source_records` preserved for audit.
 - `$graphLookup` supports upstream/downstream topology expansion.
 - Atlas Search / vector/rerank retrieval finds related operational knowledge.
 - `investigation_cases` stores auditable case memory and follow-up messages.
+- Tenant/environment fields and compound indexes align the demo with production
+  multi-tenant Workbench access patterns while keeping the seeded flow unchanged.
 
 ## 11. Acceptance criteria
 
@@ -150,6 +156,8 @@ and raw `source_records` preserved for audit.
   match the alert context.
 - [x] Alert inbox groups repeated signals while preserving raw alert counts.
 - [x] Active case output includes alert deduplication/noise-reduction context.
+- [x] Operational records support tenant/environment metadata and queryable case
+  projections for production-shaped MongoDB agent memory.
 
 ## 12. Product risks
 
@@ -184,6 +192,8 @@ and raw `source_records` preserved for audit.
 - [x] Add lightweight alert lifecycle status and controls.
 - [x] Add fixture-backed recent change correlation.
 - [x] Add lightweight alert deduplication/noise reduction.
+- [x] Add MongoDB hardening for tenant/environment scope, indexes, case
+  projections, and score components.
 - [x] Update README and demo runbook.
 
 ## 15. Decisions

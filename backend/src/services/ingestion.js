@@ -1,4 +1,5 @@
 import { Event, Interface, Relationship, SourceRecord } from "../models.js";
+import { DEFAULT_ENVIRONMENT, DEFAULT_TENANT_ID } from "../demoDefaults.js";
 import { buildEnterpriseFixtureSourceRecords, ENTERPRISE_FIXTURE_GROUP } from "./ingestionFixtures.js";
 
 const STALE_DAYS = 45;
@@ -73,6 +74,8 @@ export async function runIngestion() {
           update: {
             $set: {
               ...rel,
+              tenant_id: record.tenant_id || DEFAULT_TENANT_ID,
+              environment: record.environment || rel.environment || DEFAULT_ENVIRONMENT,
               evidence: [...(rel.evidence || []), ...(record.evidence || [])],
               source_system: record.source_system,
               source_record_id: record.key,
@@ -97,6 +100,8 @@ export async function runIngestion() {
       { source_record_id: record.key },
       {
         $set: {
+          tenant_id: record.tenant_id || DEFAULT_TENANT_ID,
+          environment: record.environment || DEFAULT_ENVIRONMENT,
           interface_key: record.entity_key,
           timestamp: record.observed_at || now,
           status: record.payload?.status || "degraded",
@@ -115,7 +120,11 @@ export async function runIngestion() {
   }
 
   ignored = records.length - relationship_upserts - event_upserts;
-  await SourceRecord.updateMany({}, { $set: { ingestion_status: "ingested", ingested_at: now, ingestion_run_id } });
+  await Promise.all([
+    SourceRecord.updateMany({ tenant_id: { $exists: false } }, { $set: { tenant_id: DEFAULT_TENANT_ID } }),
+    SourceRecord.updateMany({ environment: { $exists: false } }, { $set: { environment: DEFAULT_ENVIRONMENT } }),
+    SourceRecord.updateMany({}, { $set: { ingestion_status: "ingested", ingested_at: now, ingestion_run_id } }),
+  ]);
   return {
     ok: true,
     ingestion_run_id,

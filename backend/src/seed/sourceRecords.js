@@ -1,9 +1,13 @@
+import { DEFAULT_ENVIRONMENT, DEFAULT_TENANT_ID } from "../demoDefaults.js";
+
 const now = new Date();
 const daysAgo = (d) => new Date(now.getTime() - d * 24 * 3600 * 1000);
 const hoursAgo = (h) => new Date(now.getTime() - h * 3600 * 1000);
 
 const relationship = (source_system, external_id, rel, evidence, observed_at = daysAgo(1)) => ({
   key: `${source_system}:${external_id}`,
+  tenant_id: DEFAULT_TENANT_ID,
+  environment: rel.environment || DEFAULT_ENVIRONMENT,
   source_system,
   record_type: "relationship",
   external_id,
@@ -17,6 +21,8 @@ const relationship = (source_system, external_id, rel, evidence, observed_at = d
 
 const alert = (external_id, entity_key, observed_at, evidence, payload) => ({
   key: `observability:${external_id}`,
+  tenant_id: DEFAULT_TENANT_ID,
+  environment: DEFAULT_ENVIRONMENT,
   source_system: "observability-alerts",
   record_type: "alert",
   external_id,

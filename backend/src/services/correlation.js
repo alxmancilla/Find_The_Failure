@@ -1,4 +1,5 @@
 import { Event, Interface, InvestigationCase, Owner, SourceRecord, System } from "../models.js";
+import { DEFAULT_ENVIRONMENT, DEFAULT_TENANT_ID } from "../demoDefaults.js";
 import { demoFeedAlertKeys, demoFeedAlerts } from "../seed/sourceRecords.js";
 import { getImpact } from "./impact.js";
 import { GRAPH_LOOKUP_MAX_DEPTH } from "./graphConfig.js";
@@ -137,8 +138,10 @@ export async function createInvestigationCase(sourceRecordKey) {
     alert: lifecycle?.alert || investigation.alert,
     mongodb_trace: addCaseWriteTrace(investigation.mongodb_trace, key, sourceRecordKey),
   };
+  const projections = buildCaseProjections(persistedInvestigation);
   const doc = await InvestigationCase.create({
     key,
+    ...projections,
     alert_key: sourceRecordKey,
     alert_snapshot: persistedInvestigation.alert,
     status: "open",
@@ -250,6 +253,8 @@ function formatAlert(alert, dedupe = null) {
   const lifecycle = formatLifecycle(alert.workbench_lifecycle);
   return {
     key: alert.key,
+    tenant_id: alert.tenant_id || DEFAULT_TENANT_ID,
+    environment: alert.environment || DEFAULT_ENVIRONMENT,
     source_system: alert.source_system,
     external_id: alert.external_id,
     interface_key: alert.entity_key,
@@ -392,33 +397,49 @@ function rankFaultDomains(alert, iface, upstream, downstream, systems, impact) {
   const targetConfidence = scoreTargetConfidence(alert, iface, upstream, downstream, impact);
   const upstreamDepth = Math.min(upstream.relationships.length, 4) * 0.04;
   const downstreamBreadth = Math.min(downstream.relationships.length, 5) * 0.035;
+  const interfaceScore = clampScore(targetConfidence.score - 0.08, 0.68, 0.88);
+  const upstreamScore = clampScore(0.52 + upstreamDepth, 0.52, 0.78);
+  const downstreamScore = clampScore(0.46 + downstreamBreadth, 0.46, 0.76);
   return [
     {
       type: "system",
       key: iface.target,
       name: byKey[iface.target]?.name || iface.target,
-      score: targetConfidence,
-      reason: buildConfidenceReason(alert, iface, upstream, downstream, impact, targetConfidence),
+      score: targetConfidence.score,
+      score_components: targetConfidence.score_components,
+      reason: buildConfidenceReason(alert, iface, upstream, downstream, impact, targetConfidence.score),
     },
     {
       type: "interface",
       key: iface.key,
       name: iface.name,
-      score: clampScore(targetConfidence - 0.08, 0.68, 0.88),
+      score: interfaceScore,
+      score_components: derivedScoreComponents(interfaceScore, [
+        component("Direct alert-to-interface mapping", 0.68, `Alert entity key is ${iface.key}.`),
+        component("System-localization uncertainty", -0.08, "Interface is ranked below the target system because symptoms point at the endpoint."),
+      ]),
       reason: alert.payload?.detail || "Alert is directly mapped to this integration interface.",
     },
     {
       type: "upstream-path",
       key: "upstream-dependency-chain",
       name: "Upstream dependency chain",
-      score: clampScore(0.52 + upstreamDepth, 0.52, 0.78),
+      score: upstreamScore,
+      score_components: derivedScoreComponents(upstreamScore, [
+        component("Base upstream possibility", 0.52, "Upstream dependencies can contribute to symptoms."),
+        component("Upstream relationship depth", upstreamDepth, `${upstream.relationships.length} upstream edge(s) discovered.`),
+      ]),
       reason: `${upstream.relationships.length} upstream relationship edges can contribute to the symptom.`,
     },
     {
       type: "downstream-blast-radius",
       key: "downstream-impact-chain",
       name: "Downstream impact chain",
-      score: clampScore(0.46 + downstreamBreadth, 0.46, 0.76),
+      score: downstreamScore,
+      score_components: derivedScoreComponents(downstreamScore, [
+        component("Base downstream impact", 0.46, "Downstream systems define blast radius more than root cause."),
+        component("Downstream relationship breadth", downstreamBreadth, `${downstream.relationships.length} downstream edge(s) discovered.`),
+      ]),
       reason: `${downstream.relationships.length} downstream relationship edges define affected consumers.`,
     },
   ].sort((a, b) => b.score - a.score);
@@ -433,21 +454,52 @@ function scoreTargetConfidence(alert, iface, upstream, downstream, impact) {
   const symptom = `${alert.payload?.reason || ""} ${alert.payload?.detail || ""}`.toLowerCase();
 
   let score = 0.64;
-  score += alert.entity_key === iface.key ? 0.12 : 0;
-  score += alert.payload?.severity === "critical" ? 0.05 : 0.02;
-  score += alert.payload?.status === "failed" ? 0.06 : 0.03;
-  score += /timeout|failure|failed|acknowledg/.test(symptom) ? 0.04 : 0.01;
-  score += Math.min(evidenceCount, 4) * 0.01;
-  score += Math.min(relationships.length, 6) * 0.008;
-  score += relationships.length && confirmed / relationships.length >= 0.8 ? 0.04 : 0;
-  score += processCount === 1 ? 0.04 : processCount > 1 ? 0.02 : 0;
-  score += (iface.owners || []).length ? 0.02 : 0;
-  score -= processCount > 1 ? 0.03 : 0;
-  score -= downstream.relationships.length > 2 ? 0.02 : 0;
-  score -= inferred ? 0.03 : 0;
-  score -= /backlog|lag|delay|delayed|queue/.test(symptom) ? 0.03 : 0;
+  const factors = [component("Base endpoint prior", 0.64, "Start from a conservative prior for the mapped target system.")];
+  const add = (factor, contribution, detail) => {
+    score += contribution;
+    if (contribution) factors.push(component(factor, contribution, detail));
+  };
 
-  return clampScore(score, 0.72, maxConfidenceFor(alert, processCount, downstream.relationships.length, symptom));
+  add("Direct entity match", alert.entity_key === iface.key ? 0.12 : 0, `Alert entity key ${alert.entity_key} maps to ${iface.key}.`);
+  add("Alert severity", alert.payload?.severity === "critical" ? 0.05 : 0.02, `Severity is ${alert.payload?.severity || "unknown"}.`);
+  add("Alert status", alert.payload?.status === "failed" ? 0.06 : 0.03, `Status is ${alert.payload?.status || "unknown"}.`);
+  add("Symptom specificity", /timeout|failure|failed|acknowledg/.test(symptom) ? 0.04 : 0.01, "Symptom text is compared to failure and timeout patterns.");
+  add("Evidence volume", Math.min(evidenceCount, 4) * 0.01, `${evidenceCount} evidence item(s) attached.`);
+  add("Relationship coverage", Math.min(relationships.length, 6) * 0.008, `${relationships.length} relationship edge(s) available.`);
+  add("Confirmed relationship ratio", relationships.length && confirmed / relationships.length >= 0.8 ? 0.04 : 0, `${confirmed}/${relationships.length || 0} edges are confirmed.`);
+  add("Process mapping focus", processCount === 1 ? 0.04 : processCount > 1 ? 0.02 : 0, `${processCount} impacted business process(es).`);
+  add("Owner coverage", (iface.owners || []).length ? 0.02 : 0, `${(iface.owners || []).length} owner(s) mapped.`);
+  add("Shared process ambiguity", processCount > 1 ? -0.03 : 0, "Multiple process mappings lower certainty.");
+  add("Broad downstream blast radius", downstream.relationships.length > 2 ? -0.02 : 0, `${downstream.relationships.length} downstream edge(s) found.`);
+  add("Inferred relationship penalty", inferred ? -0.03 : 0, `${inferred} inferred edge(s) require confirmation.`);
+  add("Queue/backlog ambiguity", /backlog|lag|delay|delayed|queue/.test(symptom) ? -0.03 : 0, "Queue and lag symptoms can originate upstream or downstream.");
+
+  const maxScore = maxConfidenceFor(alert, processCount, downstream.relationships.length, symptom);
+  const finalScore = clampScore(score, 0.72, maxScore);
+  return {
+    score: finalScore,
+    score_components: {
+      method: "deterministic weighted heuristic",
+      raw_score: Number(score.toFixed(3)),
+      min_score: 0.72,
+      max_score: maxScore,
+      factors,
+    },
+  };
+}
+
+function component(factor, contribution, detail) {
+  return { factor, contribution: Number(contribution.toFixed(3)), detail };
+}
+
+function derivedScoreComponents(score, factors) {
+  return {
+    method: "deterministic derived heuristic",
+    raw_score: score,
+    min_score: score,
+    max_score: score,
+    factors,
+  };
 }
 
 function maxConfidenceFor(alert, processCount, downstreamEdges, symptom) {
@@ -791,7 +843,13 @@ function mongoShellChain(chain) {
 function caseInsertTraceDoc(caseKey, sourceRecordKey) {
   return {
     ...(caseKey ? { key: caseKey } : {}),
+    tenant_id: DEFAULT_TENANT_ID,
+    environment: DEFAULT_ENVIRONMENT,
     alert_key: sourceRecordKey,
+    interface_key: "<alert interface key>",
+    business_process_key: "<primary impacted process key>",
+    dedupe_group_key: "<alert dedupe group key>",
+    confidence_score: "<top candidate score>",
     alert_snapshot: "<selected alert snapshot>",
     status: "open",
     summary: "<generated investigation summary>",
@@ -801,6 +859,29 @@ function caseInsertTraceDoc(caseKey, sourceRecordKey) {
     recommended_next_actions: "<generated next checks>",
     timeline: "<case timeline events>",
     messages: [],
+  };
+}
+
+function buildCaseProjections(investigation) {
+  const alert = investigation.alert || {};
+  const iface = investigation.topology?.alert_interface || {};
+  const process = investigation.impacted_business_processes?.[0] || {};
+  const top = investigation.likely_fault_domains?.[0] || {};
+  const dedupe = investigation.alert_deduplication || alert.dedupe || {};
+  return {
+    tenant_id: alert.tenant_id || DEFAULT_TENANT_ID,
+    environment: alert.environment || DEFAULT_ENVIRONMENT,
+    interface_key: iface.key || alert.interface_key,
+    interface_name: iface.name,
+    business_process_key: process.key || alert.business_process_key,
+    business_process_name: process.name || alert.business_process_name,
+    dedupe_group_key: dedupe.group_key,
+    dedupe_signal_count: dedupe.signal_count || 1,
+    confidence_score: top.score,
+    top_fault_domain_key: top.key,
+    top_fault_domain_type: top.type,
+    related_context_keys: (investigation.related_context?.documents || []).map((doc) => doc.key).filter(Boolean),
+    change_keys: (investigation.change_correlation?.documents || []).map((doc) => doc.key || doc.external_id).filter(Boolean),
   };
 }
 
@@ -830,7 +911,20 @@ function buildCaseTimeline(start, investigation) {
 function formatCase(doc) {
   return {
     key: doc.key,
+    tenant_id: doc.tenant_id || DEFAULT_TENANT_ID,
+    environment: doc.environment || DEFAULT_ENVIRONMENT,
     alert_key: doc.alert_key,
+    interface_key: doc.interface_key,
+    interface_name: doc.interface_name,
+    business_process_key: doc.business_process_key,
+    business_process_name: doc.business_process_name,
+    dedupe_group_key: doc.dedupe_group_key,
+    dedupe_signal_count: doc.dedupe_signal_count,
+    confidence_score: doc.confidence_score,
+    top_fault_domain_key: doc.top_fault_domain_key,
+    top_fault_domain_type: doc.top_fault_domain_type,
+    related_context_keys: doc.related_context_keys || [],
+    change_keys: doc.change_keys || [],
     alert_snapshot: doc.alert_snapshot,
     status: doc.status,
     summary: doc.summary,

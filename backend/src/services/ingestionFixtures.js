@@ -1,3 +1,5 @@
+import { DEFAULT_ENVIRONMENT, DEFAULT_TENANT_ID } from "../demoDefaults.js";
+
 export const ENTERPRISE_FIXTURE_GROUP = "enterprise-context-pack";
 
 const now = () => new Date();
@@ -271,6 +273,8 @@ function changeRecord(fixture, capturedAt) {
 function sourceRecord({ sourceSystem, recordType, externalId, entityType, entityKey, observedAt, evidence, resolution, payload, capturedAt }) {
   return {
     key: `${ENTERPRISE_FIXTURE_GROUP}:${sourceSystem}:${externalId}`,
+    tenant_id: DEFAULT_TENANT_ID,
+    environment: payload?.relationship?.environment || DEFAULT_ENVIRONMENT,
     fixture_group: ENTERPRISE_FIXTURE_GROUP,
     source_system: sourceSystem,
     record_type: recordType,

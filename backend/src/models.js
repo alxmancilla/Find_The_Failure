@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { DEFAULT_ENVIRONMENT, DEFAULT_TENANT_ID } from "./demoDefaults.js";
 
 const { Schema, model } = mongoose;
 
@@ -94,6 +95,8 @@ interfaceSchema.index({
 // Events: operational history stored alongside metadata
 const eventSchema = new Schema(
   {
+    tenant_id: { type: String, default: DEFAULT_TENANT_ID },
+    environment: { type: String, default: DEFAULT_ENVIRONMENT },
     interface_key: { type: String, ref: "Interface" },
     timestamp: { type: Date, default: Date.now },
     status: String, // success | failed | degraded
@@ -110,11 +113,14 @@ const eventSchema = new Schema(
 );
 
 eventSchema.index({ source_record_id: 1 }, { unique: true, sparse: true });
+eventSchema.index({ tenant_id: 1, environment: 1, interface_key: 1, timestamp: -1 });
 
 // Raw records imported from federated enterprise metadata sources.
 const sourceRecordSchema = new Schema(
   {
     key: { type: String, required: true, unique: true },
+    tenant_id: { type: String, default: DEFAULT_TENANT_ID },
+    environment: { type: String, default: DEFAULT_ENVIRONMENT },
     source_system: { type: String, required: true },
     record_type: { type: String, required: true },
     external_id: String,
@@ -134,11 +140,17 @@ const sourceRecordSchema = new Schema(
 
 sourceRecordSchema.index({ source_system: 1, record_type: 1 });
 sourceRecordSchema.index({ entity_type: 1, entity_key: 1 });
+sourceRecordSchema.index({ tenant_id: 1, environment: 1, record_type: 1, observed_at: -1 });
+sourceRecordSchema.index({ tenant_id: 1, environment: 1, record_type: 1, "payload.alert_group_key": 1, observed_at: -1 });
+sourceRecordSchema.index({ tenant_id: 1, environment: 1, record_type: 1, source_system: 1, entity_key: 1, observed_at: -1 });
+sourceRecordSchema.index({ fixture_group: 1, record_type: 1 });
 
 // Searchable operational knowledge used for related-context retrieval.
 const operationalKnowledgeSchema = new Schema(
   {
     key: { type: String, required: true, unique: true },
+    tenant_id: { type: String, default: DEFAULT_TENANT_ID },
+    environment: { type: String, default: DEFAULT_ENVIRONMENT },
     type: { type: String, required: true },
     title: { type: String, required: true },
     text: { type: String, required: true },
@@ -153,12 +165,27 @@ const operationalKnowledgeSchema = new Schema(
 
 operationalKnowledgeSchema.index({ interface_key: 1, type: 1 });
 operationalKnowledgeSchema.index({ business_process_key: 1, type: 1 });
+operationalKnowledgeSchema.index({ tenant_id: 1, environment: 1, interface_key: 1, type: 1 });
+operationalKnowledgeSchema.index({ tenant_id: 1, environment: 1, business_process_key: 1, type: 1 });
 
 // Agent investigation cases: auditable memory for supervised investigations.
 const investigationCaseSchema = new Schema(
   {
     key: { type: String, required: true, unique: true },
+    tenant_id: { type: String, default: DEFAULT_TENANT_ID },
+    environment: { type: String, default: DEFAULT_ENVIRONMENT },
     alert_key: { type: String, required: true },
+    interface_key: String,
+    interface_name: String,
+    business_process_key: String,
+    business_process_name: String,
+    dedupe_group_key: String,
+    dedupe_signal_count: Number,
+    confidence_score: Number,
+    top_fault_domain_key: String,
+    top_fault_domain_type: String,
+    related_context_keys: [String],
+    change_keys: [String],
     alert_snapshot: Schema.Types.Mixed,
     status: { type: String, default: "open" },
     summary: String,
@@ -189,11 +216,16 @@ const investigationCaseSchema = new Schema(
 
 investigationCaseSchema.index({ alert_key: 1, createdAt: -1 });
 investigationCaseSchema.index({ status: 1, updatedAt: -1 });
+investigationCaseSchema.index({ tenant_id: 1, environment: 1, status: 1, updatedAt: -1 });
+investigationCaseSchema.index({ tenant_id: 1, environment: 1, interface_key: 1, updatedAt: -1 });
+investigationCaseSchema.index({ tenant_id: 1, environment: 1, business_process_key: 1, updatedAt: -1 });
+investigationCaseSchema.index({ tenant_id: 1, environment: 1, dedupe_group_key: 1, updatedAt: -1 });
 
 // Explicit, typed relationship edges with provenance and confidence.
 const relationshipSchema = new Schema(
   {
     key: { type: String, required: true, unique: true },
+    tenant_id: { type: String, default: DEFAULT_TENANT_ID },
     from_type: { type: String, required: true },
     from_key: { type: String, required: true },
     to_type: { type: String, required: true },
@@ -207,7 +239,7 @@ const relationshipSchema = new Schema(
     confidence: { type: Number, default: 1 },
     confirmed: { type: Boolean, default: true },
     evidence: [String],
-    environment: { type: String, default: "production" },
+    environment: { type: String, default: DEFAULT_ENVIRONMENT },
     first_seen_at: Date,
     last_seen_at: Date,
   },
@@ -216,6 +248,8 @@ const relationshipSchema = new Schema(
 
 relationshipSchema.index({ from_type: 1, from_key: 1, relationship_type: 1 });
 relationshipSchema.index({ to_type: 1, to_key: 1, relationship_type: 1 });
+relationshipSchema.index({ tenant_id: 1, environment: 1, from_type: 1, from_key: 1, relationship_type: 1 });
+relationshipSchema.index({ tenant_id: 1, environment: 1, to_type: 1, to_key: 1, relationship_type: 1 });
 
 export const Owner = model("Owner", ownerSchema);
 export const System = model("System", systemSchema);

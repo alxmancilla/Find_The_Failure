@@ -52,6 +52,9 @@ try {
   const ingestion = await get("/ingestion");
   assert(Array.isArray(ingestion.source_records), "ingestion dashboard missing source records");
   assert(ingestion.quality.fixture_records >= 10, "fixture records missing from dashboard");
+  const scopedFixtureRecord = ingestion.source_records.find((record) => record.fixture_group === "enterprise-context-pack");
+  assert(scopedFixtureRecord?.tenant_id === "apex-health-supply", "fixture record tenant metadata missing");
+  assert(scopedFixtureRecord?.environment === "production", "fixture record environment metadata missing");
   assert(ingestion.pipeline.length === 4, "ingestion pipeline summary missing");
   const ingestionRun = await post("/ingestion/run");
   assert(ingestionRun.ok === true, "ingestion run failed");
@@ -64,6 +67,7 @@ try {
   assert(groupedAlert, "grouped Alertmanager alert missing");
   const fixtureInvestigation = await get("/investigation/" + encodeURIComponent(groupedAlert.key));
   assert(fixtureInvestigation.alert_deduplication.signal_count > 1, "investigation dedupe metadata missing");
+  assert(fixtureInvestigation.likely_fault_domains.every((candidate) => candidate.score_components?.factors?.length), "fault-domain score components missing");
   assert(fixtureInvestigation.mongodb_trace.dedupe, "MongoDB dedupe trace missing");
   assert(fixtureInvestigation.change_correlation.documents.length > 0, "change correlation missing");
   assert(fixtureInvestigation.mongodb_trace.changes, "MongoDB change trace missing");
@@ -87,9 +91,15 @@ try {
   assert(acknowledged.alert.lifecycle_status === "acknowledged", "alert lifecycle acknowledge failed");
   const investigation = await get("/investigation/" + encodeURIComponent(feed.alerts[0].key));
   assert(investigation.related_context.documents.length > 0, "related context missing");
+  assert(investigation.alert.tenant_id === "apex-health-supply", "alert tenant metadata missing");
   assert(investigation.mongodb_trace.related, "MongoDB related trace missing");
   const created = await post("/cases/investigate/" + encodeURIComponent(feed.alerts[0].key));
   assert(created.investigation.alert.lifecycle_status === "investigating", "case create did not mark alert investigating");
+  assert(created.case?.tenant_id === "apex-health-supply", "case tenant projection missing");
+  assert(created.case?.interface_key, "case interface projection missing");
+  assert(created.case?.business_process_key, "case business-process projection missing");
+  assert(typeof created.case?.confidence_score === "number", "case confidence projection missing");
+  assert(created.case?.related_context_keys?.length > 0, "case related-context projection missing");
   assert(created.case?.timeline?.some((item) => item.event === "alert_deduplicated"), "case timeline missing dedupe step");
   assert(created.case?.timeline?.some((item) => item.event === "related_context_retrieved"), "case memory incomplete");
   const cases = await get("/cases");

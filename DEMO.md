@@ -196,6 +196,7 @@ pack is the primary ingestion story.
 | Federated ingestion | Raw inventory, CMDB, and observability records normalize into typed relationships/events |
 | Evidence and provenance | Source records carry source id, adapter, alias resolution, trust level, and ingestion run metadata |
 | Event history alongside metadata | `events` power "similar recent failures" |
+| Production-shaped agent memory | Tenant/environment scope, query-aligned indexes, score components, and projected case fields |
 | Foundation for AI | Same model can answer "what failed, who owns it, and what should we check next?" |
 
 ---
@@ -213,6 +214,12 @@ The optional enterprise fixture pack adds **11 raw source records** for ingestio
 demonstrations, including **3 external Alertmanager signals** that collapse into
 **2 Workbench inbox items** and **3 recent change records** that power the Workbench
 "What changed?" panel. It can be cleared without reseeding.
+
+Operational agent records include tenant/environment scope for the fictional
+`apex-health-supply` production tenant. Saved cases keep the complete
+investigation result and also project queryable fields such as interface,
+business process, dedupe group, related context, change keys, and confidence
+score for future similar-case retrieval.
 
 ---
 
