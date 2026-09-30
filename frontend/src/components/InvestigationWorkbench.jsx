@@ -398,6 +398,66 @@ function SelectedAlertPanel({ alert, busy, lifecycleBusy, activeCase, isHiddenBy
   );
 }
 
+function NextBestActionPanel({ hasEnterpriseContext, selectedAlert, activeCase, result, busy, feedBusy, resetBusy, onReplay, onInvestigate }) {
+  const outcomeStatus = activeCase?.case_outcome?.status;
+  const approvalStatus = activeCase?.approval_state?.status;
+  let action = {
+    status: "Ready",
+    title: "Review the investigation",
+    detail: "Evidence, handoff preview, follow-up Q&A, and local case memory are available in the right rail.",
+  };
+
+  if (!hasEnterpriseContext) {
+    action = {
+      status: "Start here",
+      title: "Replay enterprise context",
+      detail: "Load Alertmanager, integration catalog, and CMDB fixture records so the inbox reflects the enterprise scenario.",
+      cta: "Replay enterprise context",
+      onClick: onReplay,
+      disabled: feedBusy || resetBusy || busy,
+    };
+  } else if (!selectedAlert) {
+    action = { status: "Next", title: "Select an alert", detail: "Choose one grouped inbox item to anchor the investigation." };
+  } else if (!activeCase) {
+    action = {
+      status: "Next",
+      title: "Open an auditable case",
+      detail: "Create a saved case that captures the alert, graph context, evidence, handoff preview, and follow-up history.",
+      cta: "Open investigation case",
+      onClick: onInvestigate,
+      disabled: busy,
+    };
+  } else if (busy) {
+    action = { status: "Running", title: "Agent is investigating", detail: "Follow the playbook timeline as the agent maps impact, evidence, changes, and recommendations." };
+  } else if (!result) {
+    action = {
+      status: "Resume",
+      title: "Run investigation for this case",
+      detail: "Refresh the analysis to rebuild impact, fault ranking, and the read-only handoff package.",
+      cta: "Run investigation",
+      onClick: onInvestigate,
+      disabled: busy,
+    };
+  } else if (approvalStatus === "pending") {
+    action = { status: "Review", title: "Record the operator decision", detail: "Use the Operator action panel to approve, defer, or reject the handoff preview locally." };
+  } else if (!outcomeStatus || outcomeStatus === "open") {
+    action = { status: "Close loop", title: "Record the case outcome", detail: "Mark the case resolved, monitoring, or transferred after reviewing evidence and approval context." };
+  } else {
+    action = { status: "Complete", title: `Case marked ${activeCase.case_outcome.label.toLowerCase()}`, detail: "The demo-safe workflow is closed locally; no external ticket, page, or remediation was changed." };
+  }
+
+  return (
+    <section className="next-best-panel">
+      <span className="next-best-state">{action.status}</span>
+      <div>
+        <h3>{action.title}</h3>
+        <p>{action.detail}</p>
+      </div>
+      {action.cta && <button type="button" className="primary" disabled={action.disabled} onClick={action.onClick}>{action.cta}</button>}
+    </section>
+  );
+}
+
 function CaseTimeline({ caseRecord }) {
   return (
     <section className="panel-card case-timeline">
@@ -583,6 +643,73 @@ function CaseOutcomePanel({ activeCase, busy, onOutcome }) {
               <small>{item.at ? new Date(item.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "local outcome"}</small>
             </article>
           ))}
+        </>
+      )}
+    </section>
+  );
+}
+
+function OperatorActionPanel({ activeCase, busy, approvalBusy, outcomeBusy, onDecision, onOutcome }) {
+  const approval = activeCase?.approval_state;
+  const outcome = activeCase?.case_outcome;
+  const decisions = activeCase?.approval_decisions || [];
+  const outcomes = activeCase?.case_outcomes || [];
+  const decisionActions = [
+    { decision: "approved", label: "Approve" },
+    { decision: "deferred", label: "Defer" },
+    { decision: "rejected", label: "Reject" },
+  ];
+  const outcomeActions = [
+    { outcome: "resolved", label: "Resolved" },
+    { outcome: "monitoring", label: "Monitoring" },
+    { outcome: "transferred", label: "Transferred" },
+  ];
+  const audit = [
+    ...decisions.map((item) => ({ type: "Approval", label: item.label, actor: item.actor, note: item.note, at: item.at })),
+    ...outcomes.map((item) => ({ type: "Outcome", label: item.label, actor: item.actor, note: item.note, at: item.at })),
+  ].sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0)).slice(0, 4);
+
+  return (
+    <section className="panel-card operator-action-panel">
+      <div className="panel-title-row compact">
+        <div>
+          <span className="eyebrow">Operator action</span>
+          <h3>Decision and closure</h3>
+        </div>
+        {activeCase && <span className="count-pill">Local only</span>}
+      </div>
+      {!activeCase && <p className="muted">Open a case to record approval decisions and final case outcomes.</p>}
+      {activeCase && (
+        <>
+          <div className="operator-status-grid">
+            <div><span>Approval</span><strong>{approval?.label || "Pending"}</strong></div>
+            <div><span>Outcome</span><strong>{outcome?.label || "Open"}</strong></div>
+          </div>
+          <div className="operator-section">
+            <strong>1. Review handoff</strong>
+            <p>{approval?.note || "Record whether the read-only handoff preview is acceptable."}</p>
+            <div className="approval-actions">
+              {decisionActions.map((action) => <button key={action.decision} type="button" disabled={busy || approvalBusy} onClick={() => onDecision(action.decision)}>{action.label}</button>)}
+            </div>
+          </div>
+          <div className="operator-section">
+            <strong>2. Close the loop</strong>
+            <p>{outcome?.note || "Record the local case outcome once the operator has reviewed evidence."}</p>
+            <div className="case-outcome-actions">
+              {outcomeActions.map((action) => <button key={action.outcome} type="button" disabled={busy || outcomeBusy} onClick={() => onOutcome(action.outcome)}>{action.label}</button>)}
+            </div>
+          </div>
+          <p className="approval-guardrail">Local Workbench memory only; no external ticket, page, email, or remediation action is sent.</p>
+          {audit.length > 0 && (
+            <div className="operator-audit-list">
+              {audit.map((item) => (
+                <article key={`${item.type}-${item.label}-${item.at}`}>
+                  <span>{item.type} · {item.label} · {item.actor}</span>
+                  <p>{item.note}</p>
+                </article>
+              ))}
+            </div>
+          )}
         </>
       )}
     </section>
@@ -938,6 +1065,11 @@ export default function InvestigationWorkbench() {
       detail: result ? "Impact, topology, changes, related context ready" : "Follow the agent timeline",
       status: result ? "complete" : activeCase ? "active" : "pending",
     },
+    {
+      label: "Approve & close",
+      detail: activeCase?.case_outcome?.status && activeCase.case_outcome.status !== "open" ? activeCase.case_outcome.label : "Record local decision and outcome",
+      status: activeCase?.case_outcome?.status && activeCase.case_outcome.status !== "open" ? "complete" : result ? "active" : "pending",
+    },
   ], [activeCase, hasEnterpriseContext, result, selectedAlert]);
 
   const loadAlerts = useCallback(async () => {
@@ -1291,6 +1423,17 @@ export default function InvestigationWorkbench() {
       </aside>
 
       <main className="workbench-main">
+        <NextBestActionPanel
+          hasEnterpriseContext={hasEnterpriseContext}
+          selectedAlert={selectedAlert}
+          activeCase={activeCase}
+          result={result}
+          busy={busy}
+          feedBusy={feedBusy}
+          resetBusy={resetBusy}
+          onReplay={ingestEnterpriseContext}
+          onInvestigate={startInvestigation}
+        />
         <section className="workbench-header">
           <div>
             <span className="eyebrow">Active case</span>
@@ -1311,7 +1454,7 @@ export default function InvestigationWorkbench() {
             <Stat label="Severity" value={selectedAlert?.severity || "—"} />
             <Stat label="Ranking confidence" value={result?.likely_fault_domains?.[0] ? pct(result.likely_fault_domains[0].score) : busy ? "Building" : "—"} />
             <Stat label="Signals" value={selectedAlert ? alertSignalCount(selectedAlert) : "—"} />
-            <Stat label="Evidence" value={result?.evidence?.length ?? "—"} />
+            <Stat label="Case outcome" value={activeCase?.case_outcome?.label || "—"} />
           </div>
         </section>
 
@@ -1331,14 +1474,17 @@ export default function InvestigationWorkbench() {
             <SummaryPanel result={result} />
             <BusinessImpactPanel result={result} selectedAlert={selectedAlert} />
             <HandoffPreviewPanel result={result} />
-            <ApprovalDecisionPanel activeCase={activeCase} busy={approvalBusy || busy} onDecision={recordApprovalDecision} />
-            <CaseOutcomePanel activeCase={activeCase} busy={outcomeBusy || busy} onOutcome={recordCaseOutcome} />
-            <SimilarCasesPanel result={result} />
-            <ChangeCorrelationPanel result={result} />
-            <RelatedContextPanel result={result} />
-            <CaseTimeline caseRecord={activeCase} />
-            <EvidencePanel result={result} />
+            <OperatorActionPanel activeCase={activeCase} busy={busy} approvalBusy={approvalBusy} outcomeBusy={outcomeBusy} onDecision={recordApprovalDecision} onOutcome={recordCaseOutcome} />
             <FollowUpPanel result={result} activeCase={activeCase} messages={messages} question={question} setQuestion={setQuestion} onAsk={ask} busy={followupBusy} />
+            <details className="detail-stack">
+              <summary>Supporting evidence and audit trail <span>{result ? "Available" : "Pending"}</span></summary>
+              <AlertDeduplicationPanel selectedAlert={selectedAlert} result={result} />
+              <SimilarCasesPanel result={result} />
+              <ChangeCorrelationPanel result={result} />
+              <RelatedContextPanel result={result} />
+              <EvidencePanel result={result} />
+              <CaseTimeline caseRecord={activeCase} />
+            </details>
           </aside>
         </div>
       </main>
