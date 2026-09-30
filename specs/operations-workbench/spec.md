@@ -84,6 +84,8 @@ across disconnected topology diagrams, CMDB records, runbooks, and prior tickets
   items while exposing raw/suppressed signal counts.
 - **REQ-013:** Operational agent records shall support tenant/environment scope,
   query-aligned indexes, projected case fields, and score component breakdowns.
+- **REQ-014:** Investigation responses shall retrieve similar prior cases from
+  projected `investigation_cases` fields when prior memory exists.
 
 ## 8. UX design
 
@@ -128,6 +130,8 @@ and raw `source_records` preserved for audit.
   records are available.
 - Investigation cases project interface, process, dedupe, confidence,
   related-context, and change keys at the top level for case-memory queries.
+- Investigation responses include `similar_cases` with match reasons and
+  deterministic similarity scores.
 
 ## 10. MongoDB usage
 
@@ -138,6 +142,8 @@ and raw `source_records` preserved for audit.
 - `investigation_cases` stores auditable case memory and follow-up messages.
 - Tenant/environment fields and compound indexes align the demo with production
   multi-tenant Workbench access patterns while keeping the seeded flow unchanged.
+- `investigation_cases` projections support similar-case retrieval without
+  unpacking the full case snapshot for every query.
 
 ## 11. Acceptance criteria
 
@@ -158,6 +164,7 @@ and raw `source_records` preserved for audit.
 - [x] Active case output includes alert deduplication/noise-reduction context.
 - [x] Operational records support tenant/environment metadata and queryable case
   projections for production-shaped MongoDB agent memory.
+- [x] Prior matching case memory is retrieved and explained when available.
 
 ## 12. Product risks
 
@@ -194,6 +201,7 @@ and raw `source_records` preserved for audit.
 - [x] Add lightweight alert deduplication/noise reduction.
 - [x] Add MongoDB hardening for tenant/environment scope, indexes, case
   projections, and score components.
+- [x] Add similar-case retrieval from persisted case memory.
 - [x] Update README and demo runbook.
 
 ## 15. Decisions

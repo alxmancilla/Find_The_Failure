@@ -100,9 +100,11 @@ Hospital 123 → EDI Gateway → X12 Translator → Integration API → Apex ERP
 5. Show impacted business process, downstream risk, owners, and related context.
 6. Open **What changed?** to show recent deployment, config, and route changes
    as correlated hypotheses, not confirmed cause.
-7. Open the related runbooks/prior incidents panel to explain how the agent gets
+7. Open **Similar prior cases** to show reusable case memory from prior
+   investigations, including why the prior case matched.
+8. Open the related runbooks/prior incidents panel to explain how the agent gets
    operational memory before ranking.
-8. Review the safe next checks. No remediation is executed in Agent v1; the
+9. Review the safe next checks. No remediation is executed in Agent v1; the
    guardrail reminds the audience that action requires operator approval.
 
 > "In seconds we know what broke, what's downstream, who owns it, and what
@@ -127,6 +129,8 @@ and **Case timeline** in the right panel.
 - Each investigation creates a persisted case record.
 - The case stores the alert snapshot, summary, likely fault domain, evidence,
   recommended checks, timeline, and grounded follow-up Q&A.
+- Later investigations can retrieve similar prior cases by interface, business
+  process, fault domain, related context, and change keys.
 - Selecting a saved case rehydrates the investigation context without rerunning
   the whole workflow.
 

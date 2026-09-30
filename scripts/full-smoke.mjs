@@ -102,6 +102,12 @@ try {
   assert(created.case?.related_context_keys?.length > 0, "case related-context projection missing");
   assert(created.case?.timeline?.some((item) => item.event === "alert_deduplicated"), "case timeline missing dedupe step");
   assert(created.case?.timeline?.some((item) => item.event === "related_context_retrieved"), "case memory incomplete");
+  assert(created.case?.timeline?.some((item) => item.event === "similar_cases_retrieved"), "case timeline missing similar-case step");
+  const repeatedInvestigation = await get("/investigation/" + encodeURIComponent(feed.alerts[0].key));
+  assert(repeatedInvestigation.similar_cases.documents.length >= 1, "similar-case retrieval missing prior case");
+  assert(repeatedInvestigation.similar_cases.documents.some((item) => item.key === created.case.key), "similar-case retrieval did not include created case");
+  assert(repeatedInvestigation.similar_cases.documents[0].match_reasons.length >= 1, "similar-case match reasons missing");
+  assert(repeatedInvestigation.mongodb_trace.similar, "MongoDB similar-case trace missing");
   const cases = await get("/cases");
   assert(cases.cases.length >= 1, "case list empty after create");
   await cleanup();
@@ -131,6 +137,7 @@ try {
     dedupeSignals: fixtureInvestigation.alert_deduplication.signal_count,
     changeCorrelation: fixtureInvestigation.change_correlation.documents.length,
     relatedContext: investigation.related_context.documents.length,
+    similarCases: repeatedInvestigation.similar_cases.documents.length,
     lifecycleStatus: created.investigation.alert.lifecycle_status,
     caseTimelineEvents: created.case.timeline.length,
     finalState: "workbench feed/cases cleared and demo reset",

@@ -229,7 +229,8 @@ alert inbox, deduplication, change correlation, related-context lookup, recent
 events, relationship traversal, and case memory. Investigation cases also project
 key fields such as interface, business process, dedupe group, confidence score,
 related-context keys, and change keys at the top level while preserving the full
-investigation snapshot.
+investigation snapshot. New investigations use those projections to retrieve
+similar prior cases from case memory with match reasons and similarity scores.
 
 ---
 
@@ -302,8 +303,9 @@ npm run smoke
 This full demo smoke test exercises the running server across search, graph,
 impact, enterprise fixture ingestion, quality/provenance scoring, scenarios,
 modernization, Workbench investigation, alert deduplication, alert lifecycle,
-change correlation, related context retrieval, score breakdowns, projected case
-memory fields, and reset/cleanup. It clears the optional fixture pack before the
-Workbench path so the normal rehearsal baseline remains stable.
+change correlation, related context retrieval, similar-case retrieval, score
+breakdowns, projected case memory fields, and reset/cleanup. It clears the
+optional fixture pack before the Workbench path so the normal rehearsal baseline
+remains stable.
 
 For the smaller backend-only check, run `cd backend && node smoke.mjs`.

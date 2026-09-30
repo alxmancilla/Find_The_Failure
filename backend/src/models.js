@@ -220,6 +220,9 @@ investigationCaseSchema.index({ tenant_id: 1, environment: 1, status: 1, updated
 investigationCaseSchema.index({ tenant_id: 1, environment: 1, interface_key: 1, updatedAt: -1 });
 investigationCaseSchema.index({ tenant_id: 1, environment: 1, business_process_key: 1, updatedAt: -1 });
 investigationCaseSchema.index({ tenant_id: 1, environment: 1, dedupe_group_key: 1, updatedAt: -1 });
+investigationCaseSchema.index({ tenant_id: 1, environment: 1, top_fault_domain_key: 1, updatedAt: -1 });
+investigationCaseSchema.index({ tenant_id: 1, environment: 1, related_context_keys: 1, updatedAt: -1 });
+investigationCaseSchema.index({ tenant_id: 1, environment: 1, change_keys: 1, updatedAt: -1 });
 
 // Explicit, typed relationship edges with provenance and confidence.
 const relationshipSchema = new Schema(

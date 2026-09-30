@@ -221,6 +221,7 @@ export async function investigateAlert(sourceRecordKey) {
   const evidence = [...baseEvidence, ...dedupeEvidence, ...changeEvidence, ...relatedEvidence];
 
   const candidates = rankFaultDomains(alert, iface, upstream, downstream, systems, impact);
+  const similarCases = await findSimilarCases(alert, iface, impact, candidates, alertDeduplication, relatedContext, changeCorrelation);
   return {
     alert: formatAlert(alert, alertDeduplication),
     investigation_summary: buildSummary(alert, iface, candidates, impact),
@@ -229,6 +230,7 @@ export async function investigateAlert(sourceRecordKey) {
     affected_systems: impact?.affected_systems || [],
     owners,
     alert_deduplication: alertDeduplication,
+    similar_cases: similarCases,
     change_correlation: changeCorrelation,
     related_context: relatedContext,
     topology: {
@@ -245,7 +247,7 @@ export async function investigateAlert(sourceRecordKey) {
       relatedContext.documents[0] ? `Review related context: ${relatedContext.documents[0].title}.` : "Search related runbooks and incident notes for matching symptoms.",
       "Use relationship evidence to confirm blast radius with application owners.",
     ],
-    mongodb_trace: buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, impact, systemKeys, ownerKeys, evidence, relatedContext, changeCorrelation, alertDeduplication),
+    mongodb_trace: buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, impact, systemKeys, ownerKeys, evidence, relatedContext, similarCases, changeCorrelation, alertDeduplication),
   };
 }
 
@@ -629,7 +631,110 @@ function formatChangeRecord(record, alertTime, assetKeys, processKeys) {
   };
 }
 
-function buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, impact, systemKeys, ownerKeys, evidence, relatedContext, changeCorrelation, alertDeduplication) {
+async function findSimilarCases(alert, iface, impact, candidates, dedupe, relatedContext, changeCorrelation) {
+  const context = similarCaseContext(alert, iface, impact, candidates, dedupe, relatedContext, changeCorrelation);
+  const filter = similarCaseFilter(context);
+  if (!filter.$or?.length) {
+    return { filter, documents: [], summary: "No prior case-memory fields were available for matching." };
+  }
+
+  const records = await InvestigationCase.find(filter)
+    .sort({ updatedAt: -1 })
+    .limit(8)
+    .lean();
+  const documents = records
+    .map((record) => formatSimilarCase(record, context))
+    .filter((record) => record.match_reasons.length)
+    .sort((a, b) => b.similarity_score - a.similarity_score || new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))
+    .slice(0, 3);
+
+  return {
+    filter,
+    match_fields: context,
+    documents,
+    summary: documents.length
+      ? `${documents.length} prior case${documents.length === 1 ? "" : "s"} matched the current interface, process, fault domain, or evidence context.`
+      : "No prior cases matched this alert context yet; opening this case will create reusable memory.",
+  };
+}
+
+function similarCaseContext(alert, iface, impact, candidates, dedupe, relatedContext, changeCorrelation) {
+  return {
+    tenant_id: alert.tenant_id || DEFAULT_TENANT_ID,
+    environment: alert.environment || DEFAULT_ENVIRONMENT,
+    alert_key: alert.key,
+    interface_key: iface.key || alert.entity_key,
+    business_process_key: impact?.business_processes?.[0]?.key || alert.payload?.business_process_key,
+    dedupe_group_key: dedupe?.group_key,
+    top_fault_domain_key: candidates?.[0]?.key,
+    related_context_keys: (relatedContext?.documents || []).map((doc) => doc.key).filter(Boolean),
+    change_keys: (changeCorrelation?.documents || []).map((doc) => doc.key || doc.external_id).filter(Boolean),
+  };
+}
+
+function similarCaseFilter(context) {
+  const conditions = [
+    context.interface_key ? { interface_key: context.interface_key } : null,
+    context.business_process_key ? { business_process_key: context.business_process_key } : null,
+    context.dedupe_group_key ? { dedupe_group_key: context.dedupe_group_key } : null,
+    context.top_fault_domain_key ? { top_fault_domain_key: context.top_fault_domain_key } : null,
+    context.related_context_keys.length ? { related_context_keys: { $in: context.related_context_keys } } : null,
+    context.change_keys.length ? { change_keys: { $in: context.change_keys } } : null,
+  ].filter(Boolean);
+  return {
+    tenant_id: context.tenant_id,
+    environment: context.environment,
+    status: { $ne: "archived" },
+    $or: conditions,
+  };
+}
+
+function formatSimilarCase(record, context) {
+  const reasons = [];
+  let score = 0.28;
+  const add = (condition, contribution, reason) => {
+    if (!condition) return;
+    score += contribution;
+    reasons.push(reason);
+  };
+  add(record.alert_key === context.alert_key, 0.12, "same alert source record");
+  add(record.interface_key === context.interface_key, 0.24, "same interface");
+  add(record.business_process_key === context.business_process_key, 0.18, "same business process");
+  add(record.dedupe_group_key && record.dedupe_group_key === context.dedupe_group_key, 0.18, "same alert group");
+  add(record.top_fault_domain_key === context.top_fault_domain_key, 0.14, "same top fault domain");
+  const sharedRelated = intersection(record.related_context_keys || [], context.related_context_keys);
+  const sharedChanges = intersection(record.change_keys || [], context.change_keys);
+  add(sharedRelated.length, Math.min(sharedRelated.length, 3) * 0.04, `${sharedRelated.length} shared related-context item${sharedRelated.length === 1 ? "" : "s"}`);
+  add(sharedChanges.length, Math.min(sharedChanges.length, 2) * 0.06, `${sharedChanges.length} shared recent change${sharedChanges.length === 1 ? "" : "s"}`);
+
+  return {
+    key: record.key,
+    alert_key: record.alert_key,
+    status: record.status,
+    summary: record.summary,
+    interface_key: record.interface_key,
+    interface_name: record.interface_name,
+    business_process_key: record.business_process_key,
+    business_process_name: record.business_process_name,
+    top_fault_domain_key: record.top_fault_domain_key,
+    top_fault_domain_type: record.top_fault_domain_type,
+    top_fault_domain_name: record.top_fault_domain?.name,
+    confidence_score: record.confidence_score,
+    similarity_score: clampScore(score, 0.28, 0.97),
+    match_reasons: reasons,
+    recommended_next_actions: (record.recommended_next_actions || []).slice(0, 2),
+    evidence_count: record.evidence?.length || 0,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+  };
+}
+
+function intersection(a = [], b = []) {
+  const values = new Set(b);
+  return [...new Set(a.filter((item) => values.has(item)))];
+}
+
+function buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, impact, systemKeys, ownerKeys, evidence, relatedContext, similarCases, changeCorrelation, alertDeduplication) {
   const impactedInterfaceKeys = [iface.key, ...(impact?.downstream_interfaces || []).map((i) => i.key)];
   const processKeys = (impact?.business_processes || []).map((p) => p.key);
   const relationshipMatch = {
@@ -702,6 +807,13 @@ function buildMongoTrace(sourceRecordKey, alert, iface, upstream, downstream, im
       }),
     ]),
     related: stageTrace("Atlas retrieval for related operational context", [relatedContext.trace_operation]),
+    similar: stageTrace("Reusable case memory lookup", [
+      op("InvestigationCase", "investigation_cases", "find", {
+        filter: similarCases.filter,
+        chain: ".sort({ updatedAt: -1 }).limit(8).lean()",
+        purpose: "Find prior investigations with matching projected fields such as interface, process, fault domain, related context, or recent changes.",
+      }),
+    ]),
     changes: stageTrace("Recent change correlation", [
       op("SourceRecord", "source_records", "find", {
         filter: changeCorrelation.filter,
@@ -901,10 +1013,11 @@ function buildCaseTimeline(start, investigation) {
     { at: at(3), event: "topology_loaded", label: "Topology loaded", detail: `${investigation.topology.downstream_interfaces.length} downstream interfaces found.`, status: "complete" },
     { at: at(4), event: "impact_assessed", label: "Impact assessed", detail: `${investigation.affected_systems.length} affected systems identified.`, status: "complete" },
     { at: at(5), event: "related_context_retrieved", label: "Related context retrieved", detail: `${investigation.related_context?.documents?.length || 0} runbook/incident notes found.`, status: "complete" },
-    { at: at(6), event: "changes_correlated", label: "Recent changes correlated", detail: `${investigation.change_correlation?.documents?.length || 0} nearby changes evaluated.`, status: "complete" },
-    { at: at(7), event: "evidence_collected", label: "Evidence collected", detail: `${investigation.evidence.length} evidence items attached.`, status: "complete" },
-    { at: at(8), event: "fault_ranked", label: "Fault domain ranked", detail: `${top?.name || "Top candidate"} ranked highest.`, status: "complete" },
-    { at: at(9), event: "next_checks_ready", label: "Next checks ready", detail: `${investigation.recommended_next_actions.length} human-reviewable checks prepared.`, status: "complete" },
+    { at: at(6), event: "similar_cases_retrieved", label: "Similar cases retrieved", detail: `${investigation.similar_cases?.documents?.length || 0} prior case-memory matches found.`, status: "complete" },
+    { at: at(7), event: "changes_correlated", label: "Recent changes correlated", detail: `${investigation.change_correlation?.documents?.length || 0} nearby changes evaluated.`, status: "complete" },
+    { at: at(8), event: "evidence_collected", label: "Evidence collected", detail: `${investigation.evidence.length} evidence items attached.`, status: "complete" },
+    { at: at(9), event: "fault_ranked", label: "Fault domain ranked", detail: `${top?.name || "Top candidate"} ranked highest.`, status: "complete" },
+    { at: at(10), event: "next_checks_ready", label: "Next checks ready", detail: `${investigation.recommended_next_actions.length} human-reviewable checks prepared.`, status: "complete" },
   ];
 }
 

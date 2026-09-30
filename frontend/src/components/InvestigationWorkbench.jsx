@@ -12,6 +12,7 @@ const STEP_TEMPLATE = [
   { id: "topology", label: "Loaded topology", detail: "Retrieve the dependency path and related systems." },
   { id: "impact", label: "Assessed impact", detail: "Identify business processes, owners, and downstream risk." },
   { id: "related", label: "Retrieved related context", detail: "Search runbooks and prior incidents for matching symptoms." },
+  { id: "similar", label: "Retrieved similar cases", detail: "Search prior case memory for matching interfaces, processes, and evidence context." },
   { id: "changes", label: "Correlated recent changes", detail: "Check nearby deployment, config, and route changes." },
   { id: "evidence", label: "Collected evidence", detail: "Gather source records, relationship evidence, and events." },
   { id: "ranked", label: "Ranked fault domains", detail: "Score likely causes with supporting rationale." },
@@ -34,6 +35,7 @@ const CASE_EVENT_TO_STEP = {
   topology_loaded: "topology",
   impact_assessed: "impact",
   related_context_retrieved: "related",
+  similar_cases_retrieved: "similar",
   changes_correlated: "changes",
   evidence_collected: "evidence",
   fault_ranked: "ranked",
@@ -63,8 +65,8 @@ const PLAYBOOK_PHASES = [
   {
     id: "evidence",
     label: "Evidence",
-    detail: "Retrieve related context, check recent changes, and collect provenance.",
-    stageIds: ["related", "changes", "evidence"],
+    detail: "Retrieve related context, check prior cases, inspect recent changes, and collect provenance.",
+    stageIds: ["related", "similar", "changes", "evidence"],
   },
   {
     id: "recommendation",
@@ -116,6 +118,13 @@ const MONGODB_STAGE_EXPLANATIONS = {
     queryPattern: "Search runbooks, incident notes, and business context for text related to the active alert.",
     learns: "The agent sees similar incidents, relevant runbooks, and operational notes before ranking the fault domain.",
     demoLine: "Atlas Search provides immediate value; Automated Embeddings and reranking can be enabled for semantic retrieval when available.",
+  },
+  similar: {
+    capability: "Reusable case memory lookup",
+    collections: ["investigation_cases"],
+    queryPattern: "Find prior cases whose projected fields match the current interface, process, fault domain, related context, or recent changes.",
+    learns: "The agent sees whether the current alert resembles previous investigations and which fields explain the match.",
+    demoLine: "MongoDB turns case memory into reusable operational knowledge without unpacking every full investigation snapshot.",
   },
   changes: {
     capability: "Recent change correlation",
@@ -537,6 +546,34 @@ function RelatedContextPanel({ result }) {
   );
 }
 
+function SimilarCasesPanel({ result }) {
+  const similar = result?.similar_cases;
+  const cases = similar?.documents || [];
+  return (
+    <section className="panel-card similar-cases-panel">
+      <div className="panel-title-row compact">
+        <div>
+          <span className="eyebrow">Case memory</span>
+          <h3>Similar prior cases</h3>
+        </div>
+        {result && <span className="count-pill">{cases.length}</span>}
+      </div>
+      {!result && <p className="muted">Prior matching cases appear after investigation.</p>}
+      {similar?.summary && <p className="mini-copy muted">{similar.summary}</p>}
+      {cases.map((item) => (
+        <article key={item.key} className="similar-case-card">
+          <span>{pct(item.similarity_score)} match · {item.status}</span>
+          <strong>{item.summary || item.top_fault_domain_name || "Prior investigation case"}</strong>
+          <p>{item.interface_name || item.interface_key} · {item.business_process_name || item.business_process_key}</p>
+          <small>{item.match_reasons.join(" · ")}</small>
+          {item.recommended_next_actions?.[0] && <em>Prior first check: {item.recommended_next_actions[0]}</em>}
+        </article>
+      ))}
+      {result && !cases.length && <p className="muted">No prior matching cases yet. Saving this case creates future case memory.</p>}
+    </section>
+  );
+}
+
 function ChangeCorrelationPanel({ result }) {
   const correlation = result?.change_correlation;
   const changes = correlation?.documents || [];
@@ -668,7 +705,13 @@ function answerQuestion(question, result) {
       ? `Noise reduction grouped ${dedupe.signal_count} raw alert signals under ${dedupe.group_key}; ${dedupe.suppressed_count} repeated signal${dedupe.suppressed_count === 1 ? "" : "s"} are hidden from the inbox, but all raw source records remain available.`
       : "This alert currently has one raw signal, so no repeated alert noise was suppressed.";
   }
-  if (q.includes("related") || q.includes("similar") || q.includes("runbook") || q.includes("incident")) return `Related context: ${(result.related_context?.documents || []).slice(0, 3).map((d) => d.title).join("; ") || "no matching runbooks or incident notes were found"}.`;
+  if (q.includes("similar") || q.includes("prior case") || q.includes("previous case")) {
+    const cases = result.similar_cases?.documents || [];
+    return cases.length
+      ? `Similar prior cases: ${cases.slice(0, 3).map((c) => `${c.key} matched on ${c.match_reasons.join(", ")} (${pct(c.similarity_score)})`).join("; ")}. Similarity is prior context, not confirmed root cause.`
+      : "No prior case-memory matches were found yet. Saving this case creates reusable memory for future investigations.";
+  }
+  if (q.includes("related") || q.includes("runbook") || q.includes("incident")) return `Related context: ${(result.related_context?.documents || []).slice(0, 3).map((d) => d.title).join("; ") || "no matching runbooks or incident notes were found"}.`;
   if (q.includes("change") || q.includes("deploy") || q.includes("release") || q.includes("config")) {
     const changes = result.change_correlation?.documents || [];
     return changes.length
@@ -919,6 +962,10 @@ export default function InvestigationWorkbench() {
       mark("related", "complete", `${investigation.related_context?.documents?.length || 0} related context items retrieved.`);
       await pause(250);
 
+      mark("similar", "running", "Searching prior investigation case memory.");
+      mark("similar", "complete", `${investigation.similar_cases?.documents?.length || 0} similar prior cases found.`);
+      await pause(250);
+
       mark("changes", "running", "Checking recent deployment, config, and route changes.");
       mark("changes", "complete", `${investigation.change_correlation?.documents?.length || 0} nearby changes correlated.`);
       await pause(250);
@@ -1156,6 +1203,7 @@ export default function InvestigationWorkbench() {
             <AlertDeduplicationPanel selectedAlert={selectedAlert} result={result} />
             <SummaryPanel result={result} />
             <BusinessImpactPanel result={result} selectedAlert={selectedAlert} />
+            <SimilarCasesPanel result={result} />
             <ChangeCorrelationPanel result={result} />
             <RelatedContextPanel result={result} />
             <CaseTimeline caseRecord={activeCase} />

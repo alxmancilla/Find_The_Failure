@@ -352,6 +352,11 @@ select { padding: 8px; border-radius: 8px; background: var(--panel-2); color: va
 .change-card span, .change-card small { display: block; color: #8fc7ff; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.45px; }
 .change-card strong { display: block; margin: 5px 0; font-size: 12px; line-height: 1.35; }
 .change-card p, .change-card em { display: block; margin: 4px 0 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
+.similar-cases-panel { border-color: rgba(255, 176, 32, 0.28); background: linear-gradient(180deg, rgba(61, 38, 9, 0.42), rgba(20, 26, 46, 0.94)); }
+.similar-case-card { margin-top: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: rgba(11, 16, 32, 0.5); }
+.similar-case-card span { display: block; color: var(--warn); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.45px; }
+.similar-case-card strong { display: block; margin: 5px 0; font-size: 12px; line-height: 1.35; }
+.similar-case-card p, .similar-case-card small, .similar-case-card em { display: block; margin: 4px 0 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
 .related-context-panel { border-color: rgba(0, 237, 100, 0.22); }
 .related-context-card { margin-top: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: rgba(11, 16, 32, 0.5); }
 .related-context-card span { display: inline-block; margin-bottom: 5px; color: var(--accent); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.45px; }
