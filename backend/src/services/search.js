@@ -8,11 +8,27 @@ export async function search(q) {
     return { interfaces: [], systems: [], owners: [], business_processes: [], engine: "none" };
   }
   try {
-    return await searchAtlas(q.trim());
+    const atlas = await searchAtlas(q.trim());
+    if (hasSearchHits(atlas)) return atlas;
+
+    const fallback = await searchRegex(q.trim());
+    if (hasSearchHits(fallback)) {
+      return { ...fallback, engine: "regex-empty-atlas-fallback", atlas_engine: atlas.engine };
+    }
+    return atlas;
   } catch (err) {
     console.warn(`[search] $search failed, using regex fallback: ${err.message}`);
     return await searchRegex(q.trim());
   }
+}
+
+function hasSearchHits(result) {
+  return Boolean(
+    result.interfaces?.length ||
+    result.systems?.length ||
+    result.owners?.length ||
+    result.business_processes?.length
+  );
 }
 
 // Atlas Search across all indexed string fields with typo tolerance.
