@@ -503,6 +503,93 @@ function SummaryPanel({ result }) {
   );
 }
 
+function SummaryField({ label, value, tone }) {
+  return (
+    <div className={`summary-field ${tone ? `tone-${tone}` : ""}`}>
+      <span>{label}</span>
+      <strong>{value || "—"}</strong>
+    </div>
+  );
+}
+
+function summaryWhyItems(selectedAlert, result) {
+  const dedupe = result?.alert_deduplication || selectedAlert?.dedupe;
+  const signalCount = dedupe?.signal_count || (selectedAlert ? alertSignalCount(selectedAlert) : 0);
+  const items = [];
+  if (signalCount) items.push(`${signalCount} grouped alert signal${signalCount === 1 ? "" : "s"}`);
+  if (result?.change_correlation?.documents?.length) items.push(`${result.change_correlation.documents.length} nearby change hypotheses`);
+  if (result?.related_context?.documents?.length) items.push(`${result.related_context.documents.length} related runbook or incident notes`);
+  if (result?.similar_cases?.documents?.length) items.push(`${result.similar_cases.documents.length} similar prior case${result.similar_cases.documents.length === 1 ? "" : "s"}`);
+  if (result?.evidence?.length) items.push(`${result.evidence.length} grounding evidence items`);
+  return items.length ? items : ["Open a case to collect grouped signals, impact, evidence, changes, and related context."];
+}
+
+function InvestigationSummaryCard({ selectedAlert, activeCase, result, busy, onInvestigate }) {
+  const priority = deriveOperationalPriority(selectedAlert, result);
+  const top = result?.likely_fault_domains?.[0];
+  const processNames = (result?.impacted_business_processes || []).map((p) => p.name).join(", ") || selectedAlert?.business_process_name;
+  const ownerNames = (result?.owners || []).map((o) => o.name).join(", ");
+  const firstAction = result?.recommended_next_actions?.[0] || priority.firstCheck;
+  const handoff = result?.handoff_preview;
+
+  return (
+    <section className="panel-card hero-card investigation-summary-card">
+      <div className="panel-title-row compact">
+        <div>
+          <span className="eyebrow">Presenter summary</span>
+          <h3>Investigation summary</h3>
+        </div>
+        <span className="count-pill">{result ? "Ready" : selectedAlert ? "Next" : "Start"}</span>
+      </div>
+      {!selectedAlert && (
+        <>
+          <p className="muted">Replay enterprise context, select an inbox alert, then open a case to generate the executive summary.</p>
+          <ol className="coach-list">
+            <li>What happened?</li>
+            <li>What is impacted?</li>
+            <li>What should we do next?</li>
+          </ol>
+        </>
+      )}
+      {selectedAlert && (
+        <>
+          <p className="summary-lead">{result?.investigation_summary || priority.summary}</p>
+          <div className="summary-field-grid">
+            <SummaryField label="Priority" value={`${priority.label} · ${priority.slaRisk}`} tone={priority.level} />
+            <SummaryField label="Impact" value={processNames || "Open case to confirm"} />
+            <SummaryField label="Likely issue" value={top ? `${top.name} · ${pct(top.score)}` : "Open case to rank"} />
+            <SummaryField label="Owner" value={ownerNames || priority.owner} />
+          </div>
+          {top?.reason && <p className="confidence-rationale">{top.reason}</p>}
+          <div className="summary-primary-action">
+            <span>Next safe check</span>
+            <p>{firstAction}</p>
+          </div>
+          {handoff?.target_queue && <div className="summary-chip-row"><span>Handoff: {handoff.target_queue}</span><span>{handoff.urgency}</span></div>}
+          <div className="summary-why">
+            <strong>Why this is credible</strong>
+            <ul>{summaryWhyItems(selectedAlert, result).map((item) => <li key={item}>{item}</li>)}</ul>
+          </div>
+          {!result && <button type="button" className="primary full" disabled={busy || !selectedAlert} onClick={onInvestigate}>{busy ? "Investigating…" : activeCase?.key ? "Run fresh investigation" : "Open investigation case"}</button>}
+          <p className="approval-guardrail">Human-reviewed workflow only; no ticket, page, email, or remediation is sent from this demo.</p>
+        </>
+      )}
+    </section>
+  );
+}
+
+function PresenterModePanel({ enabled, onToggle }) {
+  return (
+    <section className={`presenter-mode-card ${enabled ? "enabled" : ""}`}>
+      <div>
+        <strong>Presenter Mode</strong>
+        <p>{enabled ? "Summary-first view. Proof and evidence stay available on demand." : "Detailed mode shows more proof panels by default."}</p>
+      </div>
+      <button type="button" onClick={onToggle}>{enabled ? "Show more" : "Simplify"}</button>
+    </section>
+  );
+}
+
 function BusinessImpactPanel({ result, selectedAlert }) {
   const top = result?.likely_fault_domains?.[0];
   const processNames = (result?.impacted_business_processes || []).map((p) => p.name).join(", ");
@@ -1028,6 +1115,7 @@ export default function InvestigationWorkbench() {
   const [alertQuery, setAlertQuery] = useState("");
   const [processFilter, setProcessFilter] = useState(PROCESS_FILTER_ALL);
   const [alertStats, setAlertStats] = useState({ rawAlertsCount: 0, dedupeGroupsCount: 0, suppressedAlertsCount: 0 });
+  const [presenterMode, setPresenterMode] = useState(true);
 
   const selectedAlert = useMemo(() => alerts.find((a) => a.key === selectedKey), [alerts, selectedKey]);
   const processOptions = useMemo(() => {
@@ -1374,6 +1462,7 @@ export default function InvestigationWorkbench() {
           <strong>Recommended flow</strong>
           <GuidedPath steps={guidedPath} />
         </div>
+        <PresenterModePanel enabled={presenterMode} onToggle={() => setPresenterMode((enabled) => !enabled)} />
         <div className={`replay-card ${hasEnterpriseContext ? "ready" : ""}`}>
           <strong>{hasEnterpriseContext ? "Enterprise context is loaded" : "Start here"}</strong>
           <p>{hasEnterpriseContext ? "External Alertmanager signals are grouped into inbox items." : "Replay enterprise context to load raw Alertmanager, catalog, and CMDB records into the inbox."}</p>
@@ -1458,26 +1547,38 @@ export default function InvestigationWorkbench() {
           </div>
         </section>
 
-        <div className="workbench-grid">
+        <div className={`workbench-grid ${presenterMode ? "presenter" : "detailed"}`}>
           <div className="workbench-center">
-            <Timeline steps={steps} selectedStageId={selectedStageId} onSelectStage={setSelectedStageId} />
-            <MongoStagePanel stageId={selectedStageId} step={selectedStage} result={result} />
             <section className="panel-card workbench-graph">
               <h3>Topology impact graph</h3>
               <DependencyGraph flow={flow} impacted={impacted} />
             </section>
+            {presenterMode ? (
+              <details className="detail-stack proof-stack">
+                <summary>Show investigation playbook and MongoDB proof <span>{result ? "Available" : busy ? "Running" : "Pending"}</span></summary>
+                <Timeline steps={steps} selectedStageId={selectedStageId} onSelectStage={setSelectedStageId} />
+                <MongoStagePanel stageId={selectedStageId} step={selectedStage} result={result} />
+              </details>
+            ) : (
+              <>
+                <Timeline steps={steps} selectedStageId={selectedStageId} onSelectStage={setSelectedStageId} />
+                <MongoStagePanel stageId={selectedStageId} step={selectedStage} result={result} />
+              </>
+            )}
           </div>
 
           <aside className="workbench-right">
-            <OperationalPriorityPanel selectedAlert={selectedAlert} result={result} />
-            <AlertDeduplicationPanel selectedAlert={selectedAlert} result={result} />
-            <SummaryPanel result={result} />
-            <BusinessImpactPanel result={result} selectedAlert={selectedAlert} />
-            <HandoffPreviewPanel result={result} />
+            <InvestigationSummaryCard selectedAlert={selectedAlert} activeCase={activeCase} result={result} busy={busy} onInvestigate={startInvestigation} />
             <OperatorActionPanel activeCase={activeCase} busy={busy} approvalBusy={approvalBusy} outcomeBusy={outcomeBusy} onDecision={recordApprovalDecision} onOutcome={recordCaseOutcome} />
-            <FollowUpPanel result={result} activeCase={activeCase} messages={messages} question={question} setQuestion={setQuestion} onAsk={ask} busy={followupBusy} />
+            <details className="detail-stack">
+              <summary>Handoff preview and follow-up <span>{result ? "Available" : "Pending"}</span></summary>
+              <HandoffPreviewPanel result={result} />
+              <FollowUpPanel result={result} activeCase={activeCase} messages={messages} question={question} setQuestion={setQuestion} onAsk={ask} busy={followupBusy} />
+            </details>
             <details className="detail-stack">
               <summary>Supporting evidence and audit trail <span>{result ? "Available" : "Pending"}</span></summary>
+              <OperationalPriorityPanel selectedAlert={selectedAlert} result={result} />
+              <BusinessImpactPanel result={result} selectedAlert={selectedAlert} />
               <AlertDeduplicationPanel selectedAlert={selectedAlert} result={result} />
               <SimilarCasesPanel result={result} />
               <ChangeCorrelationPanel result={result} />

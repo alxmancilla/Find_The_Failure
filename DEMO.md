@@ -53,12 +53,14 @@ demo-feed alerts, lifecycle state, cases, and simulated failures.
 
 ## 2. Recommended hero path (≈6 minutes)
 
-Open **Investigation Workbench**. The current hero flow is guided by two cues:
+Open **Investigation Workbench**. The current hero flow is guided by three cues:
 
 - the top **Next best action** card, which tells the operator exactly what to do
   next, and
 - the left-side **Recommended flow**, which tracks replay context, select alert,
-  open case, review evidence, and approve/close.
+  open case, review evidence, and approve/close, and
+- **Presenter Mode**, which keeps the default view summary-first while leaving
+  proof panels available on demand.
 
 Let the agent playbook populate topology, evidence, handoff, and local closure
 state while you narrate the business value.
@@ -73,17 +75,22 @@ state while you narrate the business value.
 4. Click **Open investigation case** from either the selected-alert card or the
    top **Next best action** card.
 
-### Act 2 — Watch the investigation playbook
-The playbook follows the same supervised pattern for every alert, with
-case-specific evidence inside each phase:
+### Act 2 — Let the summary lead
+Presenter Mode keeps the audience focused on one consolidated **Investigation
+summary**: priority, impact, likely issue, owner, why the answer is credible, and
+the next safe check.
+
+Open **Show investigation playbook and MongoDB proof** only when the audience asks
+how the agent grounded the answer. The playbook still follows the same supervised
+pattern for every alert, with case-specific evidence inside each phase:
 
 - **Intake** — alert received, repeated signals grouped, and mapped to a known interface
 - **Impact** — topology loaded and business impact assessed
 - **Evidence** — related context, similar cases, recent changes, and provenance collected
 - **Recommendation** — fault domains ranked and next checks generated
 
-Expand a phase to show the underlying checks, then click a check to show the
-MongoDB collections and query pattern behind it.
+Expand the proof panel, then click a check to show the MongoDB collections and
+query pattern behind it.
 
 > "The human is supervising an investigation, not chatting with a generic bot."
 
@@ -102,33 +109,30 @@ Hospital 123 → EDI Gateway → X12 Translator → Integration API → Apex ERP
 > from a business symptom to technical dependencies without hand-built screens."
 
 ### Act 4 — Show impact, evidence, and owner
-1. Start with **Operational priority**: severity, SLA/risk, process, owner,
-   likely fault domain, and first safe check.
+1. Start with **Investigation summary**: priority, business impact, likely issue,
+   owner, credibility signals, and first safe check.
 2. Point to the alert lifecycle tag: opening the case marks the alert
    **Investigating** in local Workbench state.
-3. Point to **Grouped alert signals**: repeated Alertmanager signals are grouped
-   into one calm inbox item while all raw `source_records` remain available.
-4. The investigation summary highlights the likely fault domain and confidence.
-5. Show **Impact summary**: impacted business process, downstream risk, owners,
-   and first recommended check.
-6. Open **Handoff preview** to show the draft ITSM/escalation package: target
+3. Point to the credibility list: grouped signals, recent changes, related
+   context, similar cases, and evidence are summarized without filling the screen.
+4. Open **Handoff preview and follow-up** to show the draft ITSM/escalation package: target
    queue, urgency, assignment group, impact, evidence, and approval guardrail.
-7. Use **Operator action → Decision and closure** to record an approve, defer, or
+5. Use **Operator action → Decision and closure** to record an approve, defer, or
    reject decision. Emphasize this is local case memory only; no external
    escalation was sent.
-8. In the same **Operator action** panel, mark the case **Resolved**,
+6. In the same **Operator action** panel, mark the case **Resolved**,
    **Monitoring**, or **Transferred**. The top stats update the **Case outcome**.
-9. Open **Supporting evidence and audit trail** when the audience asks for more:
+7. Open **Supporting evidence and audit trail** when the audience asks for more:
    grouped signals, similar prior cases, recent changes, related runbooks,
    grounding evidence, and the persisted case timeline are disclosed there.
-10. Review the safe next checks. No remediation is executed in Agent v1; the
+8. Review the safe next checks. No remediation is executed in Agent v1; the
     guardrail reminds the audience that action requires operator approval.
 
 > "In seconds we know what broke, what's downstream, who owns it, and what
 > business process is exposed."
 
 ### Act 5 — Ask grounded follow-up questions
-Use **Ask follow-up** to ask:
+Open **Handoff preview and follow-up**, then use **Ask follow-up** to ask:
 
 - "Why is this the likely fault domain?"
 - "What business process is impacted?"

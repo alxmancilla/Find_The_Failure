@@ -25,9 +25,11 @@ The **Investigation Workbench** is the hero experience. Use the other tabs as
 supporting views only when the audience wants to go deeper.
 
 1. Start from an operational alert in the Workbench.
-2. Show how MongoDB maps the alert to a canonical interface and dependency graph.
-3. Explain business-process impact, accountable owners, and related runbooks.
-4. Open the MongoDB trace to prove each agent stage is grounded in real queries.
+2. Use the default Presenter Mode summary to answer: what happened, what is
+   impacted, and what should we do next?
+3. Show how MongoDB maps the alert to a canonical interface and dependency graph.
+4. Open the proof panels only when the audience asks for MongoDB traces, evidence,
+   changes, related context, or case memory.
 5. Close with persisted case memory and human-reviewed next checks.
 
 Supporting views:
@@ -81,8 +83,8 @@ auditable memory.
   fault-domain ranking, grounded follow-up, case memory, a grouped investigation
   playbook, alert deduplication/noise reduction, local alert lifecycle tracking,
   recent change correlation, a read-only ITSM handoff preview, local operator
-  approval decisions, local case closure outcomes, a guided enterprise context
-  replay path, and collapsed secondary demo controls.
+  approval decisions, local case closure outcomes, a summary-first Presenter Mode,
+  a guided enterprise context replay path, and collapsed secondary demo controls.
 - **Enterprise fixture ingestion** — optional Alertmanager, integration-catalog,
   CMDB-style, and change records are captured as raw source evidence, resolved
   to canonical keys, normalized into events/relationships, grouped into calm

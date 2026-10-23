@@ -94,6 +94,8 @@ across disconnected topology diagrams, CMDB records, runbooks, and prior tickets
   handoff previews without calling external systems.
 - **REQ-018:** Persisted cases shall support local resolved, monitoring, and
   transferred outcomes without calling external systems.
+- **REQ-019:** Presenter Mode shall be enabled by default and consolidate the
+  right rail into a summary-first view with proof available on demand.
 
 ## 8. UX design
 
@@ -105,9 +107,11 @@ The main panel presents a grouped Investigation playbook. The four phases remain
 stable for every case, while the underlying checks, evidence, related context,
 topology, and recommendations are populated from the selected alert.
 
-The active case area also presents Operational Priority so operators can quickly
-see urgency, SLA/risk, business process, likely owner, likely fault domain, first
-safe check, and the human-approval guardrail.
+The active case area defaults to Presenter Mode: a consolidated Investigation
+Summary card answers priority, business impact, likely issue, owner, credibility,
+and next safe check. Operational Priority, detailed impact, dedupe, changes,
+related context, evidence, MongoDB trace, follow-up, and timeline remain available
+through expandable proof sections.
 
 The selected alert panel includes local lifecycle controls. These controls update
 Workbench state in MongoDB only; they do not page teams, create ITSM tickets, or
@@ -209,6 +213,8 @@ Workbench case state only; they do not close tickets or modify external systems.
   handoff preview without external side effects.
 - [x] Persisted cases support local resolved, monitoring, and transferred outcomes
   without external side effects.
+- [x] Presenter Mode consolidates the default right rail and keeps proof panels
+  available on demand.
 
 ## 12. Product risks
 
@@ -254,12 +260,14 @@ Workbench case state only; they do not close tickets or modify external systems.
 - [x] Add similar-case retrieval from persisted case memory.
 - [x] Add backend-grounded follow-up Q&A over persisted case memory.
 - [x] Update README and demo runbook.
+- [x] Add summary-first Presenter Mode to reduce default UI complexity.
 
 ## 15. Decisions
 
 - Keep the agent playbook stable across cases; vary the data and evidence.
 - Keep the demo read-only from a remediation perspective.
 - Preserve scripted demo alerts as optional rehearsal data, not the primary story.
+- Show less by default and prove more on demand.
 
 ## 16. Roadmap priority
 
@@ -271,3 +279,5 @@ Workbench case state only; they do not close tickets or modify external systems.
 - Keep change correlation framed as hypothesis support, not root-cause proof.
 - Keep alert deduplication positioned as a transparent demo view, not a full
   production incident-correlation policy.
+- Keep future UI improvements focused on curation before adding more visible
+  features.
