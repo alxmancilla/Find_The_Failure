@@ -54,6 +54,12 @@ button.danger { background: var(--danger); color: #2a0410; border-color: var(--d
 .tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
 .tabs button { font-size: 12px; padding: 7px 10px; white-space: nowrap; }
 .tabs button.active { border-color: var(--accent); color: var(--accent); background: rgba(0, 237, 100, 0.08); }
+.tabs { align-items: center; }
+.nav-group { display: flex; align-items: center; gap: 6px; padding-left: 8px; border-left: 1px solid var(--border); }
+.nav-group:first-child { padding-left: 0; border-left: 0; }
+.nav-group-label { color: var(--muted); font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; }
+.nav-more { padding: 7px 8px; font-size: 12px; }
+.nav-more.active { border-color: var(--accent); color: var(--accent); }
 
 .main { flex: 1; display: flex; min-height: 0; }
 .left { flex: 1; display: flex; flex-direction: column; min-width: 0; }
@@ -112,6 +118,7 @@ button.danger { background: var(--danger); color: #2a0410; border-color: var(--d
 .lens-toggle .muted { font-size: 11px; margin-left: 6px; }
 .lineage-toolbar { display: grid; gap: 8px; padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--panel-2); }
 .lineage-entity-row, .lineage-direction-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.lineage-plan-change { margin-top: 10px; font-size: 12px; }
 .trust-pill { display: inline-block; margin-bottom: 8px; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--border); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; }
 .trust-pill.confirmed { color: var(--accent); border-color: var(--accent-dim); }
 .trust-pill.inferred { color: var(--warn); border-color: rgba(255, 176, 32, 0.5); }

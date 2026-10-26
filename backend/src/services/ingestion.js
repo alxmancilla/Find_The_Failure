@@ -119,7 +119,8 @@ export async function runIngestion() {
     );
   }
 
-  ignored = records.length - relationship_upserts - event_upserts;
+  const lineage = await normalizeLineageRecords({ ingestion_run_id, now });
+  ignored = records.length - relationship_upserts - event_upserts - lineage.source_records;
   await Promise.all([
     SourceRecord.updateMany({ tenant_id: { $exists: false } }, { $set: { tenant_id: DEFAULT_TENANT_ID } }),
     SourceRecord.updateMany({ environment: { $exists: false } }, { $set: { environment: DEFAULT_ENVIRONMENT } }),
@@ -131,9 +132,80 @@ export async function runIngestion() {
     source_records: records.length,
     relationship_upserts,
     event_upserts,
+    lineage_relationship_upserts: lineage.relationship_upserts,
     ignored,
     quality: await getDataQuality(),
   };
+}
+
+// Derive typed lineage edges from raw lineage exports (catalog rows, entity
+// master, partner agreements, legacy workbooks). Idempotent; runs at seed time
+// and on every ingestion run.
+export async function normalizeLineageRecords({ ingestion_run_id = `lineage-run-${new Date().toISOString()}`, now = new Date() } = {}) {
+  const records = await SourceRecord.find({ record_type: "lineage" }).lean();
+  const interfaceKeys = records.map((r) => r.payload?.interface_key).filter(Boolean);
+  const interfaces = await Interface.find({ key: { $in: interfaceKeys } }, { key: 1, target: 1 }).lean();
+  const targetByInterface = new Map(interfaces.map((i) => [i.key, i.target]));
+  const edges = new Map();
+
+  const add = (record, edge) => {
+    const existing = edges.get(edge.key);
+    if (existing) {
+      existing.evidence_source_records = [...new Set([...existing.evidence_source_records, record.key])];
+      return;
+    }
+    edges.set(edge.key, {
+      tenant_id: record.tenant_id || DEFAULT_TENANT_ID,
+      environment: record.environment || DEFAULT_ENVIRONMENT,
+      flow: record.payload.flow,
+      confidence: record.payload.confidence ?? 1,
+      confirmed: record.payload.confirmed ?? true,
+      source_system: record.source_system,
+      source_record_id: record.key,
+      evidence_source_records: [record.key],
+      fixture_group: record.fixture_group,
+      evidence: record.evidence || [],
+      provenance: buildProvenance(record, ingestion_run_id),
+      first_seen_at: record.observed_at || now,
+      last_seen_at: record.observed_at || now,
+      ...edge,
+    });
+  };
+
+  for (const record of records) {
+    const p = record.payload || {};
+    if (p.kind === "interface_lineage") {
+      const target = targetByInterface.get(p.interface_key);
+      const wire = p.transformed_by === target ? p.input_entity : p.output_entity;
+      const attrs = { interface_key: p.interface_key, input_entity: p.input_entity, output_entity: p.output_entity, transformed_by: p.transformed_by, transformation: p.transformation, field_mappings: p.field_mappings || [] };
+      if (p.input_entity !== p.output_entity) {
+        add(record, { key: `${p.input_entity}->${p.output_entity}:transforms_to:${p.interface_key}`, from_type: "data_entity", from_key: p.input_entity, to_type: "data_entity", to_key: p.output_entity, relationship_type: "transforms_to", ...attrs });
+      }
+      add(record, { key: `${p.interface_key}->${wire}:carries`, from_type: "interface", from_key: p.interface_key, to_type: "data_entity", to_key: wire, relationship_type: "carries", ...attrs });
+      add(record, { key: `${p.transformed_by}->${p.output_entity}:produces`, from_type: "system", from_key: p.transformed_by, to_type: "data_entity", to_key: p.output_entity, relationship_type: "produces" });
+      if (target) add(record, { key: `${target}->${wire}:consumes`, from_type: "system", from_key: target, to_type: "data_entity", to_key: wire, relationship_type: "consumes" });
+    } else if (p.kind === "entity_master") {
+      for (const row of p.rows || []) {
+        add(record, { key: `${row.entity_key}->${row.system_of_record}:system_of_record`, from_type: "data_entity", from_key: row.entity_key, to_type: "system", to_key: row.system_of_record, relationship_type: "system_of_record" });
+      }
+    } else if (p.kind === "lineage_assertion") {
+      for (const e of p.edges || []) {
+        const suffix = e.relationship_type === "transforms_to" ? `:${record.source_system}` : "";
+        add(record, { key: `${e.from_key}->${e.to_key}:${e.relationship_type}${suffix}`, interface_key: null, ...e });
+      }
+    }
+  }
+
+  const ops = [...edges.values()].map(({ key, first_seen_at, ...edge }) => ({
+    updateOne: { filter: { key }, update: { $set: edge, $setOnInsert: { key, first_seen_at } }, upsert: true },
+  }));
+  if (ops.length) await Relationship.bulkWrite(ops);
+  const groups = [...new Set(records.map((r) => r.fixture_group).filter(Boolean))];
+  if (groups.length) await Relationship.deleteMany({ fixture_group: { $in: groups }, key: { $nin: [...edges.keys()] } });
+  if (records.length) {
+    await SourceRecord.updateMany({ record_type: "lineage" }, { $set: { ingestion_status: "ingested", ingested_at: now, ingestion_run_id } });
+  }
+  return { ingestion_run_id, source_records: records.length, relationship_upserts: ops.length };
 }
 
 export async function getDataQuality() {
@@ -244,7 +316,7 @@ function buildFindings(stale, inferred, missingOwners, missingProcessMappings, u
 }
 
 function buildPipeline(records, quality) {
-  const relationships = quality.records_by_type?.relationship || 0;
+  const relationships = (quality.records_by_type?.relationship || 0) + (quality.records_by_type?.lineage || 0);
   const alerts = quality.records_by_type?.alert || 0;
   return [
     { label: "Capture raw records", value: records.length, detail: "Stored unchanged in source_records" },

@@ -185,8 +185,8 @@ and **Supporting evidence and audit trail** in the right panel.
    to the original single-alert inbox and empty case memory.
 
 ### Optional — Manual workflow view
-Go to **Presenter Console** to manually step through topology reveal, failure
-injection, metadata normalization, and alert investigation.
+Open **More… → Presenter Console** to manually step through topology reveal,
+failure injection, metadata normalization, and alert investigation.
 
 ### Optional — Enterprise context ingestion view
 Go to **Context Ingestion** when the audience asks, "Where does the topology
@@ -199,8 +199,13 @@ come from, and can we trust it?"
 3. Use the pipeline and data-quality cards to show alias resolution,
    provenance coverage, trust score, stale evidence, inferred relationships,
    and ownership conflicts.
-4. Click **Clear fixture pack** if you want to return to the default clean
-   Workbench rehearsal state.
+4. Point to the `lineage` records: integration-catalog lineage rows, the
+   data-entity master, the trading-partner agreement, and the legacy lineage
+   workbook. Every lineage edge in Catalog & Lineage is normalized from one of
+   these raw records.
+5. Click **Clear fixture pack** if you want to return to the default clean
+   Workbench rehearsal state. Lineage exports are not part of the fixture pack
+   and stay loaded.
 
 In the **Investigation Workbench**, click **Replay enterprise context** to run
 the same fixture capture/normalization path and immediately show three raw
@@ -216,7 +221,7 @@ pack is the primary ingestion story.
 Use this when the audience asks, "How does order data actually move across our
 systems?"
 
-1. Go to **Catalog Explorer** and switch the lens to **Data view**.
+1. Go to **Architecture → Catalog & Lineage** and switch the lens to **Data view**.
 2. **Purchase Order** is selected by default. Show the path to **Canonical
    Order**, **Sales Order**, **Order Acknowledgment**, **Advance Ship Notice**,
    **Invoice**, and **Payment Remittance**.
@@ -237,16 +242,19 @@ systems?"
 9. Point out **Data owner** (Order-to-Cash Data Stewardship) versus **Interface
    owner** (B2B Operations / ERP Integration), and the **Via** systems on
    outbound hops where translation steps are collapsed.
+10. Point to **Source record** on a hop: each edge traces back to the raw
+    lineage export it was normalized from.
+11. Select **Sales Order** and click **Plan a change to Apex ERP →** to continue
+    the architecture path in Modernization.
 
 > "This is operational lineage, not warehouse lineage: how business documents
 > move and change shape across the integration landscape, with provenance on
 > every edge."
 
-Lineage is curated seed metadata plus ingested evidence, not automated
-discovery.
+Lineage is ingested from curated exports, not automated discovery.
 
 ### Optional — What-if modernization question
-1. Go to the **Modernization** tab.
+1. Go to **Architecture → Modernization** (or arrive from the Data view).
 2. Select **X12 Translator** → **Analyze**.
 3. Show affected interfaces, owners to coordinate, and downstream migration
    dependencies.
@@ -281,13 +289,18 @@ discovery.
 ## 4. Data model
 
 `systems`, `interfaces`, `data_entities`, `owners`, `events`,
-`business_processes`, `relationships`, `source_records`, `operational_knowledge`, and
-`investigation_cases`.
+`business_processes`, `relationships`, `source_records`, `operational_knowledge`,
+`investigation_cases`, and `lineage_flows`.
+
+`relationships` is the single canonical edge store for both dependency and
+lineage traversal; interface documents do not embed graph edges.
 
 Seeded footprint: **9 systems, 13 interfaces, 4 owners, 11 data entities**,
-plus **3 business processes, 71 relationships (51 order-to-cash lineage edges),
-5 source records, 8 operational knowledge documents, 3 failure scenarios**, and
-**1 modernization scenario**.
+plus **3 business processes, 20 curated dependency/process relationships, 5
+source records, 8 operational knowledge documents, 1 lineage flow, 3 failure
+scenarios**, and **1 modernization scenario**. Seed also captures **14 raw
+lineage exports** as `source_records` and normalizes them into **51
+order-to-cash lineage relationships** with provenance.
 The optional enterprise fixture pack adds **11 raw source records** for ingestion
 demonstrations, including **3 external Alertmanager signals** that collapse into
 **2 Workbench inbox items** and **3 recent change records** that power the Workbench
@@ -332,8 +345,10 @@ flowchart LR
   cases --> workbench
 ```
 
-Use the Workbench as the primary story. Use Catalog Explorer, Context Ingestion,
-Modernization, and Presenter Console as optional supporting views.
+Use **Operations → Investigation Workbench** as the primary story. For
+architecture audiences, follow **Architecture → Catalog & Lineage →
+Modernization**. **Platform → Context Ingestion** shows where context comes
+from; Presenter Console and Classic Investigation live under **More…**.
 
 ### Key endpoints
 | Method | Path | Purpose |
@@ -346,8 +361,8 @@ Modernization, and Presenter Console as optional supporting views.
 | POST | `/api/reset` | Restore pristine demo state |
 | GET | `/api/scenarios` · POST `/api/scenarios/:id/run` | Named failure scenarios |
 | GET | `/api/modernization/:systemKey` | What-if impact of replacing a system + `lineage_impact` |
-| GET | `/api/lineage/entities` · `/api/lineage/:entityKey` | Order-to-cash entities and upstream/downstream lineage |
-| GET | `/api/lineage/flows/order-to-cash` | Ordered "follow the PO number" path |
+| GET | `/api/lineage/flows` · `/api/lineage/flows/:flowKey` | Lineage flow documents and ordered "follow the identifier" path |
+| GET | `/api/lineage/entities?flow=` · `/api/lineage/:entityKey` | Flow entities and upstream/downstream lineage |
 | GET/POST | `/api/ingestion` · `/api/ingestion/run` | Raw source records, pipeline, quality, and normalization |
 | POST | `/api/ingestion/fixtures` · `/api/ingestion/fixtures/clear` | Load/clear optional enterprise fixture pack |
 | GET | `/api/alerts` | Deduplicated Workbench inbox items with raw signal counts |

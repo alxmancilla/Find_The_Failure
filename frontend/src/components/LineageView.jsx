@@ -20,8 +20,9 @@ export function LensToggle({ lens, onChange }) {
 
 const names = (items) => (items || []).map((item) => item.name || item.key).join(", ") || "—";
 
-function EntityPanel({ entity }) {
+function EntityPanel({ entity, onPlanChange }) {
   if (!entity) return null;
+  const sor = entity.system_of_record;
   return (
     <section className="panel-section">
       <h3>{entity.name}</h3>
@@ -32,6 +33,9 @@ function EntityPanel({ entity }) {
       <div className="kv"><span className="k">Consumed by</span><span className="v">{names(entity.consumed_by)}</span></div>
       <div className="kv"><span className="k">Carried by</span><span className="v">{names(entity.carried_by)}</span></div>
       <div className="kv"><span className="k">Identifiers</span><span className="v">{(entity.identifiers || []).join(", ") || "—"}</span></div>
+      {sor && onPlanChange && (
+        <button type="button" className="full lineage-plan-change" onClick={() => onPlanChange(sor.key)}>Plan a change to {sor.name} →</button>
+      )}
     </section>
   );
 }
@@ -60,6 +64,7 @@ function TransformationPanel({ transformation, entityName }) {
         </table>
       )}
       {transformation.evidence.map((item) => <div key={item} className="evidence">{item}</div>)}
+      <div className="kv"><span className="k">Source record</span><span className="v">{transformation.source_record_id || "—"}</span></div>
     </section>
   );
 }
@@ -83,7 +88,7 @@ function PoNumberTrace({ flow }) {
   );
 }
 
-export default function LineageView({ lens, onLensChange }) {
+export default function LineageView({ lens, onLensChange, onPlanChange }) {
   const [entities, setEntities] = useState([]);
   const [entityKey, setEntityKey] = useState("purchase-order");
   const [direction, setDirection] = useState("both");
@@ -151,7 +156,7 @@ export default function LineageView({ lens, onLensChange }) {
             </div>
           </section>
         )}
-        <EntityPanel entity={lineage?.entity} />
+        <EntityPanel entity={lineage?.entity} onPlanChange={onPlanChange} />
         <TransformationPanel transformation={transformation} entityName={entityName} />
         <PoNumberTrace flow={flow} />
         {lineage?.mongodb_trace && (

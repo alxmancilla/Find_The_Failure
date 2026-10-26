@@ -77,14 +77,12 @@ const interfaceSchema = new Schema(
     data_entities: [{ type: String, ref: "DataEntity" }],
     owners: [{ type: String, ref: "Owner" }],
     downstream_systems: [{ type: String, ref: "System" }],
-    downstream_interfaces: [String], // interface.key for graph traversal
     lifecycle: String, // production | deprecated | development
     version: String,
     sla: String,
     last_status: { type: String, default: "healthy" }, // healthy | failed | degraded
     last_success_at: Date,
     business_impact: String,
-    lineage: Schema.Types.Mixed, // { flow, input_entity, output_entity, transformed_by, transformation, field_mappings[] }
   },
   { collection: "interfaces", timestamps: true, strict: false }
 );
@@ -262,6 +260,9 @@ const relationshipSchema = new Schema(
     interface_key: String,
     transformed_by: String,
     transformation: String,
+    input_entity: String,
+    output_entity: String,
+    field_mappings: Schema.Types.Mixed,
   },
   { collection: "relationships", timestamps: true }
 );
@@ -274,6 +275,25 @@ relationshipSchema.index({ to_key: 1, relationship_type: 1, tenant_id: 1, enviro
 relationshipSchema.index({ tenant_id: 1, environment: 1, from_type: 1, from_key: 1, relationship_type: 1 });
 relationshipSchema.index({ tenant_id: 1, environment: 1, to_type: 1, to_key: 1, relationship_type: 1 });
 
+// Lineage flows as data: business identifier, entity ordering, and the ordered
+// interface path that services traverse.
+const lineageFlowSchema = new Schema(
+  {
+    key: { type: String, required: true, unique: true },
+    tenant_id: { type: String, default: DEFAULT_TENANT_ID },
+    environment: { type: String, default: DEFAULT_ENVIRONMENT },
+    name: { type: String, required: true },
+    description: String,
+    domain: { type: String, required: true },
+    identifier: String,
+    identifier_label: String,
+    owner: { type: String, ref: "Owner" },
+    entity_order: [{ type: String, ref: "DataEntity" }],
+    path: [{ type: String, ref: "Interface" }],
+  },
+  { collection: "lineage_flows", timestamps: true }
+);
+
 export const Owner = model("Owner", ownerSchema);
 export const System = model("System", systemSchema);
 export const DataEntity = model("DataEntity", dataEntitySchema);
@@ -284,3 +304,4 @@ export const Relationship = model("Relationship", relationshipSchema);
 export const SourceRecord = model("SourceRecord", sourceRecordSchema);
 export const OperationalKnowledge = model("OperationalKnowledge", operationalKnowledgeSchema);
 export const InvestigationCase = model("InvestigationCase", investigationCaseSchema);
+export const LineageFlow = model("LineageFlow", lineageFlowSchema);

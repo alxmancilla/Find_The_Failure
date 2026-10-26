@@ -33,11 +33,12 @@ try {
 
   const interfaces = await get("/interfaces");
   assert(interfaces.length >= 10, "interfaces count too low");
+  assert(interfaces.every((i) => !("downstream_interfaces" in i) && !("lineage" in i)), "interfaces still embed graph edges; relationships must be the edge store");
   const detail = await get("/interfaces/if-hospital-850");
   assert(detail.source && detail.target && detail.owners.length, "interface detail incomplete");
 
   const flow = await get("/flow/if-hospital-850");
-  assert(flow.nodes.length >= 8 && flow.edges.length >= 7, "dependency flow incomplete");
+  assert(flow.nodes.length === 9 && flow.edges.length === 8, "dependency flow changed after moving traversal to relationships");
   const trace = await get("/relationships/trace/if-hospital-850?direction=downstream");
   assert(trace.interfaces.length >= 1, "relationship trace empty");
 
@@ -75,6 +76,10 @@ try {
   assert(lineageImpact?.produced_entities.some((e) => e.key === "canonical-order"), "modernization lineage impact missing canonical order");
   assert(lineageImpact.transformations.length >= 1 && lineageImpact.summary.field_mapping_count >= 1, "modernization lineage transformations missing");
   assert(lineageImpact.translation_hops.length >= 4, "modernization translation hops missing");
+  assert(poLineage.transformations.every((t) => t.source_record_id && t.ingestion_run_id), "lineage edge not traceable to an ingested source record");
+  const lineageFlows = await get("/lineage/flows");
+  const o2cFlowDoc = lineageFlows.flows.find((f) => f.key === "order-to-cash");
+  assert(o2cFlowDoc?.path?.length === o2cFlow.steps.length && o2cFlowDoc.entity_order?.length >= 10, "lineage flow document missing or out of sync");
 
   await post("/ingestion/fixtures/clear");
   const fixtureLoad = await post("/ingestion/fixtures");
@@ -86,8 +91,13 @@ try {
   assert(scopedFixtureRecord?.tenant_id === "apex-health-supply", "fixture record tenant metadata missing");
   assert(scopedFixtureRecord?.environment === "production", "fixture record environment metadata missing");
   assert(ingestion.pipeline.length === 4, "ingestion pipeline summary missing");
+  const lineageRecords = ingestion.source_records.filter((record) => record.record_type === "lineage");
+  assert(lineageRecords.length >= 14 && lineageRecords.every((r) => r.provenance?.source_id), "lineage source records missing from ingestion dashboard");
   const ingestionRun = await post("/ingestion/run");
   assert(ingestionRun.ok === true, "ingestion run failed");
+  assert(ingestionRun.lineage_relationship_upserts >= 40, "ingestion run did not normalize lineage records");
+  const postRunLineage = await get("/lineage/purchase-order?direction=downstream");
+  assert(postRunLineage.transformations.length === poLineage.transformations.length, "lineage changed after re-normalization");
   const fixtureAlerts = await get("/alerts");
   const externalAlerts = fixtureAlerts.alerts.filter((alert) => alert.source_system === "alertmanager-webhook");
   assert(externalAlerts.length >= 2, "external Alertmanager alerts missing");
@@ -194,6 +204,9 @@ try {
       poNumberHops: o2cFlow.steps.length,
       dataImpactAtRisk: dataImpactKeys.length,
       modernizationTransformations: lineageImpact.transformations.length,
+      lineageSourceRecords: lineageRecords.length,
+      lineageRelationships: ingestionRun.lineage_relationship_upserts,
+      flows: lineageFlows.flows.length,
     },
     ingestion: {
       records: ingestion.source_records.length,

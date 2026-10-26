@@ -1,7 +1,18 @@
 import { interfaces } from "./interfaces.js";
-import { lineageRelationships } from "./lineage.js";
 
 const now = new Date();
+
+// Curated interface-to-interface dependencies; `relationships` is the only
+// persisted dependency edge store.
+const dependencyEdges = [
+  ["if-hospital-850", "if-gateway-x12"],
+  ["if-gateway-x12", "if-x12-integration"],
+  ["if-x12-integration", "if-integration-erp"],
+  ["if-integration-erp", "if-erp-inventory"],
+  ["if-integration-erp", "if-erp-orderstatus"],
+  ["if-integration-erp", "if-erp-notifications"],
+  ["if-erp-inventory", "if-inventory-supplier"],
+];
 const coreOrderFlow = new Set([
   "if-hospital-850",
   "if-gateway-x12",
@@ -36,19 +47,17 @@ const rel = (r) => ({
 });
 
 export const relationships = [
-  ...interfaces.flatMap((iface) =>
-    (iface.downstream_interfaces || []).map((to) =>
-      rel({
-        key: `${iface.key}->${to}:depends_on`,
-        from_type: "interface",
-        from_key: iface.key,
-        to_type: "interface",
-        to_key: to,
-        relationship_type: "depends_on",
-        source_record_id: `${iface.key}.downstream_interfaces`,
-        evidence: [`${iface.key} lists ${to} as a downstream interface.`],
-      })
-    )
+  ...dependencyEdges.map(([from, to]) =>
+    rel({
+      key: `${from}->${to}:depends_on`,
+      from_type: "interface",
+      from_key: from,
+      to_type: "interface",
+      to_key: to,
+      relationship_type: "depends_on",
+      source_record_id: `integration-inventory:${from}->${to}`,
+      evidence: [`Integration inventory lists ${to} as downstream of ${from}.`],
+    })
   ),
   ...interfaces
     .filter((iface) => coreOrderFlow.has(iface.key))
@@ -92,5 +101,4 @@ export const relationships = [
         evidence: [`${iface.name} participates in the hospital invoicing and cash application process.`],
       })
     ),
-  ...lineageRelationships,
 ];

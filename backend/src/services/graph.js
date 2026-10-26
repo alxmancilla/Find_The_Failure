@@ -1,46 +1,49 @@
 import { Interface, System } from "../models.js";
 import { GRAPH_LOOKUP_MAX_DEPTH } from "./graphConfig.js";
 
-// Collect the ordered chain of interfaces starting from a given interface,
-// following downstream_interfaces via $graphLookup (relationship traversal).
-export async function getDownstreamInterfaces(startKey) {
-  const result = await Interface.aggregate([
-    { $match: { key: startKey } },
-    {
-      $graphLookup: {
-        from: "interfaces",
-        startWith: "$downstream_interfaces",
-        connectFromField: "downstream_interfaces",
-        connectToField: "key",
-        as: "chain",
-        maxDepth: GRAPH_LOOKUP_MAX_DEPTH,
-      },
-    },
-  ]);
-  if (!result.length) return null;
-  const start = result[0];
-  const chain = start.chain || [];
-  delete start.chain;
-  return [start, ...chain];
-}
+const dependsOn = { from_type: "interface", to_type: "interface", relationship_type: "depends_on" };
 
-// Interfaces that flow INTO a system (its upstream) — used for impact/upstream.
-export async function getUpstreamInterfaces(interfaceKey) {
-  const result = await Interface.aggregate([
+// Traverse depends_on edges in `relationships` (the canonical edge store) and
+// hydrate the reached interfaces, ordered by hop depth.
+async function traverseDependencies(interfaceKey, downstream) {
+  const [start] = await Interface.aggregate([
     { $match: { key: interfaceKey } },
     {
       $graphLookup: {
-        from: "interfaces",
+        from: "relationships",
         startWith: "$key",
-        connectFromField: "key",
-        connectToField: "downstream_interfaces",
-        as: "chain",
+        connectFromField: downstream ? "to_key" : "from_key",
+        connectToField: downstream ? "from_key" : "to_key",
+        as: "edges",
         maxDepth: GRAPH_LOOKUP_MAX_DEPTH,
+        depthField: "depth",
+        restrictSearchWithMatch: dependsOn,
       },
     },
   ]);
-  if (!result.length) return [];
-  return result[0].chain || [];
+  if (!start) return null;
+  const edges = start.edges || [];
+  delete start.edges;
+  const depthByKey = new Map();
+  edges.forEach((e) => {
+    const key = downstream ? e.to_key : e.from_key;
+    if (key !== interfaceKey && (!depthByKey.has(key) || e.depth < depthByKey.get(key))) depthByKey.set(key, e.depth);
+  });
+  const reached = await Interface.find({ key: { $in: [...depthByKey.keys()] } }).lean();
+  reached.sort((a, b) => depthByKey.get(a.key) - depthByKey.get(b.key) || a.key.localeCompare(b.key));
+  return { start, reached };
+}
+
+// The start interface followed by its downstream dependency chain.
+export async function getDownstreamInterfaces(startKey) {
+  const result = await traverseDependencies(startKey, true);
+  return result ? [result.start, ...result.reached] : null;
+}
+
+// Interfaces upstream of the given interface.
+export async function getUpstreamInterfaces(interfaceKey) {
+  const result = await traverseDependencies(interfaceKey, false);
+  return result ? result.reached : [];
 }
 
 // Build a React Flow style node/edge graph for the dependency path of an

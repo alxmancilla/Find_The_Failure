@@ -1,28 +1,30 @@
-import { DataEntity, Interface, Owner, Relationship, System } from "../models.js";
+import { DataEntity, Interface, LineageFlow, Owner, Relationship, System } from "../models.js";
 import { DEFAULT_ENVIRONMENT, DEFAULT_TENANT_ID } from "../demoDefaults.js";
 import { GRAPH_LOOKUP_MAX_DEPTH } from "./graphConfig.js";
 import { getBusinessProcessContext, summarizeRelationships } from "./relationships.js";
 
-const FLOW = "order-to-cash";
+const DEFAULT_FLOW = "order-to-cash";
 const SCOPE = { tenant_id: DEFAULT_TENANT_ID, environment: DEFAULT_ENVIRONMENT };
-const ENTITY_ORDER = [
-  "purchase-order", "canonical-order", "sales-order", "inventory-request", "order-status",
-  "order-ack", "advance-ship-notice", "invoice", "payment-remittance", "cash-application",
-];
-const ORDER_TO_CASH_PATH = [
-  "if-hospital-850", "if-gateway-x12", "if-x12-integration", "if-integration-erp",
-  "if-erp-inventory", "if-erp-855", "if-erp-856", "if-erp-810", "if-hospital-820",
-];
 const CONTEXT_TYPES = ["produces", "consumes", "carries", "system_of_record"];
 const transformMatch = { relationship_type: "transforms_to", ...SCOPE };
-const byEntityOrder = (a, b) => ENTITY_ORDER.indexOf(a.key) - ENTITY_ORDER.indexOf(b.key);
 
-export async function listLineageEntities() {
-  const entities = await DataEntity.find({ domain: FLOW }).lean();
-  return { flow: FLOW, entities: entities.sort(byEntityOrder) };
+const loadFlow = (flowKey = DEFAULT_FLOW) => LineageFlow.findOne({ key: flowKey, ...SCOPE }).lean();
+const rank = (order, key) => { const i = order.indexOf(key); return i === -1 ? order.length : i; };
+const entityOrder = (flow) => (a, b) => rank(flow?.entity_order || [], a.key) - rank(flow?.entity_order || [], b.key);
+
+export async function listLineageFlows() {
+  const flows = await LineageFlow.find(SCOPE).lean();
+  return { flows };
 }
 
-export function lineagePipeline(entityKey) {
+export async function listLineageEntities(flowKey = DEFAULT_FLOW) {
+  const flow = await loadFlow(flowKey);
+  if (!flow) return null;
+  const entities = await DataEntity.find({ domain: flow.domain }).lean();
+  return { flow: flow.key, entities: entities.sort(entityOrder(flow)) };
+}
+
+export function lineagePipeline(entityKey, domain = DEFAULT_FLOW) {
   const lookup = (as, connectFromField, connectToField) => ({
     $graphLookup: {
       from: "relationships",
@@ -36,14 +38,18 @@ export function lineagePipeline(entityKey) {
     },
   });
   return [
-    { $match: { key: entityKey, domain: FLOW } },
+    { $match: { key: entityKey, domain } },
     lookup("downstream", "to_key", "from_key"),
     lookup("upstream", "from_key", "to_key"),
   ];
 }
 
-export async function traceLineage(entityKey, direction = "both") {
-  const pipeline = lineagePipeline(entityKey);
+export async function traceLineage(entityKey, direction = "both", flowKey = DEFAULT_FLOW) {
+  const flow = await loadFlow(flowKey);
+  if (!flow) return null;
+  const byEntityOrder = entityOrder(flow);
+  const order = flow.entity_order || [];
+  const pipeline = lineagePipeline(entityKey, flow.domain);
   const [root] = await DataEntity.aggregate(pipeline);
   if (!root) return null;
 
@@ -70,7 +76,7 @@ export async function traceLineage(entityKey, direction = "both") {
 
   const [entities, interfaces] = await Promise.all([
     DataEntity.find({ key: { $in: [...entityKeys] } }).lean(),
-    Interface.find({ key: { $in: [...interfaceKeys] } }, { key: 1, name: 1, protocol: 1, message_type: 1, source: 1, target: 1, middleware: 1, owners: 1, lineage: 1 }).lean(),
+    Interface.find({ key: { $in: [...interfaceKeys] } }, { key: 1, name: 1, protocol: 1, message_type: 1, source: 1, target: 1, middleware: 1, owners: 1 }).lean(),
   ]);
   const ifaceMap = new Map(interfaces.map((i) => [i.key, i]));
 
@@ -101,10 +107,10 @@ export async function traceLineage(entityKey, direction = "both") {
   });
 
   const transformations = [...transformationsByKey.values()]
-    .sort((a, b) => ENTITY_ORDER.indexOf(a.from_key) - ENTITY_ORDER.indexOf(b.from_key) || ENTITY_ORDER.indexOf(a.to_key) - ENTITY_ORDER.indexOf(b.to_key))
+    .sort((a, b) => rank(order, a.from_key) - rank(order, b.from_key) || rank(order, a.to_key) - rank(order, b.to_key))
     .map((rel) => {
       const iface = rel.interface_key ? ifaceMap.get(rel.interface_key) : null;
-      const mappings = iface?.lineage?.field_mappings || [];
+      const mappings = rel.field_mappings || [];
       return {
         key: rel.key,
         from_key: rel.from_key,
@@ -123,13 +129,14 @@ export async function traceLineage(entityKey, direction = "both") {
         confirmed: rel.confirmed,
         source_system: rel.source_system,
         source_record_id: rel.source_record_id,
+        ingestion_run_id: rel.provenance?.ingestion_run_id || null,
         evidence: rel.evidence || [],
       };
     });
 
   const entityName = new Map(entities.map((e) => [e.key, e.name]));
   return {
-    flow: FLOW,
+    flow: flow.key,
     entity: enrichedEntities.find((e) => e.selected),
     direction,
     entities: enrichedEntities,
@@ -146,7 +153,7 @@ export async function traceLineage(entityKey, direction = "both") {
         data: { label: t.interface?.name || `Inferred: ${t.source_system}`, protocol: t.interface ? `${t.interface.protocol} ${t.interface.message_type}` : `${Math.round(t.confidence * 100)}% confidence`, confirmed: t.confirmed },
       })),
     },
-    summary: `${entityName.get(entityKey)} connects to ${entities.length - 1} order-to-cash entities through ${transformations.length} transformations.`,
+    summary: `${entityName.get(entityKey)} connects to ${entities.length - 1} ${flow.name.toLowerCase()} entities through ${transformations.length} transformations.`,
     data_quality: summarizeRelationships([...transformationsByKey.values()]),
     mongodb_trace: {
       collection: "data_entities",
@@ -157,50 +164,66 @@ export async function traceLineage(entityKey, direction = "both") {
   };
 }
 
-// Ordered end-to-end order-to-cash path for the "follow the PO number" story.
-export async function getOrderToCashFlow() {
-  const interfaces = await Interface.find({ key: { $in: ORDER_TO_CASH_PATH } }).lean();
+// Ordered end-to-end path for a flow document ("follow the PO number"). Hop
+// attributes come from `carries` edges, the canonical record of each interface hop.
+export async function getLineageFlow(flowKey = DEFAULT_FLOW) {
+  const flow = await loadFlow(flowKey);
+  if (!flow) return null;
+  const path = flow.path || [];
+  const [interfaces, hops] = await Promise.all([
+    Interface.find({ key: { $in: path } }).lean(),
+    Relationship.find({ relationship_type: "carries", from_key: { $in: path }, ...SCOPE }).lean(),
+  ]);
   const ifaceMap = new Map(interfaces.map((i) => [i.key, i]));
-  const ordered = ORDER_TO_CASH_PATH.map((key) => ifaceMap.get(key)).filter(Boolean);
-  const systemKeys = new Set(ordered.flatMap((i) => [i.source, i.target, i.lineage?.transformed_by, ...(i.middleware || [])]).filter(Boolean));
-  const entityKeys = new Set(ordered.flatMap((i) => [i.lineage?.input_entity, i.lineage?.output_entity]).filter(Boolean));
+  const hopMap = new Map(hops.map((h) => [h.from_key, h]));
+  const ordered = path.map((key) => ifaceMap.get(key)).filter(Boolean);
+  const systemKeys = new Set(ordered.flatMap((i) => [i.source, i.target, hopMap.get(i.key)?.transformed_by, ...(i.middleware || [])]).filter(Boolean));
+  const entityKeys = new Set(hops.flatMap((h) => [h.input_entity, h.output_entity]).filter(Boolean));
   const ownerKeys = new Set(ordered.flatMap((i) => i.owners || []));
   const [systems, entities, owners, inferred] = await Promise.all([
     System.find({ key: { $in: [...systemKeys] } }, { key: 1, name: 1, kind: 1 }).lean(),
     DataEntity.find({ key: { $in: [...entityKeys] } }, { key: 1, name: 1, entity_kind: 1, system_of_record: 1 }).lean(),
     Owner.find({ key: { $in: [...ownerKeys] } }, { key: 1, name: 1 }).lean(),
-    Relationship.find({ ...transformMatch, flow: FLOW, confirmed: false }).lean(),
+    Relationship.find({ ...transformMatch, flow: flow.key, confirmed: false }).lean(),
   ]);
   const sys = new Map(systems.map((s) => [s.key, s]));
   const ent = new Map(entities.map((e) => [e.key, e]));
-  const steps = ordered.map((iface, index) => ({
-    step: index + 1,
-    interface: { key: iface.key, name: iface.name, protocol: iface.protocol, message_type: iface.message_type },
-    from_system: sys.get(iface.source) || { key: iface.source },
-    to_system: sys.get(iface.target) || { key: iface.target },
-    via: (iface.middleware || []).map((key) => sys.get(key) || { key }),
-    input_entity: ent.get(iface.lineage?.input_entity) || null,
-    output_entity: ent.get(iface.lineage?.output_entity) || null,
-    transformed_by: sys.get(iface.lineage?.transformed_by) || null,
-    transformation: iface.lineage?.transformation,
-    changes_shape: iface.lineage?.input_entity !== iface.lineage?.output_entity,
-    po_number_mapping: (iface.lineage?.field_mappings || []).find((m) => m.field === "po_number") || null,
-    field_mappings: iface.lineage?.field_mappings || [],
-    owners: owners.filter((o) => (iface.owners || []).includes(o.key)),
-  }));
+  const steps = ordered.map((iface, index) => {
+    const hop = hopMap.get(iface.key) || {};
+    const mappings = hop.field_mappings || [];
+    return {
+      step: index + 1,
+      interface: { key: iface.key, name: iface.name, protocol: iface.protocol, message_type: iface.message_type },
+      from_system: sys.get(iface.source) || { key: iface.source },
+      to_system: sys.get(iface.target) || { key: iface.target },
+      via: (iface.middleware || []).map((key) => sys.get(key) || { key }),
+      input_entity: ent.get(hop.input_entity) || null,
+      output_entity: ent.get(hop.output_entity) || null,
+      transformed_by: sys.get(hop.transformed_by) || null,
+      transformation: hop.transformation,
+      changes_shape: hop.input_entity !== hop.output_entity,
+      identifier_mapping: mappings.find((m) => m.field === flow.identifier) || null,
+      po_number_mapping: mappings.find((m) => m.field === "po_number") || null,
+      field_mappings: mappings,
+      owners: owners.filter((o) => (iface.owners || []).includes(o.key)),
+      source_record_id: hop.source_record_id,
+    };
+  });
   return {
-    flow: FLOW,
-    identifier: "po_number",
+    flow: flow.key,
+    name: flow.name,
+    description: flow.description,
+    identifier: flow.identifier,
     steps,
-    entities: entities.sort(byEntityOrder),
+    entities: entities.sort(entityOrder(flow)),
     inferred_edges: inferred.map((rel) => ({ key: rel.key, from_key: rel.from_key, to_key: rel.to_key, confidence: rel.confidence, source_system: rel.source_system, evidence: rel.evidence })),
-    summary: `The PO number is carried through ${steps.filter((s) => s.po_number_mapping).length} of ${steps.length} order-to-cash hops.`,
+    summary: `The ${flow.identifier_label || flow.identifier} is carried through ${steps.filter((s) => s.identifier_mapping).length} of ${steps.length} ${flow.name.toLowerCase()} hops.`,
   };
 }
 
-function downstreamEntitiesPipeline(entityKeys) {
+function downstreamEntitiesPipeline(entityKeys, domain) {
   return [
-    { $match: { key: { $in: entityKeys }, domain: FLOW } },
+    { $match: { key: { $in: entityKeys }, domain } },
     {
       $graphLookup: {
         from: "relationships",
@@ -216,26 +239,28 @@ function downstreamEntitiesPipeline(entityKeys) {
   ];
 }
 
-async function reachableDownstream(entityKeys) {
-  const pipeline = downstreamEntitiesPipeline(entityKeys);
+async function reachableDownstream(entityKeys, domain) {
+  const pipeline = downstreamEntitiesPipeline(entityKeys, domain);
   const roots = entityKeys.length ? await DataEntity.aggregate(pipeline) : [];
   const edges = [...new Map(roots.flatMap((r) => r.downstream || []).map((e) => [e.key, e])).values()];
   return { code: `db.data_entities.aggregate(${JSON.stringify(pipeline, null, 2)})`, edges };
 }
 
-const orderedEntities = (keys) => DataEntity.find({ key: { $in: [...keys] } }, { key: 1, name: 1, entity_kind: 1, system_of_record: 1 }).lean().then((list) => list.sort(byEntityOrder));
+const orderedEntities = (keys, flow) => DataEntity.find({ key: { $in: [...keys] } }, { key: 1, name: 1, entity_kind: 1, system_of_record: 1 }).lean().then((list) => list.sort(entityOrder(flow)));
 
 // Lineage-derived consequence of interface failures: which documents can no
 // longer be produced downstream. Additive to depends_on impact; never alters it.
-export async function getDataImpact(interfaceKeys) {
-  const sources = await Interface.find({ key: { $in: interfaceKeys }, "lineage.flow": FLOW }, { key: 1, name: 1, lineage: 1 }).lean();
-  const originKeys = [...new Set(sources.map((i) => i.lineage?.output_entity).filter(Boolean))];
-  const { code, edges } = await reachableDownstream(originKeys);
+export async function getDataImpact(interfaceKeys, flowKey = DEFAULT_FLOW) {
+  const flow = await loadFlow(flowKey);
+  const domain = flow?.domain || flowKey;
+  const hops = await Relationship.find({ relationship_type: "carries", from_key: { $in: interfaceKeys }, flow: flowKey, ...SCOPE }, { output_entity: 1 }).lean();
+  const originKeys = [...new Set(hops.map((h) => h.output_entity).filter(Boolean))];
+  const { code, edges } = await reachableDownstream(originKeys, domain);
   const downstreamKeys = new Set(edges.map((e) => e.to_key).filter((k) => !originKeys.includes(k)));
   const atRiskInterfaceKeys = [...new Set(edges.map((e) => e.interface_key).filter((k) => k && !interfaceKeys.includes(k)))];
   const [origin, downstream, interfaces, processContext] = await Promise.all([
-    orderedEntities(originKeys),
-    orderedEntities(downstreamKeys),
+    orderedEntities(originKeys, flow),
+    orderedEntities(downstreamKeys, flow),
     Interface.find({ key: { $in: atRiskInterfaceKeys } }, { key: 1, name: 1, protocol: 1, message_type: 1 }).lean(),
     getBusinessProcessContext(atRiskInterfaceKeys),
   ]);
@@ -254,22 +279,25 @@ export async function getDataImpact(interfaceKeys) {
 }
 
 // Modernization: what lineage a system performs, produces, or masters.
-export async function getSystemLineageImpact(systemKey) {
+export async function getSystemLineageImpact(systemKey, flowKey = DEFAULT_FLOW) {
+  const flow = await loadFlow(flowKey);
+  const domain = flow?.domain || flowKey;
+  const lineageInterfaceKeys = await Relationship.distinct("from_key", { relationship_type: "carries", flow: flowKey, ...SCOPE });
   const [performed, produced, mastered, middleware] = await Promise.all([
     Relationship.find({ ...transformMatch, transformed_by: systemKey }).lean(),
     Relationship.find({ relationship_type: "produces", from_key: systemKey, ...SCOPE }).lean(),
     Relationship.find({ relationship_type: "system_of_record", to_key: systemKey, ...SCOPE }).lean(),
-    Interface.find({ middleware: systemKey, "lineage.flow": FLOW }, { key: 1, name: 1, protocol: 1, message_type: 1, source: 1, target: 1 }).lean(),
+    Interface.find({ middleware: systemKey, key: { $in: lineageInterfaceKeys } }, { key: 1, name: 1, protocol: 1, message_type: 1, source: 1, target: 1 }).lean(),
   ]);
   const producedKeys = [...new Set(produced.map((r) => r.to_key))];
-  const { code, edges } = await reachableDownstream(producedKeys);
+  const { code, edges } = await reachableDownstream(producedKeys, domain);
   const dependentKeys = new Set(edges.map((e) => e.to_key).filter((k) => !producedKeys.includes(k)));
   const ifaceKeys = [...new Set(performed.map((r) => r.interface_key).filter(Boolean))];
   const [producedEntities, masteredEntities, dependentEntities, performedIfaces] = await Promise.all([
-    orderedEntities(producedKeys),
-    orderedEntities(mastered.map((r) => r.from_key)),
-    orderedEntities(dependentKeys),
-    Interface.find({ key: { $in: ifaceKeys } }, { key: 1, name: 1, protocol: 1, message_type: 1, lineage: 1 }).lean(),
+    orderedEntities(producedKeys, flow),
+    orderedEntities(mastered.map((r) => r.from_key), flow),
+    orderedEntities(dependentKeys, flow),
+    Interface.find({ key: { $in: ifaceKeys } }, { key: 1, name: 1, protocol: 1, message_type: 1 }).lean(),
   ]);
   const ifaceMap = new Map(performedIfaces.map((i) => [i.key, i]));
   const transformations = performed.map((r) => {
@@ -280,7 +308,7 @@ export async function getSystemLineageImpact(systemKey) {
       to_key: r.to_key,
       interface: iface ? { key: iface.key, name: iface.name, protocol: iface.protocol, message_type: iface.message_type } : null,
       transformation: r.transformation,
-      field_mappings: iface?.lineage?.field_mappings || [],
+      field_mappings: r.field_mappings || [],
       confirmed: r.confirmed,
       confidence: r.confidence,
     };

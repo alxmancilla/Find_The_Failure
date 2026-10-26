@@ -32,13 +32,16 @@ supporting views only when the audience wants to go deeper.
    changes, related context, or case memory.
 5. Close with persisted case memory and human-reviewed next checks.
 
-Supporting views:
+Navigation is grouped into two presenter paths plus the platform view:
 
-- **Presenter Console** — scripted walkthrough and reset-friendly demo controls.
-- **Catalog Explorer** — the underlying systems, interfaces, owners, and graph,
-  with a **System view / Data view** lens for order-to-cash operational lineage.
-- **Context Ingestion** — how raw CMDB/inventory/observability records become trusted context.
-- **Modernization** — the same graph used for change-planning impact analysis.
+- **Operations** — **Investigation Workbench** (the hero path above).
+- **Architecture** — **Catalog & Lineage** (dependency graph with a **System view
+  / Data view** lens for order-to-cash operational lineage), then
+  **Modernization** (change-planning impact). The Data view's "Plan a change to
+  …" button opens Modernization with the entity's system of record selected.
+- **Platform** — **Context Ingestion**: how raw CMDB, catalog, observability, and
+  lineage exports become trusted context.
+- **More…** — **Presenter Console** and **Classic Investigation** (legacy views).
 
 ---
 
@@ -86,7 +89,7 @@ auditable memory.
   recent change correlation, a read-only ITSM handoff preview, local operator
   approval decisions, local case closure outcomes, a summary-first Presenter Mode,
   a guided enterprise context replay path, and collapsed secondary demo controls.
-- **Operational lineage (order-to-cash)** — Catalog Explorer's Data view traces
+- **Operational lineage (order-to-cash)** — Catalog & Lineage's Data view traces
   data entities from hospital Purchase Order (X12 850) through canonical order,
   Apex ERP sales order, 855/856/810, and the 820 payment remittance. It shows
   transformations, system of record, producers/consumers, PO-number field
@@ -220,20 +223,29 @@ field type.
 
 ---
 
-## Data model (10 collections)
+## Data model (11 collections)
 
 `systems`, `interfaces`, `data_entities`, `owners`, `events`,
-`business_processes`, `relationships`, `source_records`, `operational_knowledge`, and
-`investigation_cases`.
+`business_processes`, `relationships`, `source_records`, `operational_knowledge`,
+`investigation_cases`, and `lineage_flows`.
+
+`relationships` is the single canonical edge store: dependency traversal
+(`/flow`, impact) and lineage traversal both read typed edges there with
+`$graphLookup`; interface documents no longer embed `downstream_interfaces` or
+lineage. Lineage flows are data: a `lineage_flows` document defines the business
+identifier, entity ordering, and ordered interface path.
 
 The `interfaces` collection uses a flexible schema so a single model can hold
 EDI, REST, FHIR, event, and SFTP interfaces. Seeded footprint: **9 systems,
-13 interfaces, 4 owners, 11 data entities, 3 business processes, 71 typed
-relationships, and 5 source records**. Of those relationships, 51 are
-order-to-cash lineage edges (`produces`, `carries`, `transforms_to`,
-`consumes`, `system_of_record`) kept separate from `depends_on` impact
-traversal; one is inferred from a legacy lineage workbook to demonstrate trust
-signals. The Context Ingestion tab and Workbench
+13 interfaces, 4 owners, 11 data entities, 3 business processes, 20 curated
+dependency/process relationships, 5 source records, and 1 lineage flow**. Seed
+also captures **14 raw lineage exports** as `source_records` (integration-catalog
+lineage rows, a data-entity master, a trading-partner agreement, and a legacy
+lineage workbook) and normalizes them through the ingestion pipeline into **51
+order-to-cash lineage relationships** (`produces`, `carries`, `transforms_to`,
+`consumes`, `system_of_record`) with provenance, source record ids, and an
+ingestion run id. One edge is inferred from the legacy workbook to demonstrate
+trust signals. The Context Ingestion tab and Workbench
 can optionally load **11 enterprise fixture records** from Alertmanager,
 integration-catalog, CMDB-style, and change exports, then normalize them into
 additional relationship/event evidence with provenance. Three of those records are
@@ -266,9 +278,9 @@ Base URL: `http://localhost:4000/api`
 | GET | `/interfaces` · `/interfaces/:key` | List / full interface detail |
 | GET | `/flow/:key` | Dependency graph (nodes + edges) |
 | GET | `/impact/:key` | Downstream impact + owners + similar failures + lineage `data_impact` |
-| GET | `/lineage/entities` | Order-to-cash data entities |
-| GET | `/lineage/:entityKey?direction=` | Upstream/downstream operational lineage with transformations, mappings, and trust |
-| GET | `/lineage/flows/order-to-cash` | Ordered "follow the PO number" path |
+| GET | `/lineage/flows` · `/lineage/flows/:flowKey` | Lineage flow documents; ordered "follow the identifier" path |
+| GET | `/lineage/entities?flow=` | Data entities for a flow (default `order-to-cash`) |
+| GET | `/lineage/:entityKey?direction=&flow=` | Upstream/downstream operational lineage with transformations, mappings, and trust |
 | POST | `/simulate/:key` | Inject a failure |
 | POST | `/reset` | Restore pristine demo state |
 | GET | `/scenarios` · POST `/scenarios/:id/run` | Named failure scenarios |
@@ -305,7 +317,7 @@ Find_The_Failure/
 │   └── src/
 │       ├── config.js     # loads root .env
 │       ├── db.js         # Mongoose connection
-│       ├── models.js     # 10 collections
+│       ├── models.js     # 11 collections
 │       ├── routes.js     # REST API
 │       ├── server.js     # Express app
 │       ├── scenarios.js  # named failure scenarios

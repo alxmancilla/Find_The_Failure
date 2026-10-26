@@ -29,7 +29,7 @@ import {
   recordCaseOutcome,
   updateAlertLifecycle,
 } from "./services/correlation.js";
-import { getOrderToCashFlow, listLineageEntities, traceLineage } from "./services/lineage.js";
+import { getLineageFlow, listLineageEntities, listLineageFlows, traceLineage } from "./services/lineage.js";
 import { scenarios, getScenario } from "./scenarios.js";
 
 const router = Router();
@@ -102,20 +102,32 @@ router.get(
   })
 );
 
-// Operational lineage for order-to-cash data entities.
+// Operational lineage: flows are data documents; entities and edges are scoped by flow.
 router.get(
-  "/lineage/entities",
-  wrap(async (_req, res) => res.json(await listLineageEntities()))
+  "/lineage/flows",
+  wrap(async (_req, res) => res.json(await listLineageFlows()))
 );
 router.get(
-  "/lineage/flows/order-to-cash",
-  wrap(async (_req, res) => res.json(await getOrderToCashFlow()))
+  "/lineage/flows/:flowKey",
+  wrap(async (req, res) => {
+    const result = await getLineageFlow(req.params.flowKey);
+    if (!result) return res.status(404).json({ error: "lineage flow not found" });
+    res.json(result);
+  })
+);
+router.get(
+  "/lineage/entities",
+  wrap(async (req, res) => {
+    const result = await listLineageEntities(req.query.flow || undefined);
+    if (!result) return res.status(404).json({ error: "lineage flow not found" });
+    res.json(result);
+  })
 );
 router.get(
   "/lineage/:entityKey",
   wrap(async (req, res) => {
     const direction = ["upstream", "downstream", "both"].includes(req.query.direction) ? req.query.direction : "both";
-    const result = await traceLineage(req.params.entityKey, direction);
+    const result = await traceLineage(req.params.entityKey, direction, req.query.flow || undefined);
     if (!result) return res.status(404).json({ error: "lineage entity not found" });
     res.json(result);
   })

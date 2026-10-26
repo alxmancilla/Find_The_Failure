@@ -5,7 +5,7 @@ import InterfaceDetails from "./InterfaceDetails.jsx";
 import LineageView, { LensToggle } from "./LineageView.jsx";
 import { api } from "../api.js";
 
-export default function Explorer() {
+export default function Explorer({ onPlanChange }) {
   const [lens, setLens] = useState("system");
   const [flow, setFlow] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -93,7 +93,7 @@ export default function Explorer() {
     }
   }, [loadDetail]);
 
-  if (lens === "data") return <LineageView lens={lens} onLensChange={setLens} />;
+  if (lens === "data") return <LineageView lens={lens} onLensChange={setLens} onPlanChange={onPlanChange} />;
 
   return (
     <div className="main">

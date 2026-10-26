@@ -35,10 +35,14 @@ function LineageImpact({ impact, sysName }) {
   );
 }
 
-export default function Modernization() {
+export default function Modernization({ systemKey: initialSystemKey = "x12-translator", onSystemChange }) {
   const [systems, setSystems] = useState([]);
-  const [systemKey, setSystemKey] = useState("x12-translator");
+  const [systemKey, setSystemKeyState] = useState(initialSystemKey);
   const [result, setResult] = useState(null);
+  const setSystemKey = (key) => {
+    setSystemKeyState(key);
+    onSystemChange?.(key);
+  };
 
   useEffect(() => {
     api.systems().then(setSystems);
