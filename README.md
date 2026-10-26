@@ -90,8 +90,13 @@ auditable memory.
   data entities from hospital Purchase Order (X12 850) through canonical order,
   Apex ERP sales order, 855/856/810, and the 820 payment remittance. It shows
   transformations, system of record, producers/consumers, PO-number field
-  mappings per hop, owners, and confirmed vs inferred lineage edges via
-  `$graphLookup` over typed lineage relationships.
+  mappings per hop, data owners vs interface owners, middleware "via" systems,
+  and confirmed vs inferred lineage edges via `$graphLookup` over typed,
+  tenant-scoped lineage relationships. Lineage also feeds **data impact**
+  (which downstream documents are at risk when an interface fails, shown as a
+  "Data affected" line in the Workbench summary) and **lineage-aware
+  Modernization** (transformations, field mappings, and translation hops to
+  rebuild when replacing a system).
 - **Enterprise fixture ingestion** — optional Alertmanager, integration-catalog,
   CMDB-style, and change records are captured as raw source evidence, resolved
   to canonical keys, normalized into events/relationships, grouped into calm
@@ -223,8 +228,8 @@ field type.
 
 The `interfaces` collection uses a flexible schema so a single model can hold
 EDI, REST, FHIR, event, and SFTP interfaces. Seeded footprint: **9 systems,
-13 interfaces, 3 owners, 10 data entities, 3 business processes, 76 typed
-relationships, and 5 source records**. Of those relationships, 56 are
+13 interfaces, 4 owners, 11 data entities, 3 business processes, 71 typed
+relationships, and 5 source records**. Of those relationships, 51 are
 order-to-cash lineage edges (`produces`, `carries`, `transforms_to`,
 `consumes`, `system_of_record`) kept separate from `depends_on` impact
 traversal; one is inferred from a legacy lineage workbook to demonstrate trust
@@ -260,14 +265,14 @@ Base URL: `http://localhost:4000/api`
 | GET | `/search?q=` | Cross-collection Atlas Search (regex fallback) |
 | GET | `/interfaces` · `/interfaces/:key` | List / full interface detail |
 | GET | `/flow/:key` | Dependency graph (nodes + edges) |
-| GET | `/impact/:key` | Downstream impact + owners + similar failures |
+| GET | `/impact/:key` | Downstream impact + owners + similar failures + lineage `data_impact` |
 | GET | `/lineage/entities` | Order-to-cash data entities |
 | GET | `/lineage/:entityKey?direction=` | Upstream/downstream operational lineage with transformations, mappings, and trust |
 | GET | `/lineage/flows/order-to-cash` | Ordered "follow the PO number" path |
 | POST | `/simulate/:key` | Inject a failure |
 | POST | `/reset` | Restore pristine demo state |
 | GET | `/scenarios` · POST `/scenarios/:id/run` | Named failure scenarios |
-| GET | `/modernization/:systemKey` | What-if impact of replacing a system |
+| GET | `/modernization/:systemKey` | What-if impact of replacing a system + `lineage_impact` |
 | GET | `/ingestion` · GET `/ingestion/quality` | Source records, pipeline, quality, provenance score |
 | POST | `/ingestion/fixtures` | Load optional enterprise fixture pack |
 | POST | `/ingestion/run` | Normalize source records into relationships/events |

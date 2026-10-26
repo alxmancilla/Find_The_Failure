@@ -23,6 +23,10 @@ const lineageInterfaces = interfaces.filter((iface) => iface.lineage?.flow === "
 
 const dedupe = (edges) => [...new Map(edges.map((e) => [e.key, e])).values()];
 
+// The entity that crosses the wire: receivers that transform see the input;
+// senders that transform publish the output.
+const wireEntity = (iface) => (iface.lineage.transformed_by === iface.target ? iface.lineage.input_entity : iface.lineage.output_entity);
+
 const transformsTo = lineageInterfaces
   .filter((iface) => iface.lineage.input_entity !== iface.lineage.output_entity)
   .map((iface) => edge({
@@ -39,18 +43,16 @@ const transformsTo = lineageInterfaces
     evidence: [`${iface.name} lineage maps ${iface.lineage.input_entity} to ${iface.lineage.output_entity}.`],
   }));
 
-const carries = lineageInterfaces.flatMap((iface) =>
-  [...new Set([iface.lineage.input_entity, iface.lineage.output_entity])].map((entityKey) => edge({
-    key: `${iface.key}->${entityKey}:carries`,
-    from_type: "interface",
-    from_key: iface.key,
-    to_type: "data_entity",
-    to_key: entityKey,
-    relationship_type: "carries",
-    source_record_id: `${iface.key}.lineage`,
-    evidence: [`${iface.name} carries ${entityKey}.`],
-  }))
-);
+const carries = lineageInterfaces.map((iface) => edge({
+  key: `${iface.key}->${wireEntity(iface)}:carries`,
+  from_type: "interface",
+  from_key: iface.key,
+  to_type: "data_entity",
+  to_key: wireEntity(iface),
+  relationship_type: "carries",
+  source_record_id: `${iface.key}.lineage`,
+  evidence: [`${iface.name} carries ${wireEntity(iface)} on the wire.`],
+}));
 
 const produces = lineageInterfaces.map((iface) => edge({
   key: `${iface.lineage.transformed_by}->${iface.lineage.output_entity}:produces`,
@@ -64,15 +66,45 @@ const produces = lineageInterfaces.map((iface) => edge({
 }));
 
 const consumes = lineageInterfaces.map((iface) => edge({
-  key: `${iface.target}->${iface.lineage.output_entity}:consumes`,
+  key: `${iface.target}->${wireEntity(iface)}:consumes`,
   from_type: "system",
   from_key: iface.target,
   to_type: "data_entity",
-  to_key: iface.lineage.output_entity,
+  to_key: wireEntity(iface),
   relationship_type: "consumes",
   source_record_id: `${iface.key}.target`,
-  evidence: [`${iface.target} receives ${iface.lineage.output_entity} through ${iface.name}.`],
+  evidence: [`${iface.target} receives ${wireEntity(iface)} through ${iface.name}.`],
 }));
+
+// Hospital accounts payable issues the 820 from the 810 invoice outside Apex systems.
+const partnerProcess = [
+  edge({
+    key: "invoice->payment-remittance:transforms_to:hospital-accounts-payable",
+    from_type: "data_entity",
+    from_key: "invoice",
+    to_type: "data_entity",
+    to_key: "payment-remittance",
+    relationship_type: "transforms_to",
+    interface_key: null,
+    transformed_by: "hospital-123",
+    transformation: "Hospital accounts payable pays the invoice and issues remittance advice referencing invoice numbers.",
+    confidence: 0.9,
+    source_system: "trading-partner-agreement",
+    source_record_id: "trading-partner-agreement:hospital-123:remittance",
+    evidence: ["Trading partner agreement requires 820 remittance to reference 810 invoice numbers (RMR02)."],
+  }),
+  edge({
+    key: "hospital-123->payment-remittance:produces",
+    from_type: "system",
+    from_key: "hospital-123",
+    to_type: "data_entity",
+    to_key: "payment-remittance",
+    relationship_type: "produces",
+    source_system: "trading-partner-agreement",
+    source_record_id: "trading-partner-agreement:hospital-123:remittance",
+    evidence: ["Hospital 123 accounts payable produces the payment remittance."],
+  }),
+];
 
 const systemOfRecord = dataEntities
   .filter((entity) => entity.domain === "order-to-cash" && entity.system_of_record)
@@ -110,6 +142,7 @@ const inferred = edge({
 export const lineageRelationships = dedupe([
   ...transformsTo,
   inferred,
+  ...partnerProcess,
   ...carries,
   ...produces,
   ...consumes,

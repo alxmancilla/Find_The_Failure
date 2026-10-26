@@ -28,6 +28,15 @@ export const owners = [
     on_call: "PagerDuty: hospital-primary",
     runbook_url: "https://runbooks.example-health.com/hospital-onboarding",
   },
+  {
+    key: "o2c-data-stewardship",
+    name: "Order-to-Cash Data Stewardship",
+    team: "Finance & Supply Chain Data Governance",
+    email: "o2c-data-stewards@example-health.com",
+    slack: "#o2c-data-stewardship",
+    on_call: "Business hours: data stewardship queue",
+    runbook_url: "https://runbooks.example-health.com/o2c-data-standards",
+  },
 ];
 
 export const systems = [
@@ -117,6 +126,7 @@ export const dataEntities = [
     entity_kind: "partner-document",
     identifiers: ["po_number"],
     system_of_record: "hospital-123",
+    data_owner: "o2c-data-stewardship",
   },
   {
     key: "canonical-order",
@@ -126,6 +136,7 @@ export const dataEntities = [
     domain: "order-to-cash",
     entity_kind: "transient-message",
     identifiers: ["po_number", "order_line"],
+    data_owner: "b2b-operations",
   },
   {
     key: "sales-order",
@@ -136,6 +147,7 @@ export const dataEntities = [
     entity_kind: "system-record",
     identifiers: ["sales_order_number", "po_number"],
     system_of_record: "apex-erp",
+    data_owner: "o2c-data-stewardship",
   },
   {
     key: "inventory-request",
@@ -146,6 +158,7 @@ export const dataEntities = [
     entity_kind: "system-record",
     identifiers: ["reservation_id", "po_number"],
     system_of_record: "inventory-service",
+    data_owner: "o2c-data-stewardship",
   },
   {
     key: "order-status",
@@ -156,6 +169,7 @@ export const dataEntities = [
     entity_kind: "event",
     identifiers: ["sales_order_number", "po_number"],
     system_of_record: "apex-erp",
+    data_owner: "erp-integration",
   },
   {
     key: "order-ack",
@@ -166,6 +180,7 @@ export const dataEntities = [
     entity_kind: "partner-document",
     identifiers: ["po_number"],
     system_of_record: "apex-erp",
+    data_owner: "o2c-data-stewardship",
   },
   {
     key: "advance-ship-notice",
@@ -176,6 +191,7 @@ export const dataEntities = [
     entity_kind: "partner-document",
     identifiers: ["shipment_id", "po_number"],
     system_of_record: "apex-erp",
+    data_owner: "o2c-data-stewardship",
   },
   {
     key: "invoice",
@@ -186,16 +202,29 @@ export const dataEntities = [
     entity_kind: "system-record",
     identifiers: ["invoice_number", "po_number"],
     system_of_record: "apex-erp",
+    data_owner: "o2c-data-stewardship",
   },
   {
     key: "payment-remittance",
     name: "Payment Remittance",
-    description: "Hospital payment and remittance advice applied to open invoices.",
-    business_terms: ["remittance", "EDI 820", "payment", "cash application"],
+    description: "Hospital payment and remittance advice referencing open invoices.",
+    business_terms: ["remittance", "EDI 820", "payment advice"],
     domain: "order-to-cash",
     entity_kind: "partner-document",
     identifiers: ["invoice_number", "po_number"],
     system_of_record: "hospital-123",
+    data_owner: "o2c-data-stewardship",
+  },
+  {
+    key: "cash-application",
+    name: "Cash Application",
+    description: "Apex ERP record applying hospital remittance to open invoices.",
+    business_terms: ["cash application", "payment applied", "accounts receivable"],
+    domain: "order-to-cash",
+    entity_kind: "system-record",
+    identifiers: ["invoice_number", "po_number"],
+    system_of_record: "apex-erp",
+    data_owner: "o2c-data-stewardship",
   },
   {
     key: "patient-record",

@@ -1,6 +1,40 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
 
+const entityChips = (list, className = "chip") => (
+  list.length ? list.map((e) => <span key={e.key} className={className}>{e.name}</span>) : <span className="muted">None</span>
+);
+
+function LineageImpact({ impact, sysName }) {
+  const s = impact.summary;
+  return (
+    <div className="panel-section lineage-impact">
+      <h3>Data Lineage Impact (order-to-cash)</h3>
+      <p className="muted mini-copy">
+        Replacing {sysName} means re-implementing {s.transformation_count} transformation{s.transformation_count === 1 ? "" : "s"} and {s.field_mapping_count} field mapping{s.field_mapping_count === 1 ? "" : "s"}, and re-testing {s.translation_hop_count} middleware translation hop{s.translation_hop_count === 1 ? "" : "s"}.
+      </p>
+      <div className="mod-summary">
+        <div className="stat"><div className="num">{s.transformation_count}</div><div className="lbl">Transformations</div></div>
+        <div className="stat"><div className="num">{s.field_mapping_count}</div><div className="lbl">Field mappings</div></div>
+        <div className="stat"><div className="num">{s.dependent_count}</div><div className="lbl">Dependent entities</div></div>
+      </div>
+      {impact.transformations.map((t) => (
+        <div key={t.key} className="event">
+          <div><strong>{t.from_key} → {t.to_key}</strong> {t.interface && <span className="badge">{t.interface.protocol} {t.interface.message_type}</span>} {!t.confirmed && <span className="badge status-degraded">inferred</span>}</div>
+          <div className="when">{t.transformation}</div>
+          {t.field_mappings.length > 0 && <div className="when">{t.field_mappings.map((m) => `${m.field}: ${m.source_path} → ${m.target_path}`).join(" · ")}</div>}
+        </div>
+      ))}
+      <div className="kv"><span className="k">Produces</span><span className="v chip-row">{entityChips(impact.produced_entities)}</span></div>
+      <div className="kv"><span className="k">System of record for</span><span className="v chip-row">{entityChips(impact.mastered_entities)}</span></div>
+      <div className="kv"><span className="k">Downstream entities depending on it</span><span className="v chip-row">{entityChips(impact.dependent_entities, "chip risk")}</span></div>
+      {impact.translation_hops.length > 0 && (
+        <div className="kv"><span className="k">Middleware translation hops</span><span className="v">{impact.translation_hops.map((i) => i.name).join(", ")}</span></div>
+      )}
+    </div>
+  );
+}
+
 export default function Modernization() {
   const [systems, setSystems] = useState([]);
   const [systemKey, setSystemKey] = useState("x12-translator");
@@ -87,6 +121,8 @@ export default function Modernization() {
                 ))}
               </div>
             </div>
+
+            {result.lineage_impact && <LineageImpact impact={result.lineage_impact} sysName={sysName} />}
           </>
         )}
       </div>

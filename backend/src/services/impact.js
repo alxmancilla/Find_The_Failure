@@ -4,6 +4,7 @@ import {
   getBusinessProcessContext,
   traceInterfaceRelationships,
 } from "./relationships.js";
+import { getDataImpact, getSystemLineageImpact } from "./lineage.js";
 import { events as seedEvents } from "../seed/events.js";
 
 // Full impact picture for a (possibly failing) interface: which interfaces and
@@ -27,11 +28,12 @@ export async function getImpact(interfaceKey) {
   });
   (iface.downstream_systems || []).forEach((s) => systemKeys.add(s));
 
-  const [systems, owners, recent, similar] = await Promise.all([
+  const [systems, owners, recent, similar, dataImpact] = await Promise.all([
     System.find({ key: { $in: [...systemKeys] } }).lean(),
     Owner.find({ key: { $in: iface.owners || [] } }).lean(),
     Event.find({ interface_key: interfaceKey }).sort({ timestamp: -1 }).limit(5).lean(),
     findSimilarFailures(interfaceKey),
+    getDataImpact(impactedKeys),
   ]);
 
   return {
@@ -44,6 +46,7 @@ export async function getImpact(interfaceKey) {
     business_processes: processContext.business_processes,
     process_relationships: processContext.relationships,
     relationship_trace: relationshipTrace,
+    data_impact: dataImpact,
   };
 }
 
@@ -105,9 +108,10 @@ export async function getModernizationImpact(systemKey) {
     (i.downstream_systems || []).forEach((s) => downstreamKeys.add(s));
   });
 
-  const [owners, downstreamSystems] = await Promise.all([
+  const [owners, downstreamSystems, lineageImpact] = await Promise.all([
     Owner.find({ key: { $in: [...ownerKeys] } }).lean(),
     System.find({ key: { $in: [...downstreamKeys] } }).lean(),
+    getSystemLineageImpact(systemKey),
   ]);
 
   return {
@@ -115,6 +119,7 @@ export async function getModernizationImpact(systemKey) {
     affected_interfaces: affected,
     owners,
     downstream_systems: downstreamSystems,
+    lineage_impact: lineageImpact,
     summary: {
       interface_count: affected.length,
       owner_count: owners.length,

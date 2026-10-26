@@ -545,6 +545,7 @@ export async function investigateAlert(sourceRecordKey) {
     likely_fault_domains: candidates,
     impacted_business_processes: impact?.business_processes || [],
     affected_systems: impact?.affected_systems || [],
+    data_impact: impact?.data_impact || null,
     owners,
     alert_deduplication: alertDeduplication,
     similar_cases: similarCases,

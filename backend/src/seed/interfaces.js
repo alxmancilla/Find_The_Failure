@@ -48,7 +48,7 @@ export const interfaces = [
     message_type: "850",
     source: "edi-gateway",
     target: "x12-translator",
-    data_entities: ["purchase-order", "canonical-order"],
+    data_entities: ["purchase-order"],
     lineage: lineage("purchase-order", "canonical-order", "x12-translator", "X12 850 segments are parsed and mapped to the canonical order JSON.", [
       ["po_number", "X12 850 BEG03", "canonical.order.poNumber"],
       ["order_line", "X12 850 PO1 loop", "canonical.order.lines[]"],
@@ -97,7 +97,7 @@ export const interfaces = [
     message_type: "order-create",
     source: "integration-api",
     target: "apex-erp",
-    data_entities: ["canonical-order", "sales-order"],
+    data_entities: ["canonical-order"],
     lineage: lineage("canonical-order", "sales-order", "apex-erp", "Order-create maps the canonical order to an Apex ERP sales order of record.", [
       ["po_number", "body.poNumber", "SALES_ORDER.CUSTOMER_PO_REF"],
       ["order_line", "body.lines[]", "SALES_ORDER_LINE"],
@@ -126,7 +126,7 @@ export const interfaces = [
     message_type: "inventory-updated",
     source: "apex-erp",
     target: "inventory-service",
-    data_entities: ["sales-order", "inventory-request"],
+    data_entities: ["inventory-request"],
     lineage: lineage("sales-order", "inventory-request", "apex-erp", "Sales order lines publish stock reservation events.", [
       ["po_number", "SALES_ORDER.CUSTOMER_PO_REF", "inventory.reserved.poReference"],
       ["quantity", "SALES_ORDER_LINE.ORDER_QTY", "inventory.reserved.quantity"],
@@ -273,8 +273,8 @@ export const interfaces = [
     source: "hospital-123",
     target: "apex-erp",
     middleware: ["edi-gateway", "x12-translator", "integration-api"],
-    data_entities: ["payment-remittance", "invoice"],
-    lineage: lineage("invoice", "payment-remittance", "hospital-123", "Hospital remittance references invoices and is applied in Apex ERP cash application.", [
+    data_entities: ["payment-remittance"],
+    lineage: lineage("payment-remittance", "cash-application", "apex-erp", "Inbound X12 820 remittance is applied to open invoices in Apex ERP cash application.", [
       ["invoice_number", "X12 820 RMR02", "CASH_APPLICATION.INVOICE_REF"],
       ["po_number", "X12 820 REF*PO", "CASH_APPLICATION.CUSTOMER_PO_REF"],
       ["amount", "X12 820 RMR04", "CASH_APPLICATION.PAID_AMOUNT"],

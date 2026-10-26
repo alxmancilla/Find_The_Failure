@@ -110,7 +110,10 @@ Hospital 123 → EDI Gateway → X12 Translator → Integration API → Apex ERP
 
 ### Act 4 — Show impact, evidence, and owner
 1. Start with **Investigation summary**: priority, business impact, likely issue,
-   owner, credibility signals, and first safe check.
+   owner, credibility signals, and first safe check. For the ERP order-create
+   alert, point to **Data affected**: lineage shows the sales order may not be
+   produced, so the 855, 856, invoice, remittance, and cash application are at
+   risk, exposing Hospital Invoicing and Cash Application.
 2. Point to the alert lifecycle tag: opening the case marks the alert
    **Investigating** in local Workbench state.
 3. Point to the credibility list: grouped signals, recent changes, related
@@ -229,8 +232,11 @@ systems?"
    confirmation.
 7. Switch direction to **Upstream** on **Invoice** to answer "where did this
    invoice come from?"
-8. Open **MongoDB proof** to show the `$graphLookup` pipeline over typed
-   `transforms_to` relationships.
+8. Open **MongoDB proof** to show the `$graphLookup` pipeline over typed,
+   tenant-scoped `transforms_to` relationships.
+9. Point out **Data owner** (Order-to-Cash Data Stewardship) versus **Interface
+   owner** (B2B Operations / ERP Integration), and the **Via** systems on
+   outbound hops where translation steps are collapsed.
 
 > "This is operational lineage, not warehouse lineage: how business documents
 > move and change shape across the integration landscape, with provenance on
@@ -244,6 +250,10 @@ discovery.
 2. Select **X12 Translator** → **Analyze**.
 3. Show affected interfaces, owners to coordinate, and downstream migration
    dependencies.
+4. Scroll to **Data Lineage Impact**: the translator performs the Purchase Order
+   → Canonical Order transformation (3 field mappings to rebuild), 8 downstream
+   entities depend on it, and 4 outbound/inbound translation hops must be
+   re-tested.
 
 > "Before touching a component, see everything that depends on it."
 
@@ -274,8 +284,8 @@ discovery.
 `business_processes`, `relationships`, `source_records`, `operational_knowledge`, and
 `investigation_cases`.
 
-Seeded footprint: **9 systems, 13 interfaces, 3 owners, 10 data entities**,
-plus **3 business processes, 76 relationships (56 order-to-cash lineage edges),
+Seeded footprint: **9 systems, 13 interfaces, 4 owners, 11 data entities**,
+plus **3 business processes, 71 relationships (51 order-to-cash lineage edges),
 5 source records, 8 operational knowledge documents, 3 failure scenarios**, and
 **1 modernization scenario**.
 The optional enterprise fixture pack adds **11 raw source records** for ingestion
@@ -331,11 +341,11 @@ Modernization, and Presenter Console as optional supporting views.
 | GET | `/api/search?q=` | Cross-collection Atlas Search (regex fallback) |
 | GET | `/api/interfaces/:key` | Full interface detail |
 | GET | `/api/flow/:key` | Dependency graph (nodes + edges) |
-| GET | `/api/impact/:key` | Downstream impact + owners + similar failures |
+| GET | `/api/impact/:key` | Downstream impact + owners + similar failures + lineage `data_impact` |
 | POST | `/api/simulate/:key` | Inject a failure |
 | POST | `/api/reset` | Restore pristine demo state |
 | GET | `/api/scenarios` · POST `/api/scenarios/:id/run` | Named failure scenarios |
-| GET | `/api/modernization/:systemKey` | What-if impact of replacing a system |
+| GET | `/api/modernization/:systemKey` | What-if impact of replacing a system + `lineage_impact` |
 | GET | `/api/lineage/entities` · `/api/lineage/:entityKey` | Order-to-cash entities and upstream/downstream lineage |
 | GET | `/api/lineage/flows/order-to-cash` | Ordered "follow the PO number" path |
 | GET/POST | `/api/ingestion` · `/api/ingestion/run` | Raw source records, pipeline, quality, and normalization |

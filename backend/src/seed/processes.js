@@ -17,7 +17,7 @@ export const businessProcesses = [
       "Order-to-cash billing flow from Apex ERP invoicing through hospital payment remittance and cash application.",
     criticality: "tier-2",
     owner: "erp-integration",
-    data_entities: ["invoice", "payment-remittance"],
+    data_entities: ["invoice", "payment-remittance", "cash-application"],
     lifecycle: "production",
     sla: "Invoice within 24 hours of shipment; apply cash within 1 business day",
   },

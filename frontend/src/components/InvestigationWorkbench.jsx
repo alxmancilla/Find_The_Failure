@@ -565,6 +565,13 @@ function InvestigationSummaryCard({ selectedAlert, activeCase, result, busy, onI
             <span>Next safe check</span>
             <p>{firstAction}</p>
           </div>
+          {result?.data_impact?.origin_entities?.length > 0 && (
+            <div className="summary-data-impact">
+              <span>Data affected</span>
+              <p>{result.data_impact.summary}</p>
+              {result.data_impact.business_processes?.length > 0 && <small>Processes exposed through lineage: {result.data_impact.business_processes.map((p) => p.name).join(", ")}</small>}
+            </div>
+          )}
           {handoff?.target_queue && <div className="summary-chip-row"><span>Handoff: {handoff.target_queue}</span><span>{handoff.urgency}</span></div>}
           <div className="summary-why">
             <strong>Why this is credible</strong>

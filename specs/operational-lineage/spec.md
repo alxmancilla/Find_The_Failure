@@ -174,6 +174,8 @@ Workbench Investigation Summary.
 
 ## 17. Follow-ups
 
-- Workbench "Data affected" bridge.
+- Workbench "Data affected" bridge — delivered in
+  [`lineage-integration`](../lineage-integration/spec.md), which also adds Cash
+  Application, data owners, wire-entity semantics, and tenant-scoped indexes.
 - OpenLineage-style event ingestion as `source_records`.
 - Field-change impact analysis.

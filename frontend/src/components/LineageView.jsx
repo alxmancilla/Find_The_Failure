@@ -27,6 +27,7 @@ function EntityPanel({ entity }) {
       <h3>{entity.name}</h3>
       <p className="muted mini-copy">{entity.description}</p>
       <div className="kv"><span className="k">System of record</span><span className="v">{entity.system_of_record?.name || "None (transient)"}</span></div>
+      <div className="kv"><span className="k">Data owner</span><span className="v">{entity.data_owner?.name || "—"}</span></div>
       <div className="kv"><span className="k">Produced by</span><span className="v">{names(entity.produced_by)}</span></div>
       <div className="kv"><span className="k">Consumed by</span><span className="v">{names(entity.consumed_by)}</span></div>
       <div className="kv"><span className="k">Carried by</span><span className="v">{names(entity.carried_by)}</span></div>
@@ -46,7 +47,8 @@ function TransformationPanel({ transformation, entityName }) {
       <p className="mini-copy">{transformation.transformation}</p>
       <div className="kv"><span className="k">Interface</span><span className="v">{transformation.interface ? `${transformation.interface.name} (${transformation.interface.protocol} ${transformation.interface.message_type})` : "Not mapped to an interface"}</span></div>
       <div className="kv"><span className="k">Transformed by</span><span className="v">{transformation.transformed_by?.name || "—"}</span></div>
-      <div className="kv"><span className="k">Owner</span><span className="v">{names(transformation.owners)}</span></div>
+      {transformation.via?.length > 0 && <div className="kv"><span className="k">Via</span><span className="v">{names(transformation.via)} · translation steps collapsed</span></div>}
+      <div className="kv"><span className="k">Interface owner</span><span className="v">{names(transformation.owners)}</span></div>
       {transformation.field_mappings.length > 0 && (
         <table className="mapping-table">
           <thead><tr><th>Field</th><th>Source</th><th>Target</th></tr></thead>
@@ -72,7 +74,7 @@ function PoNumberTrace({ flow }) {
         {flow.steps.map((step) => (
           <li key={step.interface.key} className={step.changes_shape ? "changes" : ""}>
             <strong>{step.step}. {step.interface.name}</strong>
-            <small>{step.from_system.name} → {step.to_system.name}{step.changes_shape ? ` · ${step.input_entity?.name} → ${step.output_entity?.name}` : ""}</small>
+            <small>{step.from_system.name} → {step.to_system.name}{step.via?.length ? ` (via ${step.via.map((s) => s.name).join(", ")})` : ""}{step.changes_shape ? ` · ${step.input_entity?.name} → ${step.output_entity?.name}` : ""}</small>
             <code>{step.po_number_mapping?.target_path || "—"}</code>
           </li>
         ))}

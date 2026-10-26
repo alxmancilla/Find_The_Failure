@@ -64,6 +64,17 @@ try {
   assert(o2cFlow.steps.length >= 9 && o2cFlow.steps.every((s) => s.po_number_mapping), "order-to-cash PO number trace incomplete");
   const entitySearch = await get("/search?q=invoce");
   assert(entitySearch.data_entities?.some((e) => e.key === "invoice"), "data entity search missing invoice");
+  assert(poEntityKeys.includes("cash-application"), "purchase order lineage does not reach cash application");
+  assert(poLineage.entity.data_owner?.key, "lineage entity data owner missing");
+  assert(poLineage.transformations.find((t) => t.interface?.key === "if-erp-810")?.via?.length > 0, "outbound lineage hop missing middleware via systems");
+  const dataImpactKeys = (impact.data_impact?.entities_at_risk || []).map((e) => e.key);
+  assert(dataImpactKeys.includes("invoice") && dataImpactKeys.includes("cash-application"), "lineage data impact missing invoice/cash application");
+  assert(impact.data_impact.business_processes.some((p) => p.key === "hospital-invoicing-cash"), "lineage data impact missing invoicing process");
+  assert(!impact.business_processes.some((p) => p.key === "hospital-invoicing-cash"), "lineage data impact leaked into dependency impact processes");
+  const lineageImpact = modernization.lineage_impact;
+  assert(lineageImpact?.produced_entities.some((e) => e.key === "canonical-order"), "modernization lineage impact missing canonical order");
+  assert(lineageImpact.transformations.length >= 1 && lineageImpact.summary.field_mapping_count >= 1, "modernization lineage transformations missing");
+  assert(lineageImpact.translation_hops.length >= 4, "modernization translation hops missing");
 
   await post("/ingestion/fixtures/clear");
   const fixtureLoad = await post("/ingestion/fixtures");
@@ -89,6 +100,7 @@ try {
   assert(fixtureInvestigation.likely_fault_domains.every((candidate) => candidate.score_components?.factors?.length), "fault-domain score components missing");
   assert(fixtureInvestigation.mongodb_trace.dedupe, "MongoDB dedupe trace missing");
   assert(fixtureInvestigation.change_correlation.documents.length > 0, "change correlation missing");
+  assert(fixtureInvestigation.data_impact?.entities_at_risk?.some((e) => e.key === "invoice"), "investigation data impact missing");
   assert(fixtureInvestigation.mongodb_trace.changes, "MongoDB change trace missing");
   assert(fixtureInvestigation.handoff_preview?.approval_required === true, "handoff preview approval guardrail missing");
   assert(fixtureInvestigation.mongodb_trace.handoff, "MongoDB handoff trace missing");
@@ -180,6 +192,8 @@ try {
       transformations: poLineage.transformations.length,
       inferred: poLineage.data_quality.inferred,
       poNumberHops: o2cFlow.steps.length,
+      dataImpactAtRisk: dataImpactKeys.length,
+      modernizationTransformations: lineageImpact.transformations.length,
     },
     ingestion: {
       records: ingestion.source_records.length,

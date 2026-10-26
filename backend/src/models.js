@@ -41,6 +41,7 @@ const dataEntitySchema = new Schema(
     entity_kind: String, // partner-document | transient-message | system-record | event
     identifiers: [String],
     system_of_record: { type: String, ref: "System" },
+    data_owner: { type: String, ref: "Owner" },
   },
   { collection: "data_entities", timestamps: true }
 );
@@ -83,6 +84,7 @@ const interfaceSchema = new Schema(
     last_status: { type: String, default: "healthy" }, // healthy | failed | degraded
     last_success_at: Date,
     business_impact: String,
+    lineage: Schema.Types.Mixed, // { flow, input_entity, output_entity, transformed_by, transformation, field_mappings[] }
   },
   { collection: "interfaces", timestamps: true, strict: false }
 );
@@ -266,6 +268,9 @@ const relationshipSchema = new Schema(
 
 relationshipSchema.index({ from_type: 1, from_key: 1, relationship_type: 1 });
 relationshipSchema.index({ to_type: 1, to_key: 1, relationship_type: 1 });
+// Lineage $graphLookup: connectToField (from_key/to_key) + restrictSearchWithMatch scope.
+relationshipSchema.index({ from_key: 1, relationship_type: 1, tenant_id: 1, environment: 1 });
+relationshipSchema.index({ to_key: 1, relationship_type: 1, tenant_id: 1, environment: 1 });
 relationshipSchema.index({ tenant_id: 1, environment: 1, from_type: 1, from_key: 1, relationship_type: 1 });
 relationshipSchema.index({ tenant_id: 1, environment: 1, to_type: 1, to_key: 1, relationship_type: 1 });
 
