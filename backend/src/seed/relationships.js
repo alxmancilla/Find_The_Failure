@@ -1,4 +1,5 @@
 import { interfaces } from "./interfaces.js";
+import { DEFAULT_ENVIRONMENT, DEFAULT_TENANT_ID } from "../demoDefaults.js";
 
 const now = new Date();
 
@@ -38,27 +39,23 @@ const invoicingCashFlow = new Set([
 const rel = (r) => ({
   confidence: 1,
   confirmed: true,
-  source_system: "seed-integration-inventory",
-  environment: "production",
-  first_seen_at: now,
-  last_seen_at: now,
-  evidence: ["Seeded from curated demo integration metadata."],
+  environment: DEFAULT_ENVIRONMENT,
   ...r,
 });
 
-export const relationships = [
-  ...dependencyEdges.map(([from, to]) =>
-    rel({
-      key: `${from}->${to}:depends_on`,
-      from_type: "interface",
-      from_key: from,
-      to_type: "interface",
-      to_key: to,
-      relationship_type: "depends_on",
-      source_record_id: `integration-inventory:${from}->${to}`,
-      evidence: [`Integration inventory lists ${to} as downstream of ${from}.`],
-    })
-  ),
+const dependencyRows = dependencyEdges.map(([from, to]) =>
+  rel({
+    key: `${from}->${to}:depends_on`,
+    from_type: "interface",
+    from_key: from,
+    to_type: "interface",
+    to_key: to,
+    relationship_type: "depends_on",
+    evidence: [`Integration inventory lists ${to} as downstream of ${from}.`],
+  })
+);
+
+const processRows = [
   ...interfaces
     .filter((iface) => coreOrderFlow.has(iface.key))
     .map((iface) =>
@@ -69,7 +66,6 @@ export const relationships = [
         to_type: "business_process",
         to_key: "hospital-order-fulfillment",
         relationship_type: "supports_process",
-        source_record_id: `${iface.key}.business_process`,
         evidence: [`${iface.name} participates in the hospital order fulfillment process.`],
       })
     ),
@@ -83,7 +79,6 @@ export const relationships = [
         to_type: "business_process",
         to_key: "supplier-replenishment",
         relationship_type: "supports_process",
-        source_record_id: `${iface.key}.supplier_replenishment_process`,
         evidence: [`${iface.name} participates in the supplier replenishment process.`],
       })
     ),
@@ -97,8 +92,41 @@ export const relationships = [
         to_type: "business_process",
         to_key: "hospital-invoicing-cash",
         relationship_type: "supports_process",
-        source_record_id: `${iface.key}.business_process`,
         evidence: [`${iface.name} participates in the hospital invoicing and cash application process.`],
       })
     ),
+];
+
+// Curated inventory and process-map exports captured as raw source records;
+// ingestion normalizes their rows into `relationships` with provenance.
+export const INVENTORY_FIXTURE_GROUP = "integration-inventory-baseline";
+
+const batchRecord = (sourceSystem, externalId, evidence, rows) => ({
+  key: `${INVENTORY_FIXTURE_GROUP}:${sourceSystem}:${externalId}`,
+  tenant_id: DEFAULT_TENANT_ID,
+  environment: DEFAULT_ENVIRONMENT,
+  fixture_group: INVENTORY_FIXTURE_GROUP,
+  source_system: sourceSystem,
+  record_type: "relationship",
+  external_id: externalId,
+  entity_type: "integration_inventory",
+  entity_key: externalId,
+  observed_at: now,
+  ingestion_status: "pending",
+  evidence,
+  entity_resolution: { alias: externalId, canonical_key: externalId, status: "resolved", confidence: 1, matched_by: "canonical_key" },
+  provenance: {
+    source_system: sourceSystem,
+    source_id: externalId,
+    source_type: "relationship",
+    adapter: `${sourceSystem}-adapter`,
+    captured_at: now,
+    trust_level: "certified",
+  },
+  payload: { kind: "relationship_batch", rows },
+});
+
+export const inventorySourceRecords = [
+  batchRecord("integration-inventory-export", "INV-DEP-2026-10", ["Integration inventory export of interface-to-interface dependencies."], dependencyRows),
+  batchRecord("process-map-export", "PRC-MAP-2026-10", ["Business process map export of interface-to-process support."], processRows),
 ];

@@ -31,9 +31,20 @@ export const api = {
   reset: () => json(`/reset`, { method: "POST" }),
   modernization: (systemKey) => json(`/modernization/${systemKey}`),
   lineageEntities: () => json(`/lineage/entities`),
-  lineage: (entityKey, direction = "both") =>
-    json(`/lineage/${encodeURIComponent(entityKey)}?direction=${encodeURIComponent(direction)}`),
-  lineageFlow: () => json(`/lineage/flows/order-to-cash`),
+  lineage: (entityKey, direction = "both", asOf = "") =>
+    json(`/lineage/${encodeURIComponent(entityKey)}?direction=${encodeURIComponent(direction)}${asOf ? `&as_of=${encodeURIComponent(asOf)}` : ""}`),
+  lineageFlow: (flowKey = "order-to-cash") => json(`/lineage/flows/${encodeURIComponent(flowKey)}`),
+  lineageTransactions: (flowKey = "order-to-cash") => json(`/lineage/flows/${encodeURIComponent(flowKey)}/transactions`),
+  lineageTransaction: (value, flowKey = "order-to-cash") =>
+    json(`/lineage/flows/${encodeURIComponent(flowKey)}/transactions/${encodeURIComponent(value)}`),
+  lineageMetamodel: () => json(`/lineage/metamodel`),
+  lineageReviews: () => json(`/lineage/reviews`),
+  reviewLineageEdge: (edgeKey, body) => json(`/lineage/edges/${encodeURIComponent(edgeKey)}/review`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body || {}),
+  }),
+  clearLineageReviews: () => json(`/lineage/reviews/clear`, { method: "POST" }),
   ingestion: () => json(`/ingestion`),
   runIngestion: () => json(`/ingestion/run`, { method: "POST" }),
   loadEnterpriseFixtures: () => json(`/ingestion/fixtures`, { method: "POST" }),

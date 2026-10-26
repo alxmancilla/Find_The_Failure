@@ -59,39 +59,11 @@ export async function runIngestion() {
   const records = await SourceRecord.find().lean();
   const now = new Date();
   const ingestion_run_id = `ingestion-run-${now.toISOString()}`;
-  let relationship_upserts = 0;
   let event_upserts = 0;
   let ignored = 0;
 
-  const relationshipOps = records
-    .filter((record) => record.record_type === "relationship" && record.payload?.relationship)
-    .map((record) => {
-      relationship_upserts += 1;
-      const { key, ...rel } = record.payload.relationship;
-      return {
-        updateOne: {
-          filter: { key },
-          update: {
-            $set: {
-              ...rel,
-              tenant_id: record.tenant_id || DEFAULT_TENANT_ID,
-              environment: record.environment || rel.environment || DEFAULT_ENVIRONMENT,
-              evidence: [...(rel.evidence || []), ...(record.evidence || [])],
-              source_system: record.source_system,
-              source_record_id: record.key,
-              fixture_group: record.fixture_group,
-              provenance: buildProvenance(record, ingestion_run_id),
-              evidence_source_records: [record.key],
-              last_seen_at: record.observed_at || now,
-            },
-            $setOnInsert: { key, first_seen_at: record.observed_at || now },
-          },
-          upsert: true,
-        },
-      };
-    });
-
-  if (relationshipOps.length) await Relationship.bulkWrite(relationshipOps);
+  const relationshipRecords = records.filter((record) => record.record_type === "relationship");
+  const relationship_upserts = await upsertRelationshipsFromRecords(relationshipRecords, ingestion_run_id, now);
 
   for (const record of records) {
     if (record.record_type !== "alert") continue;
@@ -120,7 +92,7 @@ export async function runIngestion() {
   }
 
   const lineage = await normalizeLineageRecords({ ingestion_run_id, now });
-  ignored = records.length - relationship_upserts - event_upserts - lineage.source_records;
+  ignored = records.length - relationshipRecords.length - event_upserts - lineage.source_records;
   await Promise.all([
     SourceRecord.updateMany({ tenant_id: { $exists: false } }, { $set: { tenant_id: DEFAULT_TENANT_ID } }),
     SourceRecord.updateMany({ environment: { $exists: false } }, { $set: { environment: DEFAULT_ENVIRONMENT } }),
@@ -136,6 +108,50 @@ export async function runIngestion() {
     ignored,
     quality: await getDataQuality(),
   };
+}
+
+// Relationship source records carry either one edge (`payload.relationship`) or
+// a batch export (`payload.rows`). Returns the number of edges upserted.
+async function upsertRelationshipsFromRecords(records, ingestion_run_id, now) {
+  const ops = records.flatMap((record) => {
+    const rels = record.payload?.relationship ? [record.payload.relationship] : record.payload?.rows || [];
+    return rels.map(({ key, ...rel }) => ({
+      updateOne: {
+        filter: { key },
+        update: {
+          $set: {
+            ...rel,
+            tenant_id: record.tenant_id || DEFAULT_TENANT_ID,
+            environment: record.environment || rel.environment || DEFAULT_ENVIRONMENT,
+            evidence: [...(rel.evidence || []), ...(record.evidence || [])],
+            source_system: record.source_system,
+            source_record_id: record.key,
+            fixture_group: record.fixture_group,
+            provenance: buildProvenance(record, ingestion_run_id),
+            evidence_source_records: [record.key],
+            last_seen_at: record.observed_at || now,
+          },
+          $setOnInsert: { key, first_seen_at: record.observed_at || now },
+        },
+        upsert: true,
+      },
+    }));
+  });
+  if (ops.length) await Relationship.bulkWrite(ops);
+  return ops.length;
+}
+
+// Normalize a scoped set of relationship source records (used at seed time for
+// curated inventory exports without touching pending demo records).
+export async function normalizeRelationshipSourceRecords(filter) {
+  const now = new Date();
+  const ingestion_run_id = `inventory-run-${now.toISOString()}`;
+  const records = await SourceRecord.find({ ...filter, record_type: "relationship" }).lean();
+  const relationship_upserts = await upsertRelationshipsFromRecords(records, ingestion_run_id, now);
+  if (records.length) {
+    await SourceRecord.updateMany({ key: { $in: records.map((r) => r.key) } }, { $set: { ingestion_status: "ingested", ingested_at: now, ingestion_run_id } });
+  }
+  return { ingestion_run_id, source_records: records.length, relationship_upserts };
 }
 
 // Derive typed lineage edges from raw lineage exports (catalog rows, entity
@@ -177,7 +193,17 @@ export async function normalizeLineageRecords({ ingestion_run_id = `lineage-run-
     if (p.kind === "interface_lineage") {
       const target = targetByInterface.get(p.interface_key);
       const wire = p.transformed_by === target ? p.input_entity : p.output_entity;
-      const attrs = { interface_key: p.interface_key, input_entity: p.input_entity, output_entity: p.output_entity, transformed_by: p.transformed_by, transformation: p.transformation, field_mappings: p.field_mappings || [] };
+      const attrs = {
+        interface_key: p.interface_key,
+        input_entity: p.input_entity,
+        output_entity: p.output_entity,
+        transformed_by: p.transformed_by,
+        transformation: p.transformation,
+        field_mappings: p.field_mappings || [],
+        mapping_version: p.mapping_version || "v1",
+        effective_from: p.effective_from || null,
+        mapping_versions: p.mapping_versions || [],
+      };
       if (p.input_entity !== p.output_entity) {
         add(record, { key: `${p.input_entity}->${p.output_entity}:transforms_to:${p.interface_key}`, from_type: "data_entity", from_key: p.input_entity, to_type: "data_entity", to_key: p.output_entity, relationship_type: "transforms_to", ...attrs });
       }
@@ -195,6 +221,14 @@ export async function normalizeLineageRecords({ ingestion_run_id = `lineage-run-
       }
     }
   }
+
+  // Data-steward decisions outrank the source assertion and survive re-normalization.
+  const reviewed = await Relationship.find({ key: { $in: [...edges.keys()] }, "review.status": { $exists: true } }, { key: 1, review: 1 }).lean();
+  reviewed.forEach(({ key, review }) => {
+    const edge = edges.get(key);
+    if (review.status === "confirmed") Object.assign(edge, { confirmed: true, confidence: 1 });
+    if (review.status === "rejected") Object.assign(edge, { confirmed: false });
+  });
 
   const ops = [...edges.values()].map(({ key, first_seen_at, ...edge }) => ({
     updateOne: { filter: { key }, update: { $set: edge, $setOnInsert: { key, first_seen_at } }, upsert: true },

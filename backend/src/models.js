@@ -263,6 +263,11 @@ const relationshipSchema = new Schema(
     input_entity: String,
     output_entity: String,
     field_mappings: Schema.Types.Mixed,
+    mapping_version: String,
+    effective_from: Date,
+    mapping_versions: Schema.Types.Mixed, // [{ version, standard, effective_from, effective_to, field_mappings }]
+    review: Schema.Types.Mixed, // { status: confirmed | rejected, note, actor, at }
+    review_history: [Schema.Types.Mixed],
   },
   { collection: "relationships", timestamps: true }
 );
@@ -303,5 +308,28 @@ export const Event = model("Event", eventSchema);
 export const Relationship = model("Relationship", relationshipSchema);
 export const SourceRecord = model("SourceRecord", sourceRecordSchema);
 export const OperationalKnowledge = model("OperationalKnowledge", operationalKnowledgeSchema);
+// Message tracking events keyed by business identifiers (for example PO number)
+// so a single transaction can be traced against a lineage flow path.
+const messageEventSchema = new Schema(
+  {
+    key: { type: String, required: true, unique: true },
+    tenant_id: { type: String, default: DEFAULT_TENANT_ID },
+    environment: { type: String, default: DEFAULT_ENVIRONMENT },
+    flow: String,
+    interface_key: { type: String, ref: "Interface" },
+    message_id: String,
+    business_keys: Schema.Types.Mixed, // { po_number, invoice_number, ... }
+    status: String, // delivered | failed | pending
+    observed_at: Date,
+    latency_ms: Number,
+    detail: String,
+    source_system: String,
+  },
+  { collection: "message_events", timestamps: true }
+);
+
+messageEventSchema.index({ tenant_id: 1, environment: 1, flow: 1, "business_keys.po_number": 1, observed_at: 1 });
+
 export const InvestigationCase = model("InvestigationCase", investigationCaseSchema);
 export const LineageFlow = model("LineageFlow", lineageFlowSchema);
+export const MessageEvent = model("MessageEvent", messageEventSchema);

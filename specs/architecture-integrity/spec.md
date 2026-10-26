@@ -140,4 +140,5 @@ architect path.
 
 ## 17. Follow-ups
 
-- Move curated dependency edges to an ingested catalog export as well.
+- Move curated dependency edges to an ingested catalog export as well —
+  delivered in [`lineage-governance`](../lineage-governance/spec.md).

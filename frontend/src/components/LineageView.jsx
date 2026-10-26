@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import DependencyGraph from "./DependencyGraph.jsx";
+import { MappingVersion, OrderTrace, StandardsPanel, StewardDecisions, StewardReview } from "./LineageGovernance.jsx";
 import { api } from "../api.js";
 
 const DIRECTIONS = [
@@ -40,7 +41,7 @@ function EntityPanel({ entity, onPlanChange }) {
   );
 }
 
-function TransformationPanel({ transformation, entityName }) {
+function TransformationPanel({ transformation, entityName, onReviewed }) {
   if (!transformation) return <p className="muted mini-copy">Click a lineage edge to see the transformation, field mappings, owner, and evidence.</p>;
   return (
     <section className="panel-section lineage-hop">
@@ -53,6 +54,7 @@ function TransformationPanel({ transformation, entityName }) {
       <div className="kv"><span className="k">Transformed by</span><span className="v">{transformation.transformed_by?.name || "—"}</span></div>
       {transformation.via?.length > 0 && <div className="kv"><span className="k">Via</span><span className="v">{names(transformation.via)} · translation steps collapsed</span></div>}
       <div className="kv"><span className="k">Interface owner</span><span className="v">{names(transformation.owners)}</span></div>
+      <MappingVersion transformation={transformation} />
       {transformation.field_mappings.length > 0 && (
         <table className="mapping-table">
           <thead><tr><th>Field</th><th>Source</th><th>Target</th></tr></thead>
@@ -65,26 +67,8 @@ function TransformationPanel({ transformation, entityName }) {
       )}
       {transformation.evidence.map((item) => <div key={item} className="evidence">{item}</div>)}
       <div className="kv"><span className="k">Source record</span><span className="v">{transformation.source_record_id || "—"}</span></div>
+      <StewardReview transformation={transformation} onReviewed={onReviewed} />
     </section>
-  );
-}
-
-function PoNumberTrace({ flow }) {
-  if (!flow) return null;
-  return (
-    <details className="detail-stack lineage-trace">
-      <summary>Follow the PO number <span>{flow.steps.length} hops</span></summary>
-      <p className="muted mini-copy lineage-trace-copy">{flow.summary}</p>
-      <ol className="po-trace">
-        {flow.steps.map((step) => (
-          <li key={step.interface.key} className={step.changes_shape ? "changes" : ""}>
-            <strong>{step.step}. {step.interface.name}</strong>
-            <small>{step.from_system.name} → {step.to_system.name}{step.via?.length ? ` (via ${step.via.map((s) => s.name).join(", ")})` : ""}{step.changes_shape ? ` · ${step.input_entity?.name} → ${step.output_entity?.name}` : ""}</small>
-            <code>{step.po_number_mapping?.target_path || "—"}</code>
-          </li>
-        ))}
-      </ol>
-    </details>
   );
 }
 
@@ -95,21 +79,25 @@ export default function LineageView({ lens, onLensChange, onPlanChange }) {
   const [lineage, setLineage] = useState(null);
   const [flow, setFlow] = useState(null);
   const [selectedEdge, setSelectedEdge] = useState(null);
+  const [asOf, setAsOf] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
   const [error, setError] = useState("");
+  const refresh = () => setRefreshKey((k) => k + 1);
 
   useEffect(() => {
     api.lineageEntities().then((res) => setEntities(res.entities || [])).catch(() => setError("Unable to load lineage entities."));
     api.lineageFlow().then(setFlow).catch(() => {});
   }, []);
 
+  useEffect(() => setSelectedEdge(null), [entityKey, direction]);
+
   useEffect(() => {
     let ignore = false;
-    setSelectedEdge(null);
-    api.lineage(entityKey, direction)
+    api.lineage(entityKey, direction, asOf)
       .then((res) => { if (!ignore) { setLineage(res); setError(""); } })
       .catch(() => { if (!ignore) setError("Unable to load lineage."); });
     return () => { ignore = true; };
-  }, [entityKey, direction]);
+  }, [entityKey, direction, asOf, refreshKey]);
 
   const impacted = useMemo(() => ({
     riskEdges: (lineage?.transformations || []).filter((t) => !t.confirmed).map((t) => t.key),
@@ -131,7 +119,12 @@ export default function LineageView({ lens, onLensChange, onPlanChange }) {
             {DIRECTIONS.map((d) => (
               <button key={d.id} type="button" className={d.id === direction ? "active" : ""} onClick={() => setDirection(d.id)}>{d.label}</button>
             ))}
-            <span className="muted mini-copy">Amber animated edges are inferred and need SME confirmation.</span>
+            <label className="lineage-as-of">
+              <span>As of</span>
+              <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} />
+              {asOf && <button type="button" onClick={() => setAsOf("")}>Current</button>}
+            </label>
+            <span className="muted mini-copy">Amber animated edges are inferred and need data steward review.</span>
           </div>
         </div>
         {error && <p className="feed-status">{error}</p>}
@@ -157,8 +150,10 @@ export default function LineageView({ lens, onLensChange, onPlanChange }) {
           </section>
         )}
         <EntityPanel entity={lineage?.entity} onPlanChange={onPlanChange} />
-        <TransformationPanel transformation={transformation} entityName={entityName} />
-        <PoNumberTrace flow={flow} />
+        <TransformationPanel transformation={transformation} entityName={entityName} onReviewed={refresh} />
+        <StewardDecisions refreshKey={refreshKey} onReset={refresh} />
+        <OrderTrace flow={flow} />
+        <StandardsPanel flowKey={flow?.flow} />
         {lineage?.mongodb_trace && (
           <details className="detail-stack">
             <summary>MongoDB proof <span>$graphLookup</span></summary>

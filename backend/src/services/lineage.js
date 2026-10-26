@@ -6,9 +6,21 @@ import { getBusinessProcessContext, summarizeRelationships } from "./relationshi
 const DEFAULT_FLOW = "order-to-cash";
 const SCOPE = { tenant_id: DEFAULT_TENANT_ID, environment: DEFAULT_ENVIRONMENT };
 const CONTEXT_TYPES = ["produces", "consumes", "carries", "system_of_record"];
-const transformMatch = { relationship_type: "transforms_to", ...SCOPE };
+// Rejected steward decisions are excluded from every lineage traversal.
+const transformMatch = { relationship_type: "transforms_to", "review.status": { $ne: "rejected" }, ...SCOPE };
 
 const loadFlow = (flowKey = DEFAULT_FLOW) => LineageFlow.findOne({ key: flowKey, ...SCOPE }).lean();
+
+// Pick the mapping version effective on `asOf` (defaults to the current version).
+export function mappingAsOf(edge, asOf) {
+  const versions = edge.mapping_versions || [];
+  const time = (d) => (d ? new Date(d).getTime() : 0);
+  const current = { version: edge.mapping_version || "v1", effective_from: edge.effective_from || null, effective_to: null, field_mappings: edge.field_mappings || [] };
+  const at = asOf ? time(asOf) : null;
+  const match = at === null ? null : versions.find((v) => time(v.effective_from) <= at && (!v.effective_to || at < time(v.effective_to)));
+  const chosen = match || current;
+  return { ...chosen, prior_versions: versions.filter((v) => time(v.effective_from) < time(chosen.effective_from)).length };
+}
 const rank = (order, key) => { const i = order.indexOf(key); return i === -1 ? order.length : i; };
 const entityOrder = (flow) => (a, b) => rank(flow?.entity_order || [], a.key) - rank(flow?.entity_order || [], b.key);
 
@@ -44,7 +56,7 @@ export function lineagePipeline(entityKey, domain = DEFAULT_FLOW) {
   ];
 }
 
-export async function traceLineage(entityKey, direction = "both", flowKey = DEFAULT_FLOW) {
+export async function traceLineage(entityKey, direction = "both", flowKey = DEFAULT_FLOW, asOf = null) {
   const flow = await loadFlow(flowKey);
   if (!flow) return null;
   const byEntityOrder = entityOrder(flow);
@@ -110,7 +122,8 @@ export async function traceLineage(entityKey, direction = "both", flowKey = DEFA
     .sort((a, b) => rank(order, a.from_key) - rank(order, b.from_key) || rank(order, a.to_key) - rank(order, b.to_key))
     .map((rel) => {
       const iface = rel.interface_key ? ifaceMap.get(rel.interface_key) : null;
-      const mappings = rel.field_mappings || [];
+      const version = mappingAsOf(rel, asOf);
+      const mappings = version.field_mappings || [];
       return {
         key: rel.key,
         from_key: rel.from_key,
@@ -124,9 +137,17 @@ export async function traceLineage(entityKey, direction = "both", flowKey = DEFA
         transformation: rel.transformation,
         field_mappings: mappings,
         po_number_mapping: mappings.find((m) => m.field === "po_number") || null,
+        mapping_version: version.version,
+        mapping_standard: version.standard || null,
+        mapping_effective_from: version.effective_from,
+        mapping_effective_to: version.effective_to || null,
+        mapping_prior_versions: version.prior_versions,
+        mapping_versions_total: (rel.mapping_versions || []).length || 1,
         owners: owners.filter((o) => (iface?.owners || []).includes(o.key)),
         confidence: rel.confidence,
         confirmed: rel.confirmed,
+        review: rel.review || null,
+        review_history: rel.review_history || [],
         source_system: rel.source_system,
         source_record_id: rel.source_record_id,
         ingestion_run_id: rel.provenance?.ingestion_run_id || null,
@@ -139,6 +160,7 @@ export async function traceLineage(entityKey, direction = "both", flowKey = DEFA
     flow: flow.key,
     entity: enrichedEntities.find((e) => e.selected),
     direction,
+    as_of: asOf || null,
     entities: enrichedEntities,
     transformations,
     systems,
@@ -150,7 +172,7 @@ export async function traceLineage(entityKey, direction = "both", flowKey = DEFA
         id: t.key,
         source: t.from_key,
         target: t.to_key,
-        data: { label: t.interface?.name || `Inferred: ${t.source_system}`, protocol: t.interface ? `${t.interface.protocol} ${t.interface.message_type}` : `${Math.round(t.confidence * 100)}% confidence`, confirmed: t.confirmed },
+        data: { label: t.interface?.name || `${t.confirmed ? "Partner process" : "Inferred"}: ${t.source_system}`, protocol: t.interface ? `${t.interface.protocol} ${t.interface.message_type}` : `${Math.round(t.confidence * 100)}% confidence`, confirmed: t.confirmed },
       })),
     },
     summary: `${entityName.get(entityKey)} connects to ${entities.length - 1} ${flow.name.toLowerCase()} entities through ${transformations.length} transformations.`,
@@ -205,6 +227,8 @@ export async function getLineageFlow(flowKey = DEFAULT_FLOW) {
       identifier_mapping: mappings.find((m) => m.field === flow.identifier) || null,
       po_number_mapping: mappings.find((m) => m.field === "po_number") || null,
       field_mappings: mappings,
+      mapping_version: hop.mapping_version || "v1",
+      mapping_effective_from: hop.effective_from || null,
       owners: owners.filter((o) => (iface.owners || []).includes(o.key)),
       source_record_id: hop.source_record_id,
     };
@@ -214,6 +238,7 @@ export async function getLineageFlow(flowKey = DEFAULT_FLOW) {
     name: flow.name,
     description: flow.description,
     identifier: flow.identifier,
+    identifier_label: flow.identifier_label || flow.identifier,
     steps,
     entities: entities.sort(entityOrder(flow)),
     inferred_edges: inferred.map((rel) => ({ key: rel.key, from_key: rel.from_key, to_key: rel.to_key, confidence: rel.confidence, source_system: rel.source_system, evidence: rel.evidence })),

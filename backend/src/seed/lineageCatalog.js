@@ -9,14 +9,23 @@ export const LINEAGE_FLOW = "order-to-cash";
 const now = new Date();
 const daysAgo = (d) => new Date(now.getTime() - d * 24 * 3600 * 1000);
 
-const row = (external_id, interface_key, input_entity, output_entity, transformed_by, transformation, mappings) => ({
+const toMappings = (mappings) => mappings.map(([field, source_path, target_path]) => ({ field, source_path, target_path }));
+
+// Each row carries effective-dated mapping versions; the latest is current.
+const row = (external_id, interface_key, input_entity, output_entity, transformed_by, transformation, mappings, { version = "v1", standard = null, effective_from = "2024-01-01", history = [] } = {}) => ({
   external_id,
   interface_key,
   input_entity,
   output_entity,
   transformed_by,
   transformation,
-  field_mappings: mappings.map(([field, source_path, target_path]) => ({ field, source_path, target_path })),
+  mapping_version: version,
+  effective_from: new Date(effective_from),
+  field_mappings: toMappings(mappings),
+  mapping_versions: [
+    ...history.map((h) => ({ version: h.version, standard: h.standard || null, effective_from: new Date(h.effective_from), effective_to: new Date(h.effective_to), field_mappings: toMappings(h.mappings) })),
+    { version, standard, effective_from: new Date(effective_from), effective_to: null, field_mappings: toMappings(mappings) },
+  ],
 });
 
 const catalogRows = [
@@ -28,7 +37,22 @@ const catalogRows = [
     ["po_number", "X12 850 BEG03", "canonical.order.poNumber"],
     ["order_line", "X12 850 PO1 loop", "canonical.order.lines[]"],
     ["quantity", "X12 850 PO102", "canonical.order.lines[].quantity"],
-  ]),
+  ], {
+    version: "v3",
+    standard: "X12 005010",
+    effective_from: "2026-03-01",
+    history: [{
+      version: "v2",
+      standard: "X12 004010",
+      effective_from: "2024-01-01",
+      effective_to: "2026-03-01",
+      mappings: [
+        ["po_number", "X12 850 BEG03", "canonical.order.po"],
+        ["order_line", "X12 850 PO1 loop", "canonical.order.items[]"],
+        ["quantity", "X12 850 PO102", "canonical.order.items[].qty"],
+      ],
+    }],
+  }),
   row("LIN-ORD-03", "if-x12-integration", "canonical-order", "canonical-order", "x12-translator", "Canonical order is routed to the Integration API without changing shape.", [
     ["po_number", "canonical.order.poNumber", "POST /orders body.poNumber"],
     ["order_line", "canonical.order.lines[]", "POST /orders body.lines[]"],
@@ -37,7 +61,20 @@ const catalogRows = [
     ["po_number", "body.poNumber", "SALES_ORDER.CUSTOMER_PO_REF"],
     ["order_line", "body.lines[]", "SALES_ORDER_LINE"],
     ["quantity", "body.lines[].quantity", "SALES_ORDER_LINE.ORDER_QTY"],
-  ]),
+  ], {
+    version: "v2",
+    effective_from: "2025-06-01",
+    history: [{
+      version: "v1",
+      effective_from: "2023-07-01",
+      effective_to: "2025-06-01",
+      mappings: [
+        ["po_number", "body.po", "SALES_ORDER.CUST_REF"],
+        ["order_line", "body.items[]", "SALES_ORDER_LINE"],
+        ["quantity", "body.items[].qty", "SALES_ORDER_LINE.QTY"],
+      ],
+    }],
+  }),
   row("LIN-INV-05", "if-erp-inventory", "sales-order", "inventory-request", "apex-erp", "Sales order lines publish stock reservation events.", [
     ["po_number", "SALES_ORDER.CUSTOMER_PO_REF", "inventory.reserved.poReference"],
     ["quantity", "SALES_ORDER_LINE.ORDER_QTY", "inventory.reserved.quantity"],

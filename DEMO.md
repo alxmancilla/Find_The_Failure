@@ -247,6 +247,32 @@ systems?"
 11. Select **Sales Order** and click **Plan a change to Apex ERP →** to continue
     the architecture path in Modernization.
 
+### Optional — Lineage governance (≈3 minutes)
+Use this when architects or data-governance stakeholders ask, "Can this answer
+for one real order, and who decides what is true?"
+
+1. In **Follow the PO number**, pick **PO-4500012388**. The trace shows it was
+   delivered through hop 3, **failed at Integration API → Apex ERP**, and that
+   the remaining hops are blocked. The summary says the Sales Order may not be
+   produced, and the amber line lists the 7 downstream documents not produced
+   yet, from Inventory Request and the 855 through Invoice and Cash Application.
+2. Pick **PO-4500012345** to contrast a completed order that reached cash
+   application.
+3. Click the amber **Advance Ship Notice → Invoice** edge and use **Data steward
+   review → Confirm**. The inferred warning clears and the decision appears under
+   **Steward decisions**. Use **Reject** to remove the edge from lineage. Use
+   **Reset steward decisions** before the next rehearsal.
+4. Click **Gateway to X12 Translation**: the hop shows mapping **v3 (X12
+   005010)**. Set **As of** to `2025-01-01` to show the earlier **v2 (X12
+   004010)** mapping (`canonical.order.po`).
+5. Open **Standards mapping** to show the ArchiMate / OpenLineage mapping, then
+   **Export this flow as OpenLineage RunEvents** for interoperability.
+
+> "One model answers design-time and run-time lineage, with steward control over
+> what counts as truth."
+
+Sample orders are seeded B2B tracking events, not a live tracking feed.
+
 > "This is operational lineage, not warehouse lineage: how business documents
 > move and change shape across the integration landscape, with provenance on
 > every edge."
@@ -290,17 +316,18 @@ Lineage is ingested from curated exports, not automated discovery.
 
 `systems`, `interfaces`, `data_entities`, `owners`, `events`,
 `business_processes`, `relationships`, `source_records`, `operational_knowledge`,
-`investigation_cases`, and `lineage_flows`.
+`investigation_cases`, `lineage_flows`, and `message_events`.
 
 `relationships` is the single canonical edge store for both dependency and
 lineage traversal; interface documents do not embed graph edges.
 
 Seeded footprint: **9 systems, 13 interfaces, 4 owners, 11 data entities**,
-plus **3 business processes, 20 curated dependency/process relationships, 5
-source records, 8 operational knowledge documents, 1 lineage flow, 3 failure
-scenarios**, and **1 modernization scenario**. Seed also captures **14 raw
-lineage exports** as `source_records` and normalizes them into **51
-order-to-cash lineage relationships** with provenance.
+plus **3 business processes, 5 source records, 8 operational knowledge
+documents, 1 lineage flow, 13 sample message events, 3 failure scenarios**, and
+**1 modernization scenario**. Seed captures **2 inventory/process-map exports**
+and **14 lineage exports** as `source_records` and normalizes them into **20
+dependency/process relationships** and **51 order-to-cash lineage
+relationships**, all with provenance.
 The optional enterprise fixture pack adds **11 raw source records** for ingestion
 demonstrations, including **3 external Alertmanager signals** that collapse into
 **2 Workbench inbox items** and **3 recent change records** that power the Workbench
@@ -362,7 +389,10 @@ from; Presenter Console and Classic Investigation live under **More…**.
 | GET | `/api/scenarios` · POST `/api/scenarios/:id/run` | Named failure scenarios |
 | GET | `/api/modernization/:systemKey` | What-if impact of replacing a system + `lineage_impact` |
 | GET | `/api/lineage/flows` · `/api/lineage/flows/:flowKey` | Lineage flow documents and ordered "follow the identifier" path |
-| GET | `/api/lineage/entities?flow=` · `/api/lineage/:entityKey` | Flow entities and upstream/downstream lineage |
+| GET | `/api/lineage/entities?flow=` · `/api/lineage/:entityKey?as_of=` | Flow entities and upstream/downstream lineage (mapping version as of a date) |
+| GET | `/api/lineage/flows/:flowKey/transactions/:value` | Single-order trace aligned to the flow path |
+| POST | `/api/lineage/edges/:edgeKey/review` · `/api/lineage/reviews/clear` | Data-steward confirm/reject; reset decisions |
+| GET | `/api/lineage/metamodel` · `/api/lineage/flows/:flowKey/openlineage` | ArchiMate/OpenLineage mapping; OpenLineage export |
 | GET/POST | `/api/ingestion` · `/api/ingestion/run` | Raw source records, pipeline, quality, and normalization |
 | POST | `/api/ingestion/fixtures` · `/api/ingestion/fixtures/clear` | Load/clear optional enterprise fixture pack |
 | GET | `/api/alerts` | Deduplicated Workbench inbox items with raw signal counts |

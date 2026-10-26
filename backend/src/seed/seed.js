@@ -12,17 +12,19 @@ import {
   InvestigationCase,
   OperationalKnowledge,
   LineageFlow,
+  MessageEvent,
 } from "../models.js";
-import { normalizeLineageRecords } from "../services/ingestion.js";
+import { normalizeLineageRecords, normalizeRelationshipSourceRecords } from "../services/ingestion.js";
 import { owners, systems, dataEntities } from "./base.js";
 import { businessProcesses } from "./processes.js";
 import { interfaces } from "./interfaces.js";
 import { events } from "./events.js";
-import { relationships } from "./relationships.js";
+import { INVENTORY_FIXTURE_GROUP, inventorySourceRecords } from "./relationships.js";
 import { sourceRecords } from "./sourceRecords.js";
 import { operationalKnowledge } from "./operationalKnowledge.js";
 import { lineageSourceRecords } from "./lineageCatalog.js";
 import { lineageFlows } from "./lineageFlows.js";
+import { messageEvents } from "./messageEvents.js";
 
 async function seed() {
   await connectDB();
@@ -39,6 +41,7 @@ async function seed() {
     InvestigationCase.deleteMany({}),
     OperationalKnowledge.deleteMany({}),
     LineageFlow.deleteMany({}),
+    MessageEvent.deleteMany({}),
   ]);
 
   await Owner.insertMany(owners);
@@ -47,20 +50,22 @@ async function seed() {
   await BusinessProcess.insertMany(businessProcesses);
   await Interface.insertMany(interfaces);
   await Event.insertMany(events);
-  await Relationship.insertMany(relationships);
   await SourceRecord.insertMany(sourceRecords);
   await OperationalKnowledge.insertMany(operationalKnowledge);
-  await SourceRecord.insertMany(lineageSourceRecords);
+  await SourceRecord.insertMany([...inventorySourceRecords, ...lineageSourceRecords]);
   await LineageFlow.insertMany(lineageFlows);
+  await MessageEvent.insertMany(messageEvents);
+  const inventory = await normalizeRelationshipSourceRecords({ fixture_group: INVENTORY_FIXTURE_GROUP });
   const lineage = await normalizeLineageRecords();
 
   console.log(
     `[seed] inserted: ${owners.length} owners, ${systems.length} systems, ` +
       `${dataEntities.length} data entities, ${businessProcesses.length} processes, ` +
       `${interfaces.length} interfaces, ${events.length} events, ` +
-      `${relationships.length} relationships, ${sourceRecords.length} source records, ` +
-      `${operationalKnowledge.length} knowledge documents, ${lineageFlows.length} lineage flow; ` +
-      `normalized ${lineage.source_records} lineage records into ${lineage.relationship_upserts} lineage relationships`
+      `${sourceRecords.length} source records, ${operationalKnowledge.length} knowledge documents, ` +
+      `${lineageFlows.length} lineage flow, ${messageEvents.length} message events; ` +
+      `normalized ${inventory.source_records} inventory exports into ${inventory.relationship_upserts} relationships and ` +
+      `${lineage.source_records} lineage records into ${lineage.relationship_upserts} lineage relationships`
   );
 
   await mongoose.disconnect();

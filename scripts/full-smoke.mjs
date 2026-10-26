@@ -17,6 +17,7 @@ const assert = (condition, message) => {
 };
 
 async function cleanup() {
+  await post("/lineage/reviews/clear").catch(() => null);
   await post("/ingestion/fixtures/clear").catch(() => null);
   await post("/workbench/clear-demo-state").catch(() => null);
   await post("/reset").catch(() => null);
@@ -80,6 +81,41 @@ try {
   const lineageFlows = await get("/lineage/flows");
   const o2cFlowDoc = lineageFlows.flows.find((f) => f.key === "order-to-cash");
   assert(o2cFlowDoc?.path?.length === o2cFlow.steps.length && o2cFlowDoc.entity_order?.length >= 10, "lineage flow document missing or out of sync");
+
+  // Governance: ingested dependency edges, single-order tracing, versioned mappings, steward review, standards.
+  assert(trace.relationships.every((r) => r.source_record_id?.startsWith("integration-inventory-baseline:") && r.provenance?.ingestion_run_id), "dependency edges not ingested from inventory exports");
+  const transactions = await get("/lineage/flows/order-to-cash/transactions");
+  assert(transactions.transactions.length >= 2, "sample order transactions missing");
+  const completedOrder = await get("/lineage/flows/order-to-cash/transactions/PO-4500012345");
+  assert(completedOrder.status === "completed" && completedOrder.delivered_hops === o2cFlow.steps.length, "completed order trace incorrect");
+  const stuckOrder = await get("/lineage/flows/order-to-cash/transactions/PO-4500012388");
+  assert(stuckOrder.status === "failed" && stuckOrder.stuck_at?.interface.key === "if-integration-erp", "stuck order trace did not stop at ERP order-create");
+  assert(stuckOrder.steps.filter((s) => s.status === "blocked").length >= 1, "stuck order downstream hops not marked blocked");
+  assert(stuckOrder.data_impact?.entities_at_risk.some((e) => e.key === "invoice"), "stuck order data impact missing invoice");
+  const x12Hop = poLineage.transformations.find((t) => t.interface?.key === "if-gateway-x12");
+  assert(x12Hop.mapping_version === "v3" && x12Hop.mapping_prior_versions >= 1, "current mapping version missing");
+  const asOfLineage = await get("/lineage/purchase-order?direction=downstream&as_of=2025-01-01");
+  const asOfX12Hop = asOfLineage.transformations.find((t) => t.interface?.key === "if-gateway-x12");
+  assert(asOfX12Hop.mapping_version === "v2" && asOfX12Hop.po_number_mapping?.target_path === "canonical.order.po", "as-of mapping version not selected");
+  const inferredEdge = poLineage.transformations.find((t) => !t.confirmed);
+  const confirmedReview = await post(`/lineage/edges/${encodeURIComponent(inferredEdge.key)}/review`, { decision: "confirmed" });
+  assert(confirmedReview.edge.confirmed === true && confirmedReview.edge.review.status === "confirmed", "steward confirm failed");
+  await post("/ingestion/run");
+  const afterConfirm = await get("/lineage/purchase-order?direction=downstream");
+  assert(afterConfirm.transformations.find((t) => t.key === inferredEdge.key)?.confirmed === true, "steward confirmation lost after re-normalization");
+  await post(`/lineage/edges/${encodeURIComponent(inferredEdge.key)}/review`, { decision: "rejected" });
+  const afterReject = await get("/lineage/purchase-order?direction=downstream");
+  assert(!afterReject.transformations.some((t) => t.key === inferredEdge.key), "rejected edge still traversed");
+  const reviews = await get("/lineage/reviews");
+  assert(reviews.reviews.some((r) => r.key === inferredEdge.key && r.review_history.length === 2), "steward review history missing");
+  await post("/lineage/reviews/clear");
+  const afterReviewReset = await get("/lineage/purchase-order?direction=downstream");
+  assert(afterReviewReset.transformations.length === poLineage.transformations.length && afterReviewReset.data_quality.inferred === poLineage.data_quality.inferred, "steward review reset did not restore lineage");
+  const metamodel = await get("/lineage/metamodel");
+  assert(metamodel.relationships.some((r) => r.type === "transforms_to" && r.archimate && r.openlineage), "metamodel mapping missing");
+  const openLineage = await get("/lineage/flows/order-to-cash/openlineage");
+  const olHop = openLineage.events.find((e) => e.job.name === "if-gateway-x12");
+  assert(openLineage.event_count === o2cFlow.steps.length && olHop?.outputs[0]?.facets?.columnLineage?.fields?.["canonical.order.poNumber"], "OpenLineage export incomplete");
 
   await post("/ingestion/fixtures/clear");
   const fixtureLoad = await post("/ingestion/fixtures");
@@ -207,6 +243,14 @@ try {
       lineageSourceRecords: lineageRecords.length,
       lineageRelationships: ingestionRun.lineage_relationship_upserts,
       flows: lineageFlows.flows.length,
+    },
+    governance: {
+      transactions: transactions.transactions.length,
+      stuckOrderStoppedAt: stuckOrder.stuck_at.interface.key,
+      stuckOrderDocumentsAtRisk: stuckOrder.data_impact.entities_at_risk.length,
+      asOfMappingVersion: asOfX12Hop.mapping_version,
+      stewardReviewCycle: "confirmed -> rejected -> reset",
+      openLineageEvents: openLineage.event_count,
     },
     ingestion: {
       records: ingestion.source_records.length,

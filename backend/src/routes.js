@@ -30,6 +30,9 @@ import {
   updateAlertLifecycle,
 } from "./services/correlation.js";
 import { getLineageFlow, listLineageEntities, listLineageFlows, traceLineage } from "./services/lineage.js";
+import { clearLineageReviews, listLineageReviews, reviewLineageEdge } from "./services/lineageReview.js";
+import { listFlowTransactions, traceFlowTransaction } from "./services/lineageTrace.js";
+import { exportFlowOpenLineage, getLineageMetamodel } from "./services/lineageStandards.js";
 import { scenarios, getScenario } from "./scenarios.js";
 
 const router = Router();
@@ -116,6 +119,51 @@ router.get(
   })
 );
 router.get(
+  "/lineage/flows/:flowKey/transactions",
+  wrap(async (req, res) => {
+    const result = await listFlowTransactions(req.params.flowKey);
+    if (!result) return res.status(404).json({ error: "lineage flow not found" });
+    res.json(result);
+  })
+);
+router.get(
+  "/lineage/flows/:flowKey/transactions/:value",
+  wrap(async (req, res) => {
+    const result = await traceFlowTransaction(req.params.flowKey, req.params.value);
+    if (!result) return res.status(404).json({ error: "lineage flow not found" });
+    res.json(result);
+  })
+);
+router.get(
+  "/lineage/flows/:flowKey/openlineage",
+  wrap(async (req, res) => {
+    const result = await exportFlowOpenLineage(req.params.flowKey);
+    if (!result) return res.status(404).json({ error: "lineage flow not found" });
+    res.json(result);
+  })
+);
+router.get(
+  "/lineage/metamodel",
+  wrap(async (_req, res) => res.json(getLineageMetamodel()))
+);
+router.get(
+  "/lineage/reviews",
+  wrap(async (_req, res) => res.json(await listLineageReviews()))
+);
+router.post(
+  "/lineage/reviews/clear",
+  wrap(async (_req, res) => res.json(await clearLineageReviews()))
+);
+router.post(
+  "/lineage/edges/:edgeKey/review",
+  wrap(async (req, res) => {
+    const result = await reviewLineageEdge(req.params.edgeKey, req.body || {});
+    if (!result) return res.status(404).json({ error: "lineage edge not found" });
+    if (result.error) return res.status(400).json({ error: result.error });
+    res.json(result);
+  })
+);
+router.get(
   "/lineage/entities",
   wrap(async (req, res) => {
     const result = await listLineageEntities(req.query.flow || undefined);
@@ -127,7 +175,8 @@ router.get(
   "/lineage/:entityKey",
   wrap(async (req, res) => {
     const direction = ["upstream", "downstream", "both"].includes(req.query.direction) ? req.query.direction : "both";
-    const result = await traceLineage(req.params.entityKey, direction, req.query.flow || undefined);
+    const asOf = req.query.as_of && !Number.isNaN(Date.parse(req.query.as_of)) ? req.query.as_of : null;
+    const result = await traceLineage(req.params.entityKey, direction, req.query.flow || undefined, asOf);
     if (!result) return res.status(404).json({ error: "lineage entity not found" });
     res.json(result);
   })

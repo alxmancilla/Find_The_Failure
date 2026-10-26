@@ -100,6 +100,12 @@ auditable memory.
   "Data affected" line in the Workbench summary) and **lineage-aware
   Modernization** (transformations, field mappings, and translation hops to
   rebuild when replacing a system).
+- **Lineage governance** — trace a single sample order by PO number against the
+  lineage path (where it is, where it stopped, which documents are not yet
+  produced); confirm or reject inferred lineage as a data steward with an audit
+  trail; view versioned, effective-dated field mappings "as of" a date; and see
+  the model mapped to ArchiMate and OpenLineage, with an OpenLineage RunEvent
+  export per flow.
 - **Enterprise fixture ingestion** — optional Alertmanager, integration-catalog,
   CMDB-style, and change records are captured as raw source evidence, resolved
   to canonical keys, normalized into events/relationships, grouped into calm
@@ -223,11 +229,11 @@ field type.
 
 ---
 
-## Data model (11 collections)
+## Data model (12 collections)
 
 `systems`, `interfaces`, `data_entities`, `owners`, `events`,
 `business_processes`, `relationships`, `source_records`, `operational_knowledge`,
-`investigation_cases`, and `lineage_flows`.
+`investigation_cases`, `lineage_flows`, and `message_events`.
 
 `relationships` is the single canonical edge store: dependency traversal
 (`/flow`, impact) and lineage traversal both read typed edges there with
@@ -235,10 +241,19 @@ field type.
 lineage. Lineage flows are data: a `lineage_flows` document defines the business
 identifier, entity ordering, and ordered interface path.
 
+Every relationship traces to a raw source record. Seed captures the curated
+integration inventory and business-process map as **2 batch exports** in
+`source_records` and normalizes them into the **20 dependency/process
+relationships**; lineage exports are normalized the same way. Lineage edges also
+carry versioned, effective-dated `mapping_versions` and any data-steward
+`review` / `review_history`, which survive re-normalization; rejected edges are
+excluded from traversal. `message_events` holds sample B2B tracking events keyed
+by PO number for single-order tracing.
+
 The `interfaces` collection uses a flexible schema so a single model can hold
 EDI, REST, FHIR, event, and SFTP interfaces. Seeded footprint: **9 systems,
-13 interfaces, 4 owners, 11 data entities, 3 business processes, 20 curated
-dependency/process relationships, 5 source records, and 1 lineage flow**. Seed
+13 interfaces, 4 owners, 11 data entities, 3 business processes, 5 source
+records, 1 lineage flow, and 13 message events for 2 sample orders**. Seed
 also captures **14 raw lineage exports** as `source_records` (integration-catalog
 lineage rows, a data-entity master, a trading-partner agreement, and a legacy
 lineage workbook) and normalizes them through the ingestion pipeline into **51
@@ -280,7 +295,12 @@ Base URL: `http://localhost:4000/api`
 | GET | `/impact/:key` | Downstream impact + owners + similar failures + lineage `data_impact` |
 | GET | `/lineage/flows` · `/lineage/flows/:flowKey` | Lineage flow documents; ordered "follow the identifier" path |
 | GET | `/lineage/entities?flow=` | Data entities for a flow (default `order-to-cash`) |
-| GET | `/lineage/:entityKey?direction=&flow=` | Upstream/downstream operational lineage with transformations, mappings, and trust |
+| GET | `/lineage/:entityKey?direction=&flow=&as_of=` | Upstream/downstream operational lineage with transformations, mapping version effective on `as_of`, and trust |
+| GET | `/lineage/flows/:flowKey/transactions` · `.../transactions/:value` | Sample orders and a single-order trace aligned to the flow path |
+| POST | `/lineage/edges/:edgeKey/review` | Record a local data-steward `confirmed` / `rejected` decision |
+| GET | `/lineage/reviews` · POST `/lineage/reviews/clear` | List steward decisions / reset them for rehearsal |
+| GET | `/lineage/metamodel` | ArchiMate and OpenLineage mapping of the model |
+| GET | `/lineage/flows/:flowKey/openlineage` | OpenLineage RunEvent export, one event per hop |
 | POST | `/simulate/:key` | Inject a failure |
 | POST | `/reset` | Restore pristine demo state |
 | GET | `/scenarios` · POST `/scenarios/:id/run` | Named failure scenarios |
@@ -317,7 +337,7 @@ Find_The_Failure/
 │   └── src/
 │       ├── config.js     # loads root .env
 │       ├── db.js         # Mongoose connection
-│       ├── models.js     # 11 collections
+│       ├── models.js     # 12 collections
 │       ├── routes.js     # REST API
 │       ├── server.js     # Express app
 │       ├── scenarios.js  # named failure scenarios
