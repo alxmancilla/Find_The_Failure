@@ -30,6 +30,10 @@ export const api = {
     }),
   reset: () => json(`/reset`, { method: "POST" }),
   modernization: (systemKey) => json(`/modernization/${systemKey}`),
+  lineageEntities: () => json(`/lineage/entities`),
+  lineage: (entityKey, direction = "both") =>
+    json(`/lineage/${encodeURIComponent(entityKey)}?direction=${encodeURIComponent(direction)}`),
+  lineageFlow: () => json(`/lineage/flows/order-to-cash`),
   ingestion: () => json(`/ingestion`),
   runIngestion: () => json(`/ingestion/run`, { method: "POST" }),
   loadEnterpriseFixtures: () => json(`/ingestion/fixtures`, { method: "POST" }),

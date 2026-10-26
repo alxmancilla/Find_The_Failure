@@ -1,11 +1,11 @@
-import { Interface, System, Owner, BusinessProcess } from "../models.js";
+import { Interface, System, Owner, BusinessProcess, DataEntity } from "../models.js";
 import { INDEX_NAME } from "./searchIndex.js";
 
 // Public search: try Atlas Search ($search, fuzzy + relevance ranking); if the
 // search index is unavailable, transparently fall back to a regex scan.
 export async function search(q) {
   if (!q || !q.trim()) {
-    return { interfaces: [], systems: [], owners: [], business_processes: [], engine: "none" };
+    return { interfaces: [], systems: [], owners: [], business_processes: [], data_entities: [], engine: "none" };
   }
   try {
     const atlas = await searchAtlas(q.trim());
@@ -27,7 +27,8 @@ function hasSearchHits(result) {
     result.interfaces?.length ||
     result.systems?.length ||
     result.owners?.length ||
-    result.business_processes?.length
+    result.business_processes?.length ||
+    result.data_entities?.length
   );
 }
 
@@ -44,20 +45,21 @@ async function searchAtlas(q) {
     { $addFields: { score: { $meta: "searchScore" } } },
   ];
 
-  const [interfaces, systems, owners, business_processes] = await Promise.all([
+  const [interfaces, systems, owners, business_processes, data_entities] = await Promise.all([
     Interface.aggregate(pipeline()),
     System.aggregate(pipeline()),
     Owner.aggregate(pipeline()),
     BusinessProcess.aggregate(pipeline()),
+    DataEntity.aggregate(pipeline()),
   ]);
 
-  return { query: q, engine: "atlas-search", interfaces, systems, owners, business_processes };
+  return { query: q, engine: "atlas-search", interfaces, systems, owners, business_processes, data_entities };
 }
 
 // Regex fallback: case-insensitive substring match across key fields.
 async function searchRegex(q) {
   const rx = new RegExp(escapeRegex(q), "i");
-  const [interfaces, systems, owners, business_processes] = await Promise.all([
+  const [interfaces, systems, owners, business_processes, data_entities] = await Promise.all([
     Interface.find({
       $or: [
         { name: rx },
@@ -85,9 +87,14 @@ async function searchRegex(q) {
     })
       .limit(20)
       .lean(),
+    DataEntity.find({
+      $or: [{ name: rx }, { key: rx }, { description: rx }, { business_terms: rx }],
+    })
+      .limit(20)
+      .lean(),
   ]);
 
-  return { query: q, engine: "regex", interfaces, systems, owners, business_processes };
+  return { query: q, engine: "regex", interfaces, systems, owners, business_processes, data_entities };
 }
 
 function escapeRegex(s) {

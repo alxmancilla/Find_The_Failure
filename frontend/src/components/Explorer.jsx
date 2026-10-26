@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import SearchBar from "./SearchBar.jsx";
 import DependencyGraph from "./DependencyGraph.jsx";
 import InterfaceDetails from "./InterfaceDetails.jsx";
+import LineageView, { LensToggle } from "./LineageView.jsx";
 import { api } from "../api.js";
 
 export default function Explorer() {
+  const [lens, setLens] = useState("system");
   const [flow, setFlow] = useState(null);
   const [detail, setDetail] = useState(null);
   const [impact, setImpact] = useState(null);
@@ -91,9 +93,12 @@ export default function Explorer() {
     }
   }, [loadDetail]);
 
+  if (lens === "data") return <LineageView lens={lens} onLensChange={setLens} />;
+
   return (
     <div className="main">
       <div className="left">
+        <LensToggle lens={lens} onChange={setLens} />
         <SearchBar onSelectInterface={selectFromSearch} />
         {scenarios.length > 0 && (
           <div className="scenario-bar">

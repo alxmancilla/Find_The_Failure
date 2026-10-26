@@ -37,6 +37,10 @@ const dataEntitySchema = new Schema(
     name: { type: String, required: true },
     description: String,
     business_terms: [String],
+    domain: String,
+    entity_kind: String, // partner-document | transient-message | system-record | event
+    identifiers: [String],
+    system_of_record: { type: String, ref: "System" },
   },
   { collection: "data_entities", timestamps: true }
 );
@@ -251,6 +255,11 @@ const relationshipSchema = new Schema(
     environment: { type: String, default: DEFAULT_ENVIRONMENT },
     first_seen_at: Date,
     last_seen_at: Date,
+    // Operational lineage attributes (transforms_to / carries / produces / consumes / system_of_record).
+    flow: String,
+    interface_key: String,
+    transformed_by: String,
+    transformation: String,
   },
   { collection: "relationships", timestamps: true }
 );

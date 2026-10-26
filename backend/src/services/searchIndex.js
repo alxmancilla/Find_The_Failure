@@ -1,11 +1,11 @@
 import { ENABLE_ATLAS_AUTO_EMBED_INDEX } from "../config.js";
-import { Interface, System, Owner, BusinessProcess, OperationalKnowledge } from "../models.js";
+import { Interface, System, Owner, BusinessProcess, DataEntity, OperationalKnowledge } from "../models.js";
 
 const INDEX_NAME = "default";
 const DEFINITION = { mappings: { dynamic: true } };
 const KNOWLEDGE_VECTOR_INDEX = "operational_knowledge_auto_embed";
 const AUTO_EMBED_MODEL = "voyage-4";
-const MODELS = [Interface, System, Owner, BusinessProcess, OperationalKnowledge];
+const MODELS = [Interface, System, Owner, BusinessProcess, DataEntity, OperationalKnowledge];
 
 // Create a dynamic Atlas Search index on each searchable collection. Idempotent:
 // ignores "already exists" errors so it is safe to call on every startup.

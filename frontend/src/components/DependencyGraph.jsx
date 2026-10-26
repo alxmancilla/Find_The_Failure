@@ -51,7 +51,7 @@ function SystemNode({ data }) {
 
 const nodeTypes = { system: SystemNode };
 
-export default function DependencyGraph({ flow, impacted, onSelectSystem, onSelectInterface }) {
+export default function DependencyGraph({ flow, impacted, selectedId, emptyText, onSelectSystem, onSelectInterface }) {
   const { rfNodes, rfEdges } = useMemo(() => {
     if (!flow) return { rfNodes: [], rfEdges: [] };
     const pos = Object.fromEntries(layout(flow.nodes, flow.edges).map((p) => [p.id, p]));
@@ -64,6 +64,7 @@ export default function DependencyGraph({ flow, impacted, onSelectSystem, onSele
       let statusClass = n.id === rootId ? "source" : "";
       if (riskSystems.has(n.id)) statusClass = "at-risk";
       if (failedSystems.has(n.id)) statusClass = "failed";
+      if (selectedId && n.id === selectedId) statusClass = `${statusClass} selected`;
       return {
         id: n.id,
         type: "system",
@@ -91,9 +92,9 @@ export default function DependencyGraph({ flow, impacted, onSelectSystem, onSele
       };
     });
     return { rfNodes, rfEdges };
-  }, [flow, impacted]);
+  }, [flow, impacted, selectedId]);
 
-  if (!flow) return <div className="empty">Search and select an interface to see its dependency path.</div>;
+  if (!flow) return <div className="empty">{emptyText || "Search and select an interface to see its dependency path."}</div>;
 
   return (
     <div className="graph-wrap">

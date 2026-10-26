@@ -1,4 +1,5 @@
 import { interfaces } from "./interfaces.js";
+import { lineageRelationships } from "./lineage.js";
 
 const now = new Date();
 const coreOrderFlow = new Set([
@@ -10,11 +11,17 @@ const coreOrderFlow = new Set([
   "if-erp-orderstatus",
   "if-erp-notifications",
   "if-erp-855",
+  "if-erp-856",
 ]);
 
 const supplierReplenishmentFlow = new Set([
   "if-erp-inventory",
   "if-inventory-supplier",
+]);
+
+const invoicingCashFlow = new Set([
+  "if-erp-810",
+  "if-hospital-820",
 ]);
 
 const rel = (r) => ({
@@ -71,4 +78,19 @@ export const relationships = [
         evidence: [`${iface.name} participates in the supplier replenishment process.`],
       })
     ),
+  ...interfaces
+    .filter((iface) => invoicingCashFlow.has(iface.key))
+    .map((iface) =>
+      rel({
+        key: `${iface.key}->hospital-invoicing-cash:supports_process`,
+        from_type: "interface",
+        from_key: iface.key,
+        to_type: "business_process",
+        to_key: "hospital-invoicing-cash",
+        relationship_type: "supports_process",
+        source_record_id: `${iface.key}.business_process`,
+        evidence: [`${iface.name} participates in the hospital invoicing and cash application process.`],
+      })
+    ),
+  ...lineageRelationships,
 ];

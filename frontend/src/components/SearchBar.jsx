@@ -83,10 +83,23 @@ export default function SearchBar({ onSelectInterface }) {
               ))}
             </div>
           )}
+          {results.data_entities?.length > 0 && (
+            <div className="result-group">
+              <h4>Data Entities</h4>
+              {results.data_entities.map((e) => (
+                <div key={e.key} className="result">
+                  <span className="badge">{e.entity_kind || "entity"}</span>
+                  <strong>{e.name}</strong>
+                  <span className="muted">{(e.business_terms || []).join(", ")}</span>
+                </div>
+              ))}
+            </div>
+          )}
           {!results.interfaces?.length &&
             !results.systems?.length &&
             !results.owners?.length &&
-            !results.business_processes?.length && <div className="muted">No matches.</div>}
+            !results.business_processes?.length &&
+            !results.data_entities?.length && <div className="muted">No matches.</div>}
         </div>
       )}
     </div>

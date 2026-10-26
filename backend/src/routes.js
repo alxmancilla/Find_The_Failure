@@ -29,6 +29,7 @@ import {
   recordCaseOutcome,
   updateAlertLifecycle,
 } from "./services/correlation.js";
+import { getOrderToCashFlow, listLineageEntities, traceLineage } from "./services/lineage.js";
 import { scenarios, getScenario } from "./scenarios.js";
 
 const router = Router();
@@ -98,6 +99,25 @@ router.get(
     const iface = await Interface.findOne({ key: req.params.key }).lean();
     if (!iface) return res.status(404).json({ error: "interface not found" });
     res.json(await traceInterfaceRelationships(req.params.key, req.query.direction));
+  })
+);
+
+// Operational lineage for order-to-cash data entities.
+router.get(
+  "/lineage/entities",
+  wrap(async (_req, res) => res.json(await listLineageEntities()))
+);
+router.get(
+  "/lineage/flows/order-to-cash",
+  wrap(async (_req, res) => res.json(await getOrderToCashFlow()))
+);
+router.get(
+  "/lineage/:entityKey",
+  wrap(async (req, res) => {
+    const direction = ["upstream", "downstream", "both"].includes(req.query.direction) ? req.query.direction : "both";
+    const result = await traceLineage(req.params.entityKey, direction);
+    if (!result) return res.status(404).json({ error: "lineage entity not found" });
+    res.json(result);
   })
 );
 

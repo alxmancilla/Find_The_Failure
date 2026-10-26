@@ -35,7 +35,8 @@ supporting views only when the audience wants to go deeper.
 Supporting views:
 
 - **Presenter Console** — scripted walkthrough and reset-friendly demo controls.
-- **Catalog Explorer** — the underlying systems, interfaces, owners, and graph.
+- **Catalog Explorer** — the underlying systems, interfaces, owners, and graph,
+  with a **System view / Data view** lens for order-to-cash operational lineage.
 - **Context Ingestion** — how raw CMDB/inventory/observability records become trusted context.
 - **Modernization** — the same graph used for change-planning impact analysis.
 
@@ -85,6 +86,12 @@ auditable memory.
   recent change correlation, a read-only ITSM handoff preview, local operator
   approval decisions, local case closure outcomes, a summary-first Presenter Mode,
   a guided enterprise context replay path, and collapsed secondary demo controls.
+- **Operational lineage (order-to-cash)** — Catalog Explorer's Data view traces
+  data entities from hospital Purchase Order (X12 850) through canonical order,
+  Apex ERP sales order, 855/856/810, and the 820 payment remittance. It shows
+  transformations, system of record, producers/consumers, PO-number field
+  mappings per hop, owners, and confirmed vs inferred lineage edges via
+  `$graphLookup` over typed lineage relationships.
 - **Enterprise fixture ingestion** — optional Alertmanager, integration-catalog,
   CMDB-style, and change records are captured as raw source evidence, resolved
   to canonical keys, normalized into events/relationships, grouped into calm
@@ -216,8 +223,12 @@ field type.
 
 The `interfaces` collection uses a flexible schema so a single model can hold
 EDI, REST, FHIR, event, and SFTP interfaces. Seeded footprint: **9 systems,
-10 interfaces, 3 owners, 4 data entities, 2 business processes, 17 typed
-relationships, and 5 source records**. The Context Ingestion tab and Workbench
+13 interfaces, 3 owners, 10 data entities, 3 business processes, 76 typed
+relationships, and 5 source records**. Of those relationships, 56 are
+order-to-cash lineage edges (`produces`, `carries`, `transforms_to`,
+`consumes`, `system_of_record`) kept separate from `depends_on` impact
+traversal; one is inferred from a legacy lineage workbook to demonstrate trust
+signals. The Context Ingestion tab and Workbench
 can optionally load **11 enterprise fixture records** from Alertmanager,
 integration-catalog, CMDB-style, and change exports, then normalize them into
 additional relationship/event evidence with provenance. Three of those records are
@@ -250,6 +261,9 @@ Base URL: `http://localhost:4000/api`
 | GET | `/interfaces` · `/interfaces/:key` | List / full interface detail |
 | GET | `/flow/:key` | Dependency graph (nodes + edges) |
 | GET | `/impact/:key` | Downstream impact + owners + similar failures |
+| GET | `/lineage/entities` | Order-to-cash data entities |
+| GET | `/lineage/:entityKey?direction=` | Upstream/downstream operational lineage with transformations, mappings, and trust |
+| GET | `/lineage/flows/order-to-cash` | Ordered "follow the PO number" path |
 | POST | `/simulate/:key` | Inject a failure |
 | POST | `/reset` | Restore pristine demo state |
 | GET | `/scenarios` · POST `/scenarios/:id/run` | Named failure scenarios |
@@ -297,7 +311,7 @@ Find_The_Failure/
         ├── api.js        # API client
         ├── App.jsx       # tab shell
         └── components/   # SearchBar, DependencyGraph, InterfaceDetails,
-                          # Explorer, Modernization
+                          # Explorer, LineageView, Modernization
 ```
 
 ---
@@ -309,7 +323,8 @@ npm run smoke
 ```
 
 This full demo smoke test exercises the running server across search, graph,
-impact, enterprise fixture ingestion, quality/provenance scoring, scenarios,
+impact, order-to-cash operational lineage, enterprise fixture ingestion,
+quality/provenance scoring, scenarios,
 modernization, Workbench investigation, alert deduplication, alert lifecycle,
 change correlation, read-only ITSM handoff preview, local operator approval
 decisions, local case closure outcomes, related context retrieval, similar-case

@@ -209,6 +209,36 @@ Open **Demo controls** only when you need **Add extra demo alerts** or **Reset
 demo**. The scripted alerts are secondary rehearsal data; the enterprise context
 pack is the primary ingestion story.
 
+### Optional — Operational lineage for architects (≈3 minutes)
+Use this when the audience asks, "How does order data actually move across our
+systems?"
+
+1. Go to **Catalog Explorer** and switch the lens to **Data view**.
+2. **Purchase Order** is selected by default. Show the path to **Canonical
+   Order**, **Sales Order**, **Order Acknowledgment**, **Advance Ship Notice**,
+   **Invoice**, and **Payment Remittance**.
+3. Point to the right panel: system of record, producers, consumers, and the
+   interfaces that carry the entity.
+4. Click a lineage edge (for example **Integration API to Apex ERP**) to show the
+   transformation, owner, evidence, and field mappings with the PO number
+   highlighted.
+5. Open **Follow the PO number** to walk all nine hops from `X12 850 BEG03` to
+   `CASH_APPLICATION.CUSTOMER_PO_REF`.
+6. Point to the amber animated **Advance Ship Notice → Invoice** edge: it is
+   inferred from a legacy lineage workbook at 60% confidence and needs SME
+   confirmation.
+7. Switch direction to **Upstream** on **Invoice** to answer "where did this
+   invoice come from?"
+8. Open **MongoDB proof** to show the `$graphLookup` pipeline over typed
+   `transforms_to` relationships.
+
+> "This is operational lineage, not warehouse lineage: how business documents
+> move and change shape across the integration landscape, with provenance on
+> every edge."
+
+Lineage is curated seed metadata plus ingested evidence, not automated
+discovery.
+
 ### Optional — What-if modernization question
 1. Go to the **Modernization** tab.
 2. Select **X12 Translator** → **Analyze**.
@@ -228,6 +258,7 @@ pack is the primary ingestion story.
 | Automated Embedding + Vector Search | Optional semantic retrieval over `operational_knowledge.text` |
 | Native Reranking | Optional `$rerank` stage to reorder retrieved operational context |
 | Relationship traversal | `$graphLookup` builds the upstream/downstream dependency path |
+| Operational lineage | `$graphLookup` over typed `transforms_to` edges traces order-to-cash entities; flexible `lineage.field_mappings` hold X12/JSON/ERP field paths |
 | Federated ingestion | Raw inventory, CMDB, and observability records normalize into typed relationships/events |
 | Evidence and provenance | Source records carry source id, adapter, alias resolution, trust level, and ingestion run metadata |
 | Event history alongside metadata | `events` power "similar recent failures" |
@@ -243,9 +274,10 @@ pack is the primary ingestion story.
 `business_processes`, `relationships`, `source_records`, `operational_knowledge`, and
 `investigation_cases`.
 
-Seeded footprint: **9 systems, 10 interfaces, 3 owners, 4 data entities**,
-plus **2 business processes, 17 relationships, 5 source records, 8 operational
-knowledge documents, 3 failure scenarios**, and **1 modernization scenario**.
+Seeded footprint: **9 systems, 13 interfaces, 3 owners, 10 data entities**,
+plus **3 business processes, 76 relationships (56 order-to-cash lineage edges),
+5 source records, 8 operational knowledge documents, 3 failure scenarios**, and
+**1 modernization scenario**.
 The optional enterprise fixture pack adds **11 raw source records** for ingestion
 demonstrations, including **3 external Alertmanager signals** that collapse into
 **2 Workbench inbox items** and **3 recent change records** that power the Workbench
@@ -304,6 +336,8 @@ Modernization, and Presenter Console as optional supporting views.
 | POST | `/api/reset` | Restore pristine demo state |
 | GET | `/api/scenarios` · POST `/api/scenarios/:id/run` | Named failure scenarios |
 | GET | `/api/modernization/:systemKey` | What-if impact of replacing a system |
+| GET | `/api/lineage/entities` · `/api/lineage/:entityKey` | Order-to-cash entities and upstream/downstream lineage |
+| GET | `/api/lineage/flows/order-to-cash` | Ordered "follow the PO number" path |
 | GET/POST | `/api/ingestion` · `/api/ingestion/run` | Raw source records, pipeline, quality, and normalization |
 | POST | `/api/ingestion/fixtures` · `/api/ingestion/fixtures/clear` | Load/clear optional enterprise fixture pack |
 | GET | `/api/alerts` | Deduplicated Workbench inbox items with raw signal counts |

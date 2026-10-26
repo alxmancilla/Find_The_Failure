@@ -45,6 +45,25 @@ try {
   assert(impact.affected_systems.length >= 3, "impact analysis incomplete");
   const modernization = await get("/modernization/x12-translator");
   assert(modernization.affected_interfaces.length >= 1, "modernization analysis incomplete");
+  const lineageOnlyInterfaces = ["if-erp-856", "if-erp-810", "if-hospital-820"];
+  assert(!impact.downstream_interfaces.some((i) => lineageOnlyInterfaces.includes(i.key)), "lineage interfaces leaked into depends_on impact");
+
+  const lineageEntities = await get("/lineage/entities");
+  assert(lineageEntities.entities.length >= 9, "order-to-cash lineage entities missing");
+  const poLineage = await get("/lineage/purchase-order?direction=downstream");
+  const poEntityKeys = poLineage.entities.map((e) => e.key);
+  assert(poEntityKeys.includes("payment-remittance"), "purchase order lineage does not reach payment remittance");
+  assert(poLineage.entity.system_of_record?.key === "hospital-123", "purchase order system of record missing");
+  assert(poLineage.transformations.filter((t) => t.interface).every((t) => t.po_number_mapping), "PO number mapping missing on a lineage hop");
+  assert(poLineage.transformations.every((t) => t.source_system && typeof t.confirmed === "boolean"), "lineage provenance missing");
+  assert(poLineage.data_quality.inferred >= 1, "inferred lineage edge missing");
+  assert(poLineage.mongodb_trace.pipeline.some((stage) => stage.$graphLookup), "lineage $graphLookup trace missing");
+  const invoiceLineage = await get("/lineage/invoice?direction=upstream");
+  assert(invoiceLineage.entities.some((e) => e.key === "purchase-order"), "invoice upstream lineage does not reach purchase order");
+  const o2cFlow = await get("/lineage/flows/order-to-cash");
+  assert(o2cFlow.steps.length >= 9 && o2cFlow.steps.every((s) => s.po_number_mapping), "order-to-cash PO number trace incomplete");
+  const entitySearch = await get("/search?q=invoce");
+  assert(entitySearch.data_entities?.some((e) => e.key === "invoice"), "data entity search missing invoice");
 
   await post("/ingestion/fixtures/clear");
   const fixtureLoad = await post("/ingestion/fixtures");
@@ -155,6 +174,13 @@ try {
     interfaces: interfaces.length,
     flow: { nodes: flow.nodes.length, edges: flow.edges.length },
     impactSystems: impact.affected_systems.length,
+    lineage: {
+      entities: lineageEntities.entities.length,
+      purchaseOrderDownstream: poLineage.entities.length,
+      transformations: poLineage.transformations.length,
+      inferred: poLineage.data_quality.inferred,
+      poNumberHops: o2cFlow.steps.length,
+    },
     ingestion: {
       records: ingestion.source_records.length,
       fixtureRecords: ingestion.quality.fixture_records,
