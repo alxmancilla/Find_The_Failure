@@ -9,7 +9,8 @@ instead of hours.
 > gives architects a flexible, searchable context layer **above** them so they
 > can understand how the landscape fits together.
 
-For a step-by-step presenter walkthrough, see [`DEMO.md`](./DEMO.md). For
+For a step-by-step presenter walkthrough, see [`DEMO.md`](./DEMO.md); for
+presentation slides, see [`DECK.md`](./DECK.md) (Marp Markdown). For
 collections, document shapes, and query patterns, see
 [`DATA_MODEL.md`](./DATA_MODEL.md). For future changes, use the lightweight spec
 workflow in [`specs/`](./specs/).
@@ -377,6 +378,7 @@ Find_The_Failure/
 │   ├── app.sh            # Atlas launcher (no Docker)
 │   └── full-smoke.mjs    # end-to-end smoke test (npm run smoke)
 ├── DEMO.md               # presenter runbook
+├── DECK.md               # presentation slides (Marp Markdown)
 ├── DATA_MODEL.md         # collections, document shapes, query patterns
 ├── specs/                # spec-driven design records
 ├── backend/
