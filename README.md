@@ -52,7 +52,8 @@ Navigation is grouped into two presenter paths plus the platform view:
 - **Architecture** — **Catalog & Lineage** (dependency graph with a **System view
   / Data view** lens for operational lineage, with a **Flow** selector for
   order-to-cash and procure-to-pay, an answer line above the graph, and
-  **Details / Trace / Governance / Proof** tabs), **Modernization** (change-planning impact),
+  **Details / Trace / Governance / Proof** tabs; a held or failed order trace
+  links to the matching Workbench alert), **Modernization** (change-planning impact),
   and **Recall Trace** (one lot traced across both flows). The Data view's "Plan
   a change to …" button opens Modernization with the entity's system of record
   selected.

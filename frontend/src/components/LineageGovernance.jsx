@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 
 const STATUS_LABEL = { delivered: "Delivered", failed: "Failed", on_hold: "On hold", blocked: "Blocked", not_reached: "Not reached", pending: "Pending" };
@@ -13,6 +13,18 @@ export function AsOfBanner({ asOf, onClear, subject = "mappings", inset = false 
     <div className={`as-of-banner ${inset ? "inset" : ""}`} role="status">
       <span>Viewing {subject} as of <strong>{longDay(asOf)}</strong>. Current mappings may differ.</span>
       <button type="button" onClick={onClear}>Back to current</button>
+    </div>
+  );
+}
+
+export const BACKEND_HINT = "Check that the backend is running on port 4000.";
+
+export function ErrorNotice({ message, onRetry }) {
+  if (!message) return null;
+  return (
+    <div className="error-notice" role="alert">
+      <span>{message} {BACKEND_HINT}</span>
+      {onRetry && <button type="button" onClick={onRetry}>Retry</button>}
     </div>
   );
 }
@@ -50,23 +62,34 @@ export function Segmented({ label, options, value, onChange }) {
 }
 
 // Design path ("follow the identifier") with an optional per-order overlay.
-export function OrderTrace({ flow, defaultOpen = false }) {
+export function OrderTrace({ flow, defaultOpen = false, initialSelected = null, onInvestigate }) {
   const [transactions, setTransactions] = useState([]);
   const [selected, setSelected] = useState("");
   const [trace, setTrace] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const pendingSelection = useRef(initialSelected);
 
   useEffect(() => {
-    setSelected("");
     if (!flow?.flow) return;
+    const pending = pendingSelection.current;
+    pendingSelection.current = null;
+    setSelected(pending?.flow === flow.flow ? pending.value : "");
     api.lineageTransactions(flow.flow).then((res) => setTransactions(res.transactions || [])).catch(() => setTransactions([]));
   }, [flow?.flow]);
 
   useEffect(() => {
     if (!selected) return setTrace(null);
-    api.lineageTransaction(selected, flow?.flow).then(setTrace).catch(() => setTrace(null));
+    let ignore = false;
+    setLoading(true);
+    api.lineageTransaction(selected, flow?.flow)
+      .then((res) => { if (!ignore) setTrace(res); })
+      .catch(() => { if (!ignore) setTrace(null); })
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; };
   }, [selected, flow?.flow]);
 
-  if (!flow) return null;
+  if (!flow) return <p className="muted mini-copy loading-text">Loading flow path…</p>;
+  const stuck = trace?.stuck_at?.interface;
   const statusByStep = new Map((trace?.steps || []).map((s) => [s.step, s]));
   return (
     <details className="detail-stack lineage-trace" open={defaultOpen || Boolean(selected)}>
@@ -80,9 +103,16 @@ export function OrderTrace({ flow, defaultOpen = false }) {
           </select>
         </label>
       </div>
-      <p className="muted mini-copy lineage-trace-copy">{trace?.summary || flow.summary}</p>
+      <p className="muted mini-copy lineage-trace-copy">{loading ? `Loading trace for ${selected}…` : trace?.summary || flow.summary}</p>
       {trace?.data_impact?.entities_at_risk?.length > 0 && (
         <p className="order-trace-impact">Not produced yet: {trace.data_impact.entities_at_risk.map((e) => e.name).join(", ")}</p>
+      )}
+      {stuck && onInvestigate && (
+        <p className="lineage-trace-copy">
+          <button type="button" className="link-button" onClick={() => onInvestigate(stuck.key, trace.value)}>
+            Investigate {stuck.name} in the Workbench →
+          </button>
+        </p>
       )}
       <ol className="po-trace">
         {flow.steps.map((step) => {

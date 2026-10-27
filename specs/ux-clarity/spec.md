@@ -43,9 +43,8 @@ projector. Some navigation hints are stale after procure-to-pay and recall.
 
 ## 6. Non-goals
 
-- Workbench restructuring (triage vs case step).
-- Cross-screen deep links, loading skeletons, and retry states.
 - Presenter display scaling.
+- Frontend component tests (need new test dependencies; pending approval).
 
 ## 7. Requirements
 
@@ -67,6 +66,17 @@ projector. Some navigation hints are stale after procure-to-pay and recall.
 - **REQ-009:** Flow and direction controls are labelled radio groups with
   keyboard arrow support; direction buttons carry icons; entities are chosen
   from a labelled list in flow order.
+- **REQ-010:** Cross-screen links: Recall Trace PO and supplier PO numbers open
+  the Data view on that flow with the order traced; a failed or held order
+  trace links to the Workbench and selects the alert on the stuck interface
+  (or explains that none exists); Modernization flow badges open the Data view
+  on that flow and entity.
+- **REQ-011:** Data view, Recall Trace, and Modernization show a loading state,
+  an empty state with a next step, and an error notice with **Retry**.
+- **REQ-012:** The Workbench right rail has two steps: **1. Triage** (summary
+  and supporting evidence) and **2. Case** (handoff preview, follow-up,
+  approval, closure, and audit trail). Case unlocks once a case is open; the
+  Next best action card links to it.
 
 ## 8. UX design
 
@@ -84,7 +94,7 @@ Unchanged. The MongoDB proof moves to its own tab.
 
 ## 11. Acceptance criteria
 
-- [ ] REQ-001 to REQ-009 visible in the running demo (pending a manual visual pass).
+- [ ] REQ-001 to REQ-012 visible in the running demo (pending a manual visual pass).
 - [x] `cd frontend && npm run build` passes.
 - [x] `npm run smoke` passes with unchanged results.
 
@@ -104,16 +114,21 @@ Unchanged. The MongoDB proof moves to its own tab.
 - [x] Tabbed Data view panel.
 - [x] As-of banner and clearer controls.
 - [x] Docs and spec status.
+- [x] Cross-screen links (REQ-010).
+- [x] Loading, empty, and retry states (REQ-011).
+- [x] Workbench triage / case split (REQ-012).
 
 ## 15. Decisions
 
-- Items 5–7 of the UX review (deep links, states, Workbench split) are deferred.
+- Links switch views through App-level state; there is no URL routing, so
+  browser back does not return to the previous view.
+- The Workbench link selects the matching inbox alert but does not open a case;
+  the presenter still clicks **Open investigation case**.
 
 ## 16. Roadmap priority
 
-1. Cross-screen links (Recall → Lineage, Trace → Workbench).
-2. Loading, empty, and retry states.
-3. Workbench triage / case split.
+1. Frontend component tests (Vitest + Testing Library), once approved.
+2. URL routing so links are shareable and browser back works.
 
 ## 17. Follow-ups
 

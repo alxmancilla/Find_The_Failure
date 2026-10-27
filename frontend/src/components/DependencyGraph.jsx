@@ -76,7 +76,7 @@ function Legend({ items }) {
   );
 }
 
-export default function DependencyGraph({ flow, impacted, selectedId, emptyText, legend = IMPACT_LEGEND, onSelectSystem, onSelectInterface }) {
+export default function DependencyGraph({ flow, impacted, selectedId, emptyText, legend = IMPACT_LEGEND, loading = false, onSelectSystem, onSelectInterface }) {
   const { rfNodes, rfEdges } = useMemo(() => {
     if (!flow) return { rfNodes: [], rfEdges: [] };
     const pos = Object.fromEntries(layout(flow.nodes, flow.edges).map((p) => [p.id, p]));
@@ -119,10 +119,10 @@ export default function DependencyGraph({ flow, impacted, selectedId, emptyText,
     return { rfNodes, rfEdges };
   }, [flow, impacted, selectedId]);
 
-  if (!flow) return <div className="empty">{emptyText || "Search and select an interface to see its dependency path."}</div>;
+  if (!flow) return <div className="empty" aria-busy={loading}>{emptyText || "Search and select an interface to see its dependency path."}</div>;
 
   return (
-    <div className="graph-wrap">
+    <div className={`graph-wrap ${loading ? "is-loading" : ""}`} aria-busy={loading}>
       <ReactFlow
         nodes={rfNodes}
         edges={rfEdges}
@@ -136,6 +136,7 @@ export default function DependencyGraph({ flow, impacted, selectedId, emptyText,
         <Controls showInteractive={false} />
       </ReactFlow>
       {legend?.length > 0 && <Legend items={legend} />}
+      {loading && <div className="graph-loading" role="status">Loading…</div>}
     </div>
   );
 }

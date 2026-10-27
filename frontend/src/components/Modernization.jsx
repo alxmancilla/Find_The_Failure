@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
+import { ErrorNotice } from "./LineageGovernance.jsx";
 
 const entityChips = (list, className = "chip") => (
   list.length ? list.map((e) => <span key={e.key} className={className}>{e.name}</span>) : <span className="muted">None</span>
 );
 
-function LineageImpact({ impact, sysName }) {
+function LineageImpact({ impact, sysName, onOpenLineage }) {
   const s = impact.summary;
   return (
     <div className="panel-section lineage-impact">
@@ -20,7 +21,9 @@ function LineageImpact({ impact, sysName }) {
       </div>
       {impact.transformations.map((t) => (
         <div key={t.key} className="event">
-          <div><strong>{t.from_key} → {t.to_key}</strong> {t.flow && <span className="badge">{t.flow}</span>} {t.interface && <span className="badge">{t.interface.protocol} {t.interface.message_type}</span>} {!t.confirmed && <span className="badge status-degraded">inferred</span>}</div>
+          <div><strong>{t.from_key} → {t.to_key}</strong> {t.flow && (onOpenLineage
+            ? <button type="button" className="badge link-button" title={`Open ${t.from_key} in the ${t.flow} Data view`} onClick={() => onOpenLineage({ flow: t.flow, entity: t.from_key })}>{t.flow} →</button>
+            : <span className="badge">{t.flow}</span>)} {t.interface && <span className="badge">{t.interface.protocol} {t.interface.message_type}</span>} {!t.confirmed && <span className="badge status-degraded">inferred</span>}</div>
           <div className="when">{t.transformation}</div>
           {t.field_mappings.length > 0 && <div className="when">{t.field_mappings.map((m) => `${m.field}: ${m.source_path} → ${m.target_path}`).join(" · ")}</div>}
         </div>
@@ -35,20 +38,38 @@ function LineageImpact({ impact, sysName }) {
   );
 }
 
-export default function Modernization({ systemKey: initialSystemKey = "x12-translator", onSystemChange }) {
+export default function Modernization({ systemKey: initialSystemKey = "x12-translator", onSystemChange, onOpenLineage }) {
   const [systems, setSystems] = useState([]);
   const [systemKey, setSystemKeyState] = useState(initialSystemKey);
   const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const setSystemKey = (key) => {
     setSystemKeyState(key);
     onSystemChange?.(key);
   };
 
+  const loadSystems = () => api.systems().then(setSystems).catch(() => setError("Unable to load systems."));
+
   useEffect(() => {
-    api.systems().then(setSystems);
+    loadSystems();
   }, []);
 
-  const run = async () => setResult(await api.modernization(systemKey));
+  const run = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setResult(await api.modernization(systemKey));
+    } catch {
+      setError("Unable to analyze this system.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  const retry = () => {
+    if (!systems.length) loadSystems();
+    run();
+  };
 
   useEffect(() => {
     run();
@@ -73,11 +94,13 @@ export default function Modernization({ systemKey: initialSystemKey = "x12-trans
               <option key={s.key} value={s.key}>{s.name}</option>
             ))}
           </select>
-          <button className="primary" onClick={run}>Analyze</button>
+          <button className="primary" disabled={loading} onClick={run}>{loading ? "Analyzing…" : "Analyze"}</button>
         </div>
+        <ErrorNotice message={error} onRetry={retry} />
+        {loading && !result && <p className="muted loading-text" role="status">Analyzing {sysName}…</p>}
 
         {result && (
-          <>
+          <div aria-busy={loading} style={{ opacity: loading ? 0.6 : 1 }}>
             <div className="mod-summary">
               <div className="stat">
                 <div className="num">{result.summary.interface_count}</div>
@@ -126,8 +149,8 @@ export default function Modernization({ systemKey: initialSystemKey = "x12-trans
               </div>
             </div>
 
-            {result.lineage_impact && <LineageImpact impact={result.lineage_impact} sysName={sysName} />}
-          </>
+            {result.lineage_impact && <LineageImpact impact={result.lineage_impact} sysName={sysName} onOpenLineage={onOpenLineage} />}
+          </div>
         )}
       </div>
     </div>

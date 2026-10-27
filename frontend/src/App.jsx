@@ -28,9 +28,24 @@ const MORE_ITEMS = [
 export default function App() {
   const [tab, setTab] = useState("workbench");
   const [modernizationSystem, setModernizationSystem] = useState("x12-translator");
+  const [catalogTarget, setCatalogTarget] = useState(null);
+  const [workbenchFocus, setWorkbenchFocus] = useState(null);
+  const goTo = (id) => {
+    setCatalogTarget(null);
+    setWorkbenchFocus(null);
+    setTab(id);
+  };
   const planChange = (systemKey) => {
     setModernizationSystem(systemKey);
-    setTab("modernization");
+    goTo("modernization");
+  };
+  const openLineage = (target) => {
+    goTo("explorer");
+    setCatalogTarget({ ...target, nonce: Date.now() });
+  };
+  const investigateInterface = (interfaceKey, context) => {
+    goTo("workbench");
+    setWorkbenchFocus({ interfaceKey, context, nonce: Date.now() });
   };
 
   return (
@@ -56,7 +71,7 @@ export default function App() {
                     className={tab === item.id ? "active" : ""}
                     aria-pressed={tab === item.id}
                     title={item.hint}
-                    onClick={() => setTab(item.id)}
+                    onClick={() => goTo(item.id)}
                   >
                     {item.label}
                   </button>
@@ -67,7 +82,7 @@ export default function App() {
               className={`nav-more ${MORE_ITEMS.some((item) => item.id === tab) ? "active" : ""}`}
               aria-label="More views"
               value={MORE_ITEMS.some((item) => item.id === tab) ? tab : ""}
-              onChange={(e) => e.target.value && setTab(e.target.value)}
+              onChange={(e) => e.target.value && goTo(e.target.value)}
             >
               <option value="">More…</option>
               {MORE_ITEMS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
@@ -75,11 +90,11 @@ export default function App() {
           </nav>
         </div>
       </header>
-      {tab === "workbench" && <InvestigationWorkbench />}
+      {tab === "workbench" && <InvestigationWorkbench focus={workbenchFocus} />}
       {tab === "demo" && <DemoConsole />}
-      {tab === "explorer" && <Explorer onPlanChange={planChange} />}
-      {tab === "modernization" && <Modernization systemKey={modernizationSystem} onSystemChange={setModernizationSystem} />}
-      {tab === "recall" && <RecallTrace />}
+      {tab === "explorer" && <Explorer key={catalogTarget?.nonce || "explorer"} target={catalogTarget} onPlanChange={planChange} onInvestigate={investigateInterface} />}
+      {tab === "modernization" && <Modernization systemKey={modernizationSystem} onSystemChange={setModernizationSystem} onOpenLineage={openLineage} />}
+      {tab === "recall" && <RecallTrace onOpenLineage={openLineage} />}
       {tab === "ingestion" && <Ingestion />}
       {tab === "investigation" && <Investigation />}
     </div>

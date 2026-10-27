@@ -80,7 +80,7 @@ Specs below are `validated` unless marked otherwise.
 
 **Cross-cutting**
 
-- [`ux-clarity`](./ux-clarity/spec.md) — answer-first architecture screens, tabbed Data view, as-of banner, legend, 12px font floor (`implemented`; build and smoke pass, manual visual pass pending)
+- [`ux-clarity`](./ux-clarity/spec.md) — answer-first architecture screens, tabbed Data view, as-of banner, legend, 12px font floor, cross-screen links, loading/retry states, Workbench triage/case steps (`implemented`; build and smoke pass, manual visual pass pending)
 
 ## Change discipline
 

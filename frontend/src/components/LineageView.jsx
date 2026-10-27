@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import DependencyGraph from "./DependencyGraph.jsx";
-import { AsOfBanner, MappingVersion, OrderTrace, Segmented, StandardsPanel, StewardDecisions, StewardReview } from "./LineageGovernance.jsx";
+import { AsOfBanner, ErrorNotice, MappingVersion, OrderTrace, Segmented, StandardsPanel, StewardDecisions, StewardReview } from "./LineageGovernance.jsx";
 import { api } from "../api.js";
 
 const DIRECTIONS = [
@@ -101,48 +101,59 @@ function TransformationPanel({ transformation, entityName, identifier = "po_numb
   );
 }
 
-export default function LineageView({ lens, onLensChange, onPlanChange }) {
+export default function LineageView({ lens, onLensChange, target, onPlanChange, onInvestigate }) {
   const [flows, setFlows] = useState([]);
-  const [flowKey, setFlowKey] = useState("order-to-cash");
+  const [flowKey, setFlowKey] = useState(target?.flow || "order-to-cash");
   const [entities, setEntities] = useState([]);
-  const [entityKey, setEntityKey] = useState("purchase-order");
+  const [entityKey, setEntityKey] = useState(target?.entity || "purchase-order");
   const [direction, setDirection] = useState("both");
   const [lineage, setLineage] = useState(null);
   const [flow, setFlow] = useState(null);
   const [selectedEdge, setSelectedEdge] = useState(null);
   const [asOf, setAsOf] = useState("");
-  const [panelTab, setPanelTab] = useState("details");
+  const [panelTab, setPanelTab] = useState(target?.transaction ? "trace" : "details");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const refresh = () => setRefreshKey((k) => k + 1);
+  const retry = () => {
+    setError("");
+    setReloadKey((k) => k + 1);
+    refresh();
+  };
 
   useEffect(() => {
     api.lineageFlows().then((res) => setFlows(res.flows || [])).catch(() => setFlows([]));
-  }, []);
+  }, [reloadKey]);
 
   useEffect(() => {
     let ignore = false;
     setFlow(null);
+    setLoading(true);
     api.lineageEntities(flowKey)
       .then((res) => {
         if (ignore) return;
         const list = res.entities || [];
         setEntities(list);
         setEntityKey((current) => (list.some((e) => e.key === current) ? current : list[0]?.key || ""));
+        if (!list.length) setLoading(false);
       })
-      .catch(() => setError("Unable to load lineage entities."));
+      .catch(() => { if (!ignore) { setError("Unable to load lineage entities."); setLoading(false); } });
     api.lineageFlow(flowKey).then((res) => { if (!ignore) setFlow(res); }).catch(() => {});
     return () => { ignore = true; };
-  }, [flowKey]);
+  }, [flowKey, reloadKey]);
 
   useEffect(() => setSelectedEdge(null), [entityKey, direction, flowKey]);
 
   useEffect(() => {
     if (!entityKey || !entities.some((e) => e.key === entityKey)) return undefined;
     let ignore = false;
+    setLoading(true);
     api.lineage(entityKey, direction, asOf, flowKey)
       .then((res) => { if (!ignore) { setLineage(res); setError(""); } })
-      .catch(() => { if (!ignore) setError("Unable to load lineage."); });
+      .catch(() => { if (!ignore) setError("Unable to load lineage."); })
+      .finally(() => { if (!ignore) setLoading(false); });
     return () => { ignore = true; };
   }, [entityKey, entities, direction, asOf, flowKey, refreshKey]);
 
@@ -179,13 +190,14 @@ export default function LineageView({ lens, onLensChange, onPlanChange }) {
         </div>
         <AnswerLine lineage={lineage} flow={flow} direction={direction} />
         <AsOfBanner asOf={asOf} onClear={() => setAsOf("")} />
-        {error && <p className="feed-status">{error}</p>}
+        <ErrorNotice message={error} onRetry={retry} />
         <DependencyGraph
           flow={lineage?.graph?.edges?.length ? lineage.graph : null}
           impacted={impacted}
           selectedId={entityKey}
           legend={LINEAGE_LEGEND}
-          emptyText="No transformations found for this entity in the selected direction."
+          loading={loading}
+          emptyText={loading ? "Loading lineage…" : "No transformations found for this entity in the selected direction. Try ↕ Both or another entity."}
           onSelectSystem={setEntityKey}
           onSelectInterface={selectEdge}
         />
@@ -214,7 +226,14 @@ export default function LineageView({ lens, onLensChange, onPlanChange }) {
               <TransformationPanel transformation={transformation} entityName={entityName} identifier={flow?.identifier} onReviewed={refresh} />
             </>
           )}
-          {panelTab === "trace" && <OrderTrace flow={flow} defaultOpen />}
+          {panelTab === "trace" && (
+            <OrderTrace
+              flow={flow}
+              defaultOpen
+              initialSelected={target?.transaction ? { flow: target.flow, value: target.transaction } : null}
+              onInvestigate={onInvestigate}
+            />
+          )}
           {panelTab === "governance" && (
             <>
               {inferredCount > 0 && (

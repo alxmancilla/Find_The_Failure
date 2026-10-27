@@ -66,6 +66,10 @@ Open **Investigation Workbench**. The current hero flow is guided by three cues:
 - **Presenter Mode**, which keeps the default view summary-first while leaving
   proof panels available on demand.
 
+The right rail has two steps: **1. Triage** (summary and supporting evidence)
+and **2. Case** (handoff preview, follow-up Q&A, approval, closure, and audit
+trail). The Case step unlocks once a case is open.
+
 Let the agent playbook populate topology, evidence, handoff, and local closure
 state while you narrate the business value.
 
@@ -124,16 +128,17 @@ Hospital 123 → EDI Gateway → X12 Translator → Integration API → Apex ERP
    **Investigating** in local Workbench state.
 3. Point to the credibility list: grouped signals, recent changes, related
    context, similar cases, and evidence are summarized without filling the screen.
-4. Open **Handoff preview and follow-up** to show the draft ITSM/escalation package: target
-   queue, urgency, assignment group, impact, evidence, and approval guardrail.
-5. Use **Operator action → Decision and closure** to record an approve, defer, or
+4. Open **Supporting evidence** in the Triage step when the audience asks for
+   more: grouped signals, similar prior cases, recent changes, related runbooks,
+   and grounding evidence.
+5. Click **Continue to case** (or **2. Case**). The **Handoff preview** shows the
+   draft ITSM/escalation package: target queue, urgency, assignment group,
+   impact, evidence, and approval guardrail.
+6. Use **Operator action → Decision and closure** to record an approve, defer, or
    reject decision. Emphasize this is local case memory only; no external
    escalation was sent.
-6. In the same **Operator action** panel, mark the case **Resolved**,
+7. In the same **Operator action** panel, mark the case **Resolved**,
    **Monitoring**, or **Transferred**. The top stats update the **Case outcome**.
-7. Open **Supporting evidence and audit trail** when the audience asks for more:
-   grouped signals, similar prior cases, recent changes, related runbooks,
-   grounding evidence, and the persisted case timeline are disclosed there.
 8. Review the safe next checks. No remediation is executed in Agent v1; the
     guardrail reminds the audience that action requires operator approval.
 
@@ -141,7 +146,7 @@ Hospital 123 → EDI Gateway → X12 Translator → Integration API → Apex ERP
 > business process is exposed."
 
 ### Act 5 — Ask grounded follow-up questions
-Open **Handoff preview and follow-up**, then use **Ask follow-up** to ask:
+In the **Case** step, use **Ask follow-up** to ask:
 
 - "Why is this the likely fault domain?"
 - "What business process is impacted?"
@@ -160,7 +165,7 @@ back into `investigation_cases` with grounding labels and a MongoDB trace.
 
 ### Act 6 — Show case memory and audit trail
 After the investigation completes, point to **Case memory** in the Alert Inbox
-and **Supporting evidence and audit trail** in the right panel.
+and **Case audit trail** in the Case step.
 
 - Each investigation creates a persisted case record.
 - The case stores the alert snapshot, summary, likely fault domain, evidence,
@@ -264,6 +269,8 @@ for one real order, and who decides what is true?"
    the remaining hops are blocked. The summary says the Sales Order may not be
    produced, and the amber line lists the 7 downstream documents not produced
    yet, from Inventory Request and the 855 through Invoice and Cash Application.
+   Click **Investigate Integration API to Apex ERP in the Workbench →** to jump
+   to the matching alert in the inbox, then come back to Catalog & Lineage.
 2. Pick **PO-4500012345** to contrast a completed order that reached cash
    application.
 3. Click the amber **Advance Ship Notice → Invoice** edge and use **Data steward
@@ -305,7 +312,8 @@ Use this when architects ask, "Does this generalize beyond one flow?"
    Supplier Payment are not produced yet.
 4. Pick **SPO-7700451** to contrast a completed supplier PO.
 5. In **Modernization**, analyze **Apex ERP**: **Data Lineage Impact (all
-   flows)** tags each transformation with its flow.
+   flows)** tags each transformation with its flow; click a flow badge to open
+   that transformation in the Data view.
 
 > "Adding a business flow is a data change, not a code change."
 
@@ -322,7 +330,8 @@ we answer who has it?"
 4. Scroll to the evidence: totals (**300 received, 180 shipped**), the
    **Affected hospitals** table, and **Path of lot L-2291** crossing from
    procure-to-pay (supplier 856, goods receipt) into order-to-cash (customer
-   856).
+   856). Click a PO or supplier PO number to open that order's trace in the Data
+   view.
 5. Point to **Untraceable by lot**: receipt **GR-51877** was posted before the
    supplier 856 v2 mapping captured lot numbers.
 6. Set **Mappings as of** to `2025-06-01`: in **Lot number coverage** the

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
-import { AsOfBanner } from "./LineageGovernance.jsx";
+import { AsOfBanner, ErrorNotice } from "./LineageGovernance.jsx";
 
 const when = (d) => (d ? new Date(d).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" }) : "—");
 
@@ -45,27 +45,55 @@ function RecallAnswer({ recall, trace, untraceable }) {
   );
 }
 
-export default function RecallTrace() {
+// Entity to open in the Data view when following a transaction from the recall trace.
+const FLOW_ENTITY = { "order-to-cash": "advance-ship-notice", "procure-to-pay": "goods-receipt" };
+
+function TraceLink({ flow, value, onOpenLineage }) {
+  if (!onOpenLineage) return value;
+  return (
+    <button type="button" className="link-button" title={`Open ${value} in the Data view`} onClick={() => onOpenLineage({ flow, entity: FLOW_ENTITY[flow], transaction: value })}>
+      {value}
+    </button>
+  );
+}
+
+const joinNodes = (nodes) => nodes.flatMap((node, i) => (i ? [", ", node] : [node]));
+
+export default function RecallTrace({ onOpenLineage }) {
   const [recalls, setRecalls] = useState([]);
   const [recallId, setRecallId] = useState("");
   const [asOf, setAsOf] = useState("");
   const [detail, setDetail] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
   const [error, setError] = useState("");
+  const retry = () => {
+    setError("");
+    setReloadKey((k) => k + 1);
+  };
 
   useEffect(() => {
     api.recalls().then((res) => {
       setRecalls(res.recalls || []);
       setRecallId((current) => current || res.recalls?.[0]?.key || "");
-    }).catch(() => setError("Unable to load recall notices."));
-  }, []);
+      if (!res.recalls?.length) setLoading(false);
+    }).catch(() => { setError("Unable to load recall notices."); setLoading(false); });
+  }, [reloadKey]);
 
   useEffect(() => {
-    if (!recallId) return;
-    api.recall(recallId, asOf).then((res) => { setDetail(res); setError(""); }).catch(() => setError("Unable to load recall trace."));
-  }, [recallId, asOf]);
+    if (!recallId) return undefined;
+    let ignore = false;
+    setLoading(true);
+    api.recall(recallId, asOf)
+      .then((res) => { if (!ignore) { setDetail(res); setError(""); } })
+      .catch(() => { if (!ignore) setError("Unable to load recall trace."); })
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; };
+  }, [recallId, asOf, reloadKey]);
 
   const recall = detail?.recall;
   const trace = detail?.trace;
+  const link = (flow, value) => <TraceLink key={value} flow={flow} value={value} onOpenLineage={onOpenLineage} />;
   return (
     <div className="main">
       <div className="left" style={{ padding: 24, overflowY: "auto" }}>
@@ -87,9 +115,13 @@ export default function RecallTrace() {
           </label>
         </div>
         <AsOfBanner asOf={asOf} onClear={() => setAsOf("")} subject="lot mappings" inset />
-        {error && <p className="feed-status">{error}</p>}
+        <ErrorNotice message={error} onRetry={retry} />
+        {loading && <p className="muted loading-text" role="status">{detail ? "Updating recall trace…" : "Loading recall trace…"}</p>}
+        {!loading && !error && !recalls.length && (
+          <div className="empty-card"><strong>No recall notices</strong><p>Reseed with <code>npm run seed</code> to load the sample recall notice.</p></div>
+        )}
         {recall && trace && (
-          <>
+          <div aria-busy={loading} style={{ opacity: loading ? 0.6 : 1 }}>
             <RecallAnswer recall={recall} trace={trace} untraceable={detail.untraceable_receipts} />
             <div className="panel-section">
               <h3>Recommended actions</h3>
@@ -114,7 +146,7 @@ export default function RecallTrace() {
                 <thead><tr><th>Hospital</th><th>Orders</th><th>Shipments</th><th>Units</th><th>Last shipped</th></tr></thead>
                 <tbody>
                   {trace.customers.map((c) => (
-                    <tr key={c.ship_to}><td>{c.ship_to}</td><td>{c.orders.join(", ")}</td><td>{c.shipments.join(", ")}</td><td>{c.quantity}</td><td>{when(c.last_shipped_at)}</td></tr>
+                    <tr key={c.ship_to}><td>{c.ship_to}</td><td>{joinNodes(c.orders.map((po) => link("order-to-cash", po)))}</td><td>{c.shipments.join(", ")}</td><td>{c.quantity}</td><td>{when(c.last_shipped_at)}</td></tr>
                   ))}
                 </tbody>
               </table>
@@ -123,7 +155,7 @@ export default function RecallTrace() {
               <h3>Path of lot {recall.lot_number}</h3>
               {trace.flows.map((f) => (
                 <div key={f.flow} className="recall-path-flow">
-                  <strong>{f.name}</strong> <span className="muted mini-copy">{f.transactions.join(", ")}</span>
+                  <strong>{f.name}</strong> <span className="muted mini-copy">{joinNodes(f.transactions.map((value) => link(f.flow, value)))}</span>
                   <ol className="po-trace">
                     {f.hops.map((h) => (
                       <li key={h.interface?.key}>
@@ -137,7 +169,9 @@ export default function RecallTrace() {
             </div>
             {detail.untraceable_receipts.length > 0 && (
               <div className="order-trace-impact recall-untraceable">
-                Untraceable by lot: {detail.untraceable_receipts.map((r) => `${r.receipt_number} (${r.quantity} units, ${when(r.observed_at)}, ${r.supplier_po_number})`).join("; ")}.
+                Untraceable by lot: {detail.untraceable_receipts.map((r, i) => (
+                  <span key={r.receipt_number}>{i ? "; " : ""}{r.receipt_number} ({r.quantity} units, {when(r.observed_at)}, {link("procure-to-pay", r.supplier_po_number)})</span>
+                ))}.
                 Received before the supplier 856 v2 mapping captured lot numbers.
               </div>
             )}
@@ -147,7 +181,7 @@ export default function RecallTrace() {
               <p className="muted mini-copy lineage-trace-copy">{trace.mongodb_trace.purpose}</p>
               <pre className="lineage-pipeline">{trace.mongodb_trace.code}</pre>
             </details>
-          </>
+          </div>
         )}
       </div>
     </div>

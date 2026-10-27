@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api.js";
 import DependencyGraph from "./DependencyGraph.jsx";
 
@@ -398,13 +398,15 @@ function SelectedAlertPanel({ alert, busy, lifecycleBusy, activeCase, isHiddenBy
   );
 }
 
-function NextBestActionPanel({ hasEnterpriseContext, selectedAlert, activeCase, result, busy, feedBusy, resetBusy, onReplay, onInvestigate }) {
+function NextBestActionPanel({ hasEnterpriseContext, selectedAlert, activeCase, result, busy, feedBusy, resetBusy, onReplay, onInvestigate, onOpenCase }) {
   const outcomeStatus = activeCase?.case_outcome?.status;
   const approvalStatus = activeCase?.approval_state?.status;
   let action = {
     status: "Ready",
     title: "Review the investigation",
-    detail: "Evidence, handoff preview, follow-up Q&A, and local case memory are available in the right rail.",
+    detail: "Triage is ready. The Case step holds the handoff preview, follow-up Q&A, approval, and closure.",
+    cta: "Open case step",
+    onClick: onOpenCase,
   };
 
   if (!hasEnterpriseContext) {
@@ -439,9 +441,9 @@ function NextBestActionPanel({ hasEnterpriseContext, selectedAlert, activeCase, 
       disabled: busy,
     };
   } else if (approvalStatus === "pending") {
-    action = { status: "Review", title: "Record the operator decision", detail: "Use the Operator action panel to approve, defer, or reject the handoff preview locally." };
+    action = { status: "Review", title: "Record the operator decision", detail: "In the Case step, approve, defer, or reject the handoff preview locally.", cta: "Open case step", onClick: onOpenCase };
   } else if (!outcomeStatus || outcomeStatus === "open") {
-    action = { status: "Close loop", title: "Record the case outcome", detail: "Mark the case resolved, monitoring, or transferred after reviewing evidence and approval context." };
+    action = { status: "Close loop", title: "Record the case outcome", detail: "In the Case step, mark the case resolved, monitoring, or transferred after reviewing evidence and approval context.", cta: "Open case step", onClick: onOpenCase };
   } else {
     action = { status: "Complete", title: `Case marked ${activeCase.case_outcome.label.toLowerCase()}`, detail: "The demo-safe workflow is closed locally; no external ticket, page, or remediation was changed." };
   }
@@ -1098,7 +1100,7 @@ function sortProcessNames(a, b) {
   return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi) || a.localeCompare(b);
 }
 
-export default function InvestigationWorkbench() {
+export default function InvestigationWorkbench({ focus = null }) {
   const [alerts, setAlerts] = useState([]);
   const [selectedKey, setSelectedKey] = useState("");
   const [steps, setSteps] = useState(STEP_TEMPLATE.map((s) => ({ ...s, status: "pending" })));
@@ -1123,6 +1125,8 @@ export default function InvestigationWorkbench() {
   const [processFilter, setProcessFilter] = useState(PROCESS_FILTER_ALL);
   const [alertStats, setAlertStats] = useState({ rawAlertsCount: 0, dedupeGroupsCount: 0, suppressedAlertsCount: 0 });
   const [presenterMode, setPresenterMode] = useState(true);
+  const [workStep, setWorkStep] = useState("triage");
+  const pendingFocus = useRef(focus);
 
   const selectedAlert = useMemo(() => alerts.find((a) => a.key === selectedKey), [alerts, selectedKey]);
   const processOptions = useMemo(() => {
@@ -1213,9 +1217,25 @@ export default function InvestigationWorkbench() {
     setResult(null);
     setImpacted(null);
     setMessages([]);
+    setWorkStep("triage");
     setSelectedStageId("received");
     setSteps(STEP_TEMPLATE.map((s) => ({ ...s, status: "pending" })));
   };
+
+  useEffect(() => {
+    const target = pendingFocus.current;
+    if (!target || !alerts.length) return;
+    pendingFocus.current = null;
+    const match = alerts.find((alert) => alert.interface_key === target.interfaceKey);
+    if (match) {
+      selectAlert(match.key);
+      setProcessFilter(PROCESS_FILTER_ALL);
+      setAlertQuery("");
+      setFeedStatus(`Opened from the lineage trace of ${target.context}: selected the alert on ${target.interfaceKey}. Open a case to investigate.`);
+    } else {
+      setFeedStatus(`No inbox alert on ${target.interfaceKey} yet (traced from ${target.context}). Replay enterprise context or add extra demo alerts.`);
+    }
+  }, [alerts]);
 
   const selectCase = async (caseKey) => {
     setCaseStatus("Loading saved case…");
@@ -1414,6 +1434,7 @@ export default function InvestigationWorkbench() {
       setProcessFilter(PROCESS_FILTER_ALL);
       setAlertQuery("");
       setSelectedKey(externalAlerts[0]?.key || nextAlerts[0]?.key || "");
+      setWorkStep("triage");
       setActiveCase(null);
       setResult(null);
       setImpacted(null);
@@ -1443,6 +1464,7 @@ export default function InvestigationWorkbench() {
       setAlertStats(responseAlertStats(res, nextAlerts));
       setCases(res.cases || []);
       setSelectedKey(nextAlerts[0]?.key || "");
+      setWorkStep("triage");
       setActiveCase(null);
       setResult(null);
       setImpacted(null);
@@ -1529,6 +1551,7 @@ export default function InvestigationWorkbench() {
           resetBusy={resetBusy}
           onReplay={ingestEnterpriseContext}
           onInvestigate={startInvestigation}
+          onOpenCase={() => setWorkStep("case")}
         />
         <section className="workbench-header">
           <div>
@@ -1575,24 +1598,55 @@ export default function InvestigationWorkbench() {
           </div>
 
           <aside className="workbench-right">
-            <InvestigationSummaryCard selectedAlert={selectedAlert} activeCase={activeCase} result={result} busy={busy} onInvestigate={startInvestigation} />
-            <OperatorActionPanel activeCase={activeCase} busy={busy} approvalBusy={approvalBusy} outcomeBusy={outcomeBusy} onDecision={recordApprovalDecision} onOutcome={recordCaseOutcome} />
-            <details className="detail-stack">
-              <summary>Handoff preview and follow-up <span>{result ? "Available" : "Pending"}</span></summary>
-              <HandoffPreviewPanel result={result} />
-              <FollowUpPanel result={result} activeCase={activeCase} messages={messages} question={question} setQuestion={setQuestion} onAsk={ask} busy={followupBusy} />
-            </details>
-            <details className="detail-stack">
-              <summary>Supporting evidence and audit trail <span>{result ? "Available" : "Pending"}</span></summary>
-              <OperationalPriorityPanel selectedAlert={selectedAlert} result={result} />
-              <BusinessImpactPanel result={result} selectedAlert={selectedAlert} />
-              <AlertDeduplicationPanel selectedAlert={selectedAlert} result={result} />
-              <SimilarCasesPanel result={result} />
-              <ChangeCorrelationPanel result={result} />
-              <RelatedContextPanel result={result} />
-              <EvidencePanel result={result} />
-              <CaseTimeline caseRecord={activeCase} />
-            </details>
+            <div className="workbench-steps">
+              <div className="segmented" role="tablist" aria-label="Workbench step">
+                <button type="button" role="tab" id="wb-tab-triage" aria-controls="wb-panel" aria-selected={workStep === "triage"} onClick={() => setWorkStep("triage")}>
+                  1. Triage
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  id="wb-tab-case"
+                  aria-controls="wb-panel"
+                  aria-selected={workStep === "case"}
+                  disabled={!activeCase}
+                  title={activeCase ? "Handoff, follow-up, approval, and closure" : "Open a case first"}
+                  onClick={() => setWorkStep("case")}
+                >
+                  2. Case {activeCase?.case_outcome?.label && activeCase.case_outcome.status !== "open" ? `· ${activeCase.case_outcome.label}` : ""}
+                </button>
+              </div>
+            </div>
+            <div id="wb-panel" role="tabpanel" aria-labelledby={workStep === "case" ? "wb-tab-case" : "wb-tab-triage"}>
+              {workStep === "triage" || !activeCase ? (
+                <>
+                  <InvestigationSummaryCard selectedAlert={selectedAlert} activeCase={activeCase} result={result} busy={busy} onInvestigate={startInvestigation} />
+                  <details className="detail-stack">
+                    <summary>Supporting evidence <span>{result ? "Available" : "Pending"}</span></summary>
+                    <OperationalPriorityPanel selectedAlert={selectedAlert} result={result} />
+                    <BusinessImpactPanel result={result} selectedAlert={selectedAlert} />
+                    <AlertDeduplicationPanel selectedAlert={selectedAlert} result={result} />
+                    <SimilarCasesPanel result={result} />
+                    <ChangeCorrelationPanel result={result} />
+                    <RelatedContextPanel result={result} />
+                    <EvidencePanel result={result} />
+                  </details>
+                  {result && activeCase && (
+                    <button type="button" className="primary full" onClick={() => setWorkStep("case")}>Continue to case: handoff, follow-up, approval →</button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <HandoffPreviewPanel result={result} />
+                  <FollowUpPanel result={result} activeCase={activeCase} messages={messages} question={question} setQuestion={setQuestion} onAsk={ask} busy={followupBusy} />
+                  <OperatorActionPanel activeCase={activeCase} busy={busy} approvalBusy={approvalBusy} outcomeBusy={outcomeBusy} onDecision={recordApprovalDecision} onOutcome={recordCaseOutcome} />
+                  <details className="detail-stack">
+                    <summary>Case audit trail <span>{activeCase.key}</span></summary>
+                    <CaseTimeline caseRecord={activeCase} />
+                  </details>
+                </>
+              )}
+            </div>
           </aside>
         </div>
       </main>
