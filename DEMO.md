@@ -43,11 +43,15 @@ Before presenting:
 3. Run `npm run smoke` from the repository root.
 4. Confirm the smoke output reports `ok: true`.
 5. Open `http://localhost:5173` or `http://127.0.0.1:5173`.
-6. Start in **Investigation Workbench**. Use the top **Next best action** coach
-   and the left-side **Recommended flow** as the presenter guide.
+6. Start in **Operations → Investigation Workbench**. Use the top **Next best
+   action** coach and the left-side **Recommended flow** as the presenter guide.
+   For an architecture audience, start in **Architecture → Catalog & Lineage**
+   (section "Operational lineage for architects" below).
 
-`npm run smoke` returns the Workbench to a clean rehearsal state by clearing
-demo-feed alerts, lifecycle state, cases, and simulated failures.
+`npm run smoke` returns the demo to a clean rehearsal state by clearing
+demo-feed alerts, lifecycle state, cases, simulated failures, the optional
+enterprise fixture pack, and data-steward lineage decisions. Inventory and
+lineage exports stay loaded.
 
 ---
 
@@ -189,7 +193,7 @@ Open **More… → Presenter Console** to manually step through topology reveal,
 failure injection, metadata normalization, and alert investigation.
 
 ### Optional — Enterprise context ingestion view
-Go to **Context Ingestion** when the audience asks, "Where does the topology
+Go to **Platform → Context Ingestion** when the audience asks, "Where does the topology
 come from, and can we trust it?"
 
 1. Click **Load enterprise fixture pack** to capture Alertmanager,
@@ -301,9 +305,15 @@ Lineage is ingested from curated exports, not automated discovery.
 | Atlas Search | Fuzzy, relevance-ranked search across all fields (⚡ badge) |
 | Automated Embedding + Vector Search | Optional semantic retrieval over `operational_knowledge.text` |
 | Native Reranking | Optional `$rerank` stage to reorder retrieved operational context |
-| Relationship traversal | `$graphLookup` builds the upstream/downstream dependency path |
-| Operational lineage | `$graphLookup` over typed `transforms_to` edges traces order-to-cash entities; flexible `lineage.field_mappings` hold X12/JSON/ERP field paths |
-| Federated ingestion | Raw inventory, CMDB, and observability records normalize into typed relationships/events |
+| Relationship traversal | `$graphLookup` over `depends_on` edges in `relationships` builds the upstream/downstream dependency path |
+| Operational lineage | `$graphLookup` over typed, tenant-scoped `transforms_to` edges traces order-to-cash entities; flexible `field_mappings` on edges hold X12/JSON/ERP field paths |
+| Single edge store | Dependency, process, and lineage edges all live in `relationships`; interfaces embed no edges |
+| Flows as data | `lineage_flows` documents define identifier, entity order, and path; no code change for a new flow |
+| Run-time tracing | Business-key index on `message_events` traces one order by PO number against the flow path |
+| Versioned mappings | `mapping_versions` on edges answer "what was the mapping as of a date?" |
+| Stewardship audit | `review` / `review_history` on edges; rejected edges filtered inside `$graphLookup` via `restrictSearchWithMatch` |
+| Standards interoperability | ArchiMate / OpenLineage mapping and an OpenLineage RunEvent export generated from relationships |
+| Federated ingestion | Raw inventory, process-map, lineage, CMDB, and observability records normalize into typed relationships/events |
 | Evidence and provenance | Source records carry source id, adapter, alias resolution, trust level, and ingestion run metadata |
 | Event history alongside metadata | `events` power "similar recent failures" |
 | Production-shaped agent memory | Tenant/environment scope, query-aligned indexes, score components, and projected case fields |
@@ -413,4 +423,11 @@ from; Presenter Console and Classic Investigation live under **More…**.
 - **Port already in use** — a previous run is still up; `npm run stop` and re-run.
 - **Reset the whole dataset** — `npm run seed`.
 - **Verify the whole demo** — `npm run smoke` exercises the main API paths and
-  returns the Workbench to a clean state.
+  returns the demo to a clean state.
+- **Lineage shows an edge as confirmed/rejected from a previous rehearsal** — use
+  **Reset steward decisions** in the Data view, or `POST /api/lineage/reviews/clear`.
+- **"As of" shows the current mapping** — only the X12 translation and ERP
+  order-create hops carry earlier versions; pick a date before 2026-03-01 or
+  2025-06-01 respectively.
+- **Order trace picker is empty** — reseed with `npm run seed`; sample
+  `message_events` are created at seed time.

@@ -50,12 +50,31 @@ Use [`template.md`](./template.md) for new specs.
 
 Create specs under `specs/<short-feature-name>/spec.md`.
 
-Examples:
+## Spec index
 
-- `specs/operations-workbench/spec.md`
-- `specs/operational-priority/spec.md`
-- `specs/alert-lifecycle/spec.md`
-- `specs/change-correlation/spec.md`
+All specs below are `validated`.
+
+**Operations (Investigation Workbench)**
+
+- [`operations-workbench`](./operations-workbench/spec.md) — baseline Workbench journey
+- [`operational-priority`](./operational-priority/spec.md) — priority and SLA risk
+- [`alert-lifecycle`](./alert-lifecycle/spec.md) — local alert lifecycle states
+- [`change-correlation`](./change-correlation/spec.md) — "What changed?" evidence
+- [`alert-deduplication`](./alert-deduplication/spec.md) — grouped alert signals
+- [`mongodb-agent-hardening`](./mongodb-agent-hardening/spec.md) — tenant scope, indexes, case projections
+- [`similar-case-retrieval`](./similar-case-retrieval/spec.md) — prior case memory
+- [`grounded-follow-up-qa`](./grounded-follow-up-qa/spec.md) — backend-grounded follow-up
+- [`itsm-handoff-preview`](./itsm-handoff-preview/spec.md) — read-only escalation package
+- [`operator-approval-decision-log`](./operator-approval-decision-log/spec.md) — local approve/defer/reject
+- [`case-closure-outcomes`](./case-closure-outcomes/spec.md) — local case outcomes
+- [`workbench-simplification`](./workbench-simplification/spec.md) — Presenter Mode
+
+**Architecture (lineage)**
+
+- [`operational-lineage`](./operational-lineage/spec.md) — order-to-cash Data view
+- [`lineage-integration`](./lineage-integration/spec.md) — data impact, lineage-aware Modernization, modelling fixes
+- [`architecture-integrity`](./architecture-integrity/spec.md) — ingested lineage, single edge store, flows as data, grouped navigation
+- [`lineage-governance`](./lineage-governance/spec.md) — order tracing, steward review, versioned mappings, standards
 
 ## Change discipline
 

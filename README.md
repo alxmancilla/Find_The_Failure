@@ -9,8 +9,10 @@ instead of hours.
 > gives architects a flexible, searchable context layer **above** them so they
 > can understand how the landscape fits together.
 
-For a step-by-step presenter walkthrough, see [`DEMO.md`](./DEMO.md). For future
-changes, use the lightweight spec workflow in [`specs/`](./specs/).
+For a step-by-step presenter walkthrough, see [`DEMO.md`](./DEMO.md). For
+collections, document shapes, and query patterns, see
+[`DATA_MODEL.md`](./DATA_MODEL.md). For future changes, use the lightweight spec
+workflow in [`specs/`](./specs/).
 
 > **Positioning:** this repository is an early-stage, seeded PoC. It demonstrates
 > the operating model and MongoDB fit; production readiness still requires real
@@ -19,18 +21,27 @@ changes, use the lightweight spec workflow in [`specs/`](./specs/).
 
 ---
 
-## Recommended demo path
+## Recommended demo paths
 
-The **Investigation Workbench** is the hero experience. Use the other tabs as
-supporting views only when the audience wants to go deeper.
+**Operations path** — the **Investigation Workbench** is the hero experience.
 
 1. Start from an operational alert in the Workbench.
 2. Use the default Presenter Mode summary to answer: what happened, what is
-   impacted, and what should we do next?
+   impacted (including which business documents are at risk), and what should
+   we do next?
 3. Show how MongoDB maps the alert to a canonical interface and dependency graph.
 4. Open the proof panels only when the audience asks for MongoDB traces, evidence,
    changes, related context, or case memory.
 5. Close with persisted case memory and human-reviewed next checks.
+
+**Architecture path** — for architects and data-governance audiences.
+
+1. In **Catalog & Lineage**, switch to **Data view** and follow the Purchase Order
+   through to Cash Application, with transformations, field mappings, owners, and
+   trust status on every hop.
+2. Trace a sample order by PO number to show where it stopped.
+3. Confirm or reject the inferred lineage edge as a data steward.
+4. Click **Plan a change to …** to see what must be rebuilt in **Modernization**.
 
 Navigation is grouped into two presenter paths plus the platform view:
 
@@ -49,32 +60,39 @@ Navigation is grouped into two presenter paths plus the platform view:
 
 ```mermaid
 flowchart LR
-  sources[CMDB / Integration catalog / Observability / Runbooks]
+  sources[CMDB / Integration catalog / Lineage exports / Observability / Runbooks]
+  ingestion[Ingestion + normalization with provenance]
   atlas[(MongoDB Atlas context layer)]
   capabilities[Atlas Search + Vector Search + Rerank + graphLookup]
   workbench[Investigation Workbench]
+  lineage[Catalog & Lineage + Modernization]
   caseMemory[(Auditable case memory)]
-  human[Human-reviewed next checks]
+  human[Human-reviewed next checks and steward decisions]
 
-  sources --> atlas
+  sources --> ingestion
+  ingestion --> atlas
   atlas --> capabilities
   capabilities --> workbench
+  capabilities --> lineage
   workbench --> caseMemory
   workbench --> human
+  lineage --> human
   caseMemory --> workbench
 ```
 
 MongoDB is the context layer: flexible documents capture heterogeneous integration
-metadata, typed relationships support graph traversal, Atlas Search and optional
-Vector Search retrieve operational knowledge, and investigation cases preserve
-auditable memory.
+metadata; every dependency and lineage edge is a typed, provenance-backed
+document in `relationships` traversed with `$graphLookup`; Atlas Search and
+optional Vector Search retrieve operational knowledge; and investigation cases
+and steward decisions preserve auditable memory.
 
 ---
 
 ## Features
 
-- **Search** across systems, interfaces, protocols, business terms, and owners —
-  powered by **Atlas Search** (fuzzy + relevance-ranked), with a regex fallback.
+- **Search** across systems, interfaces, protocols, owners, business processes,
+  and data entities (business terms such as "PO" or "EDI 810") — powered by
+  **Atlas Search** (fuzzy + relevance-ranked), with a regex fallback.
 - **Dependency graph** — traverse upstream/downstream relationships with
   `$graphLookup`, rendered as an interactive React Flow diagram.
 - **Impact analysis** — simulate a failure and instantly see the failed
@@ -231,6 +249,8 @@ field type.
 
 ## Data model (12 collections)
 
+Full document shapes and query patterns are in [`DATA_MODEL.md`](./DATA_MODEL.md).
+
 `systems`, `interfaces`, `data_entities`, `owners`, `events`,
 `business_processes`, `relationships`, `source_records`, `operational_knowledge`,
 `investigation_cases`, `lineage_flows`, and `message_events`.
@@ -328,11 +348,14 @@ Find_The_Failure/
 ├── .env                  # centralized config (git-ignored)
 ├── .env.example          # config template (local + Atlas)
 ├── docker-compose.yml    # MongoDB Atlas Local
-├── package.json          # root scripts: demo, start:app, seed, stop
+├── package.json          # root scripts: demo, start:app, seed, smoke, stop
 ├── scripts/
 │   ├── demo.sh           # local launcher (starts Docker DB)
-│   └── app.sh            # Atlas launcher (no Docker)
+│   ├── app.sh            # Atlas launcher (no Docker)
+│   └── full-smoke.mjs    # end-to-end smoke test (npm run smoke)
 ├── DEMO.md               # presenter runbook
+├── DATA_MODEL.md         # collections, document shapes, query patterns
+├── specs/                # spec-driven design records
 ├── backend/
 │   └── src/
 │       ├── config.js     # loads root .env
@@ -341,14 +364,16 @@ Find_The_Failure/
 │       ├── routes.js     # REST API
 │       ├── server.js     # Express app
 │       ├── scenarios.js  # named failure scenarios
-│       ├── seed/         # seed data + runner
-│       └── services/     # graph, impact, search, retrieval, search index
+│       ├── seed/         # seed data, inventory/lineage exports, flows, sample message events
+│       └── services/     # graph, impact, search, ingestion, correlation (Workbench),
+│                         # lineage, lineageTrace, lineageReview, lineageStandards
 └── frontend/
     └── src/
         ├── api.js        # API client
-        ├── App.jsx       # tab shell
-        └── components/   # SearchBar, DependencyGraph, InterfaceDetails,
-                          # Explorer, LineageView, Modernization
+        ├── App.jsx       # grouped navigation shell
+        └── components/   # InvestigationWorkbench, Explorer, LineageView,
+                          # LineageGovernance, Modernization, Ingestion,
+                          # DependencyGraph, SearchBar, InterfaceDetails, ...
 ```
 
 ---
@@ -359,15 +384,18 @@ Find_The_Failure/
 npm run smoke
 ```
 
-This full demo smoke test exercises the running server across search, graph,
-impact, order-to-cash operational lineage, enterprise fixture ingestion,
-quality/provenance scoring, scenarios,
-modernization, Workbench investigation, alert deduplication, alert lifecycle,
-change correlation, read-only ITSM handoff preview, local operator approval
-decisions, local case closure outcomes, related context retrieval, similar-case
-retrieval, backend-grounded follow-up Q&A, score breakdowns, projected case
-memory fields, and reset/cleanup. It clears the
-optional fixture pack before the Workbench path so the normal rehearsal baseline
-remains stable.
+This full demo smoke test exercises the running server across search, the
+relationship-based dependency graph (exactly 9 nodes / 8 edges), impact and
+lineage data impact, order-to-cash operational lineage, lineage-aware
+modernization, ingested inventory and lineage provenance, flow documents,
+single-order PO tracing, versioned "as of" mappings, the data-steward
+confirm → re-ingest → reject → reset cycle, the ArchiMate/OpenLineage mapping and
+export, enterprise fixture ingestion, quality/provenance scoring, scenarios,
+Workbench investigation, alert deduplication, alert lifecycle, change
+correlation, read-only ITSM handoff preview, local operator approval decisions,
+local case closure outcomes, related context retrieval, similar-case retrieval,
+backend-grounded follow-up Q&A, score breakdowns, projected case memory fields,
+and reset/cleanup. It clears the optional fixture pack and steward decisions so
+the normal rehearsal baseline remains stable.
 
 For the smaller backend-only check, run `cd backend && node smoke.mjs`.
