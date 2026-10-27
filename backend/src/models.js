@@ -86,15 +86,7 @@ const interfaceSchema = new Schema(
   },
   { collection: "interfaces", timestamps: true, strict: false }
 );
-
-interfaceSchema.index({
-  name: "text",
-  description: "text",
-  type: "text",
-  protocol: "text",
-  source: "text",
-  target: "text",
-});
+// Interface search uses Atlas Search (see services/searchIndex.js), not a classic text index.
 
 // Events: operational history stored alongside metadata
 const eventSchema = new Schema(
@@ -142,8 +134,6 @@ const sourceRecordSchema = new Schema(
   { collection: "source_records", timestamps: true, strict: false }
 );
 
-sourceRecordSchema.index({ source_system: 1, record_type: 1 });
-sourceRecordSchema.index({ entity_type: 1, entity_key: 1 });
 sourceRecordSchema.index({ tenant_id: 1, environment: 1, record_type: 1, observed_at: -1 });
 sourceRecordSchema.index({ tenant_id: 1, environment: 1, record_type: 1, "payload.alert_group_key": 1, observed_at: -1 });
 sourceRecordSchema.index({ tenant_id: 1, environment: 1, record_type: 1, source_system: 1, entity_key: 1, observed_at: -1 });
@@ -166,11 +156,7 @@ const operationalKnowledgeSchema = new Schema(
   },
   { collection: "operational_knowledge", timestamps: true, strict: false }
 );
-
-operationalKnowledgeSchema.index({ interface_key: 1, type: 1 });
-operationalKnowledgeSchema.index({ business_process_key: 1, type: 1 });
-operationalKnowledgeSchema.index({ tenant_id: 1, environment: 1, interface_key: 1, type: 1 });
-operationalKnowledgeSchema.index({ tenant_id: 1, environment: 1, business_process_key: 1, type: 1 });
+// Related-context retrieval uses Atlas Search / Vector Search indexes, so no B-tree secondaries.
 
 // Agent investigation cases: auditable memory for supervised investigations.
 const investigationCaseSchema = new Schema(
@@ -224,9 +210,7 @@ const investigationCaseSchema = new Schema(
   { collection: "investigation_cases", timestamps: true, strict: false }
 );
 
-investigationCaseSchema.index({ alert_key: 1, createdAt: -1 });
-investigationCaseSchema.index({ status: 1, updatedAt: -1 });
-investigationCaseSchema.index({ tenant_id: 1, environment: 1, status: 1, updatedAt: -1 });
+investigationCaseSchema.index({ tenant_id: 1, environment: 1, updatedAt: -1 });
 investigationCaseSchema.index({ tenant_id: 1, environment: 1, interface_key: 1, updatedAt: -1 });
 investigationCaseSchema.index({ tenant_id: 1, environment: 1, business_process_key: 1, updatedAt: -1 });
 investigationCaseSchema.index({ tenant_id: 1, environment: 1, dedupe_group_key: 1, updatedAt: -1 });
@@ -272,13 +256,11 @@ const relationshipSchema = new Schema(
   { collection: "relationships", timestamps: true }
 );
 
-relationshipSchema.index({ from_type: 1, from_key: 1, relationship_type: 1 });
-relationshipSchema.index({ to_type: 1, to_key: 1, relationship_type: 1 });
-// Lineage $graphLookup: connectToField (from_key/to_key) + restrictSearchWithMatch scope.
+// $graphLookup recursion queries connectToField (from_key / to_key) plus the
+// restrictSearchWithMatch filter, so the edge key leads; these two indexes also
+// serve every direct edge lookup by from_key / to_key and relationship_type.
 relationshipSchema.index({ from_key: 1, relationship_type: 1, tenant_id: 1, environment: 1 });
 relationshipSchema.index({ to_key: 1, relationship_type: 1, tenant_id: 1, environment: 1 });
-relationshipSchema.index({ tenant_id: 1, environment: 1, from_type: 1, from_key: 1, relationship_type: 1 });
-relationshipSchema.index({ tenant_id: 1, environment: 1, to_type: 1, to_key: 1, relationship_type: 1 });
 
 // Lineage flows as data: business identifier, entity ordering, and the ordered
 // interface path that services traverse.

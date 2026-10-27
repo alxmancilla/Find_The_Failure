@@ -81,6 +81,7 @@ Specs below are `validated` unless marked otherwise.
 **Cross-cutting**
 
 - [`ux-clarity`](./ux-clarity/spec.md) — answer-first architecture screens, tabbed Data view, as-of banner, legend, 12px font floor, cross-screen links, loading/retry states, Workbench triage/case steps (`implemented`; build and smoke pass, manual visual pass pending)
+- [`mongodb-hygiene`](./mongodb-hygiene/spec.md) — `$jsonSchema` validators (warn), index cleanup with `syncIndexes()`, tenant-scoped hot-path queries, explicit connection settings
 
 ## Change discipline
 

@@ -6,6 +6,7 @@ import {
   simulateFailure,
   resetStatuses,
   getModernizationImpact,
+  EVENT_SCOPE,
 } from "./services/impact.js";
 import { search } from "./services/search.js";
 import { traceInterfaceRelationships } from "./services/relationships.js";
@@ -65,7 +66,7 @@ router.get(
         System.findOne({ key: iface.target }).lean(),
         Owner.find({ key: { $in: iface.owners || [] } }).lean(),
         DataEntity.find({ key: { $in: iface.data_entities || [] } }).lean(),
-        Event.find({ interface_key: iface.key })
+        Event.find({ ...EVENT_SCOPE, interface_key: iface.key })
           .sort({ timestamp: -1 })
           .limit(5)
           .lean(),

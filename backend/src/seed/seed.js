@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { connectDB } from "../db.js";
+import { ensureDatabaseSetup } from "../dbSetup.js";
 import {
   Owner,
   System,
@@ -75,6 +76,7 @@ async function seed() {
       `normalized ${inventory.source_records} inventory exports into ${inventory.relationship_upserts} relationships and ` +
       `${lineage.source_records} lineage records into ${lineage.relationship_upserts} lineage relationships`
   );
+  await ensureDatabaseSetup();
 
   await mongoose.disconnect();
   console.log("[seed] done");

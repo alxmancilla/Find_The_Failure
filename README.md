@@ -248,6 +248,11 @@ indexes on your cluster on first startup. The `.env` is git-ignored, so
 credentials stay out of version control; keep the URI in `.env` only (not in
 shell commands, logs, or tickets).
 
+Connection settings are explicit and configurable in `.env`: `MONGO_APP_NAME`
+(default `find-the-failure`, shown in Atlas monitoring), `MONGO_MAX_POOL_SIZE`
+(default 20), and `MONGO_SERVER_SELECTION_TIMEOUT_MS` (default 10000), alongside
+retryable reads/writes and `w: "majority"`.
+
 ### Related-context retrieval modes
 
 The Investigation Workbench searches `operational_knowledge` for related
@@ -311,9 +316,15 @@ also targeted-upsert **4 additional simulated observability alerts**, retrieve
 **8 operational knowledge documents**, and persist investigation cases.
 
 Operational agent collections now carry production-shaped `tenant_id` and
-`environment` metadata with compound indexes for the Workbench hot paths:
-alert inbox, deduplication, change correlation, related-context lookup, recent
-events, relationship traversal, and case memory. Investigation cases also project
+`environment` metadata, and the Workbench hot-path queries (alert inbox,
+deduplication, change correlation, recent events, and case memory) filter on
+them so they use tenant-first compound indexes; relationship traversal uses
+`from_key` / `to_key`-first indexes, and related-context lookup uses Atlas
+Search. On every seed and server start, `backend/src/dbSetup.js` applies
+`$jsonSchema` validators (`moderate` level, `warn` action) to `relationships`,
+`message_events`, `source_records`, and `lineage_flows`, logs how many documents
+do not match, and runs `syncIndexes()` so indexes removed from a schema are
+dropped (Atlas Search indexes are not affected). Investigation cases also project
 key fields such as interface, business process, dedupe group, confidence score,
 related-context keys, and change keys at the top level while preserving the full
 investigation snapshot. New investigations use those projections to retrieve
@@ -384,7 +395,8 @@ Find_The_Failure/
 ├── backend/
 │   └── src/
 │       ├── config.js     # loads root .env
-│       ├── db.js         # Mongoose connection
+│       ├── db.js         # Mongoose connection (appName, pool, timeouts, durability)
+│       ├── dbSetup.js    # $jsonSchema validators + syncIndexes on seed/startup
 │       ├── models.js     # 12 collections
 │       ├── routes.js     # REST API
 │       ├── server.js     # Express app

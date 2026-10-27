@@ -321,6 +321,35 @@ be configured for Automated Embedding `$vectorSearch` and Native `$rerank`.
 
 ---
 
+## Validation and indexes
+
+**Validators.** `relationships`, `message_events`, `source_records`, and
+`lineage_flows` have `$jsonSchema` validators with `validationLevel: "moderate"`
+and `validationAction: "warn"`. They require identity and scope fields
+(`key`, `tenant_id`, `environment`, plus collection-specific keys), check types
+(`confidence` 0–1, `confirmed` boolean, dates), and list known enums
+(`relationship_type`, `from_type` / `to_type`, `record_type`, message `status`).
+Unknown extra fields stay allowed. `backend/src/dbSetup.js` applies them on seed
+and server start and logs the count of non-matching documents
+(`$nor: [{ $jsonSchema }]`).
+
+**Indexes.** Each secondary index serves a query shape the code runs;
+`syncIndexes()` drops any index no longer declared in a schema.
+
+| Collection | Index | Serves |
+|---|---|---|
+| `relationships` | `{from_key, relationship_type, tenant_id, environment}` and `{to_key, …}` | `$graphLookup` recursion (`connectToField`) and direct edge lookups |
+| `source_records` | `{tenant_id, environment, record_type, observed_at}` (+ `payload.alert_group_key` / `source_system, entity_key` variants) | Alert inbox, deduplication, change correlation, recall notices |
+| `investigation_cases` | `{tenant_id, environment, updatedAt}` and `{tenant_id, environment, <projected key>, updatedAt}` | Case list and similar-case retrieval |
+| `events` | `{tenant_id, environment, interface_key, timestamp}` | Recent events and similar failures |
+| `message_events` | `{tenant_id, environment, flow, business_keys.<id>, observed_at}` and lot / UDI variants | Order, supplier PO, and lot traces |
+
+`interfaces` and `operational_knowledge` have no secondary B-tree indexes beyond
+`key`: search and related-context retrieval use Atlas Search / Vector Search
+indexes, created by `ensureSearchIndexes()`.
+
+---
+
 ## Production caveats
 
 The graph is only as correct as the ingested source records. Lineage is

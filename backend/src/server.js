@@ -3,6 +3,7 @@ import cors from "cors";
 import mongoose from "mongoose";
 import { PORT } from "./config.js";
 import { connectDB } from "./db.js";
+import { ensureDatabaseSetup } from "./dbSetup.js";
 import router from "./routes.js";
 import { ensureSearchIndexes } from "./services/searchIndex.js";
 
@@ -10,6 +11,9 @@ const READY_STATES = ["disconnected", "connected", "connecting", "disconnecting"
 
 async function main() {
   await connectDB();
+  await ensureDatabaseSetup().catch((e) =>
+    console.warn(`[db] validator/index setup skipped: ${e.message}`)
+  );
   await ensureSearchIndexes().catch((e) =>
     console.warn(`[search] index setup skipped: ${e.message}`)
   );

@@ -6,6 +6,9 @@ import {
 } from "./relationships.js";
 import { getDataImpact, getSystemLineageImpact } from "./lineage.js";
 import { events as seedEvents } from "../seed/events.js";
+import { DEFAULT_ENVIRONMENT, DEFAULT_TENANT_ID } from "../demoDefaults.js";
+
+export const EVENT_SCOPE = { tenant_id: DEFAULT_TENANT_ID, environment: DEFAULT_ENVIRONMENT };
 
 // Full impact picture for a (possibly failing) interface: which interfaces and
 // systems are downstream, who owns it, and similar recent failures.
@@ -31,7 +34,7 @@ export async function getImpact(interfaceKey) {
   const [systems, owners, recent, similar, dataImpact] = await Promise.all([
     System.find({ key: { $in: [...systemKeys] } }).lean(),
     Owner.find({ key: { $in: iface.owners || [] } }).lean(),
-    Event.find({ interface_key: interfaceKey }).sort({ timestamp: -1 }).limit(5).lean(),
+    Event.find({ ...EVENT_SCOPE, interface_key: interfaceKey }).sort({ timestamp: -1 }).limit(5).lean(),
     findSimilarFailures(interfaceKey),
     getDataImpact(impactedKeys),
   ]);
@@ -53,7 +56,7 @@ export async function getImpact(interfaceKey) {
 // Similar recent failures: same interface or same failure reason elsewhere.
 export async function findSimilarFailures(interfaceKey) {
   const iface = await Interface.findOne({ key: interfaceKey }).lean();
-  const lastFailure = await Event.findOne({ interface_key: interfaceKey, status: "failed" })
+  const lastFailure = await Event.findOne({ ...EVENT_SCOPE, interface_key: interfaceKey, status: "failed" })
     .sort({ timestamp: -1 })
     .lean();
 
@@ -61,7 +64,7 @@ export async function findSimilarFailures(interfaceKey) {
   if (lastFailure?.reason) or.push({ status: "failed", reason: lastFailure.reason });
   if (iface?.type) or.push({ status: "failed", message_type: iface.message_type });
 
-  return Event.find({ $or: or }).sort({ timestamp: -1 }).limit(5).lean();
+  return Event.find({ ...EVENT_SCOPE, $or: or }).sort({ timestamp: -1 }).limit(5).lean();
 }
 
 // Simulate a failure by recording a failed event and flagging the interface.

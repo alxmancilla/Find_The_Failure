@@ -27,8 +27,11 @@ const CASE_OUTCOME_LABELS = {
 const SEVERITY_RANK = { critical: 4, error: 3, warning: 2, info: 1 };
 const STATUS_RANK = { failed: 4, degraded: 3, warning: 2, open: 1 };
 
+const DEFAULT_SCOPE = { tenant_id: DEFAULT_TENANT_ID, environment: DEFAULT_ENVIRONMENT };
+const recordScope = (record) => ({ tenant_id: record?.tenant_id || DEFAULT_TENANT_ID, environment: record?.environment || DEFAULT_ENVIRONMENT });
+
 export async function listAlerts() {
-  const rawAlerts = await SourceRecord.find({ record_type: "alert" })
+  const rawAlerts = await SourceRecord.find({ ...DEFAULT_SCOPE, record_type: "alert" })
     .sort({ observed_at: -1 })
     .lean();
   const groups = groupAlertRecords(rawAlerts);
@@ -124,7 +127,7 @@ export async function clearWorkbenchDemoState() {
 }
 
 export async function listInvestigationCases() {
-  const cases = await InvestigationCase.find()
+  const cases = await InvestigationCase.find(DEFAULT_SCOPE)
     .sort({ updatedAt: -1 })
     .limit(12)
     .lean();
@@ -626,10 +629,11 @@ async function findAlertDeduplication(alert) {
 
 function alertDeduplicationFilter(alert) {
   if (alert.payload?.alert_group_key) {
-    return { record_type: "alert", "payload.alert_group_key": alert.payload.alert_group_key };
+    return { ...recordScope(alert), record_type: "alert", "payload.alert_group_key": alert.payload.alert_group_key };
   }
 
   const filter = {
+    ...recordScope(alert),
     record_type: "alert",
     source_system: alert.source_system,
     entity_key: alert.entity_key,
@@ -914,7 +918,7 @@ async function findChangeCorrelation(alert, iface, impact, systemKeys) {
   const windowEnd = new Date(alertTime.getTime() + 15 * 60 * 1000);
   const processKeys = [alert.payload?.business_process_key, ...(impact?.business_processes || []).map((p) => p.key)].filter(Boolean);
   const assetKeys = [...new Set([iface.key, ...systemKeys].filter(Boolean))];
-  const filter = changeCorrelationFilter(assetKeys, processKeys, windowStart, windowEnd);
+  const filter = changeCorrelationFilter(recordScope(alert), assetKeys, processKeys, windowStart, windowEnd);
   const records = await SourceRecord.find(filter).sort({ observed_at: -1 }).limit(8).lean();
   const documents = records
     .map((record) => formatChangeRecord(record, alertTime, assetKeys, processKeys))
@@ -933,8 +937,9 @@ async function findChangeCorrelation(alert, iface, impact, systemKeys) {
   };
 }
 
-function changeCorrelationFilter(assetKeys, processKeys, windowStart, windowEnd) {
+function changeCorrelationFilter(scope, assetKeys, processKeys, windowStart, windowEnd) {
   return {
+    ...scope,
     record_type: "change",
     observed_at: { $gte: windowStart, $lte: windowEnd },
     $or: [

@@ -10,5 +10,8 @@ config({ path: resolve(__dirname, "../../.env") });
 export const MONGO_URI =
   process.env.MONGO_URI || "mongodb://localhost:27017/find_the_failure";
 export const PORT = process.env.PORT || 4000;
+export const MONGO_APP_NAME = process.env.MONGO_APP_NAME || "find-the-failure";
+export const MONGO_MAX_POOL_SIZE = Number(process.env.MONGO_MAX_POOL_SIZE) || 20;
+export const MONGO_SERVER_SELECTION_TIMEOUT_MS = Number(process.env.MONGO_SERVER_SELECTION_TIMEOUT_MS) || 10000;
 export const ATLAS_RETRIEVAL_MODE = process.env.ATLAS_RETRIEVAL_MODE || "atlas-search";
 export const ENABLE_ATLAS_AUTO_EMBED_INDEX = process.env.ENABLE_ATLAS_AUTO_EMBED_INDEX === "true";
