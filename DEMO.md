@@ -116,8 +116,10 @@ Hospital 123 → EDI Gateway → X12 Translator → Integration API → Apex ERP
 1. Start with **Investigation summary**: priority, business impact, likely issue,
    owner, credibility signals, and first safe check. For the ERP order-create
    alert, point to **Data affected**: lineage shows the sales order may not be
-   produced, so the 855, 856, invoice, remittance, and cash application are at
-   risk, exposing Hospital Invoicing and Cash Application.
+   produced, so 12 downstream documents are at risk: the 855, 856, invoice,
+   remittance, and cash application on the customer side, and the supplier PO
+   documents through Supplier Payment on the procure-to-pay side. This exposes
+   Hospital Invoicing and Cash Application and Supplier Invoice and Payment.
 2. Point to the alert lifecycle tag: opening the case marks the alert
    **Investigating** in local Workbench state.
 3. Point to the credibility list: grouped signals, recent changes, related
