@@ -42,14 +42,19 @@ workflow in [`specs/`](./specs/).
 2. Trace a sample order by PO number to show where it stopped.
 3. Confirm or reject the inferred lineage edge as a data steward.
 4. Click **Plan a change to …** to see what must be rebuilt in **Modernization**.
+5. Switch the flow picker to **Procure-to-pay** to show the same model on the
+   supplier side, including a supplier PO held at invoice match.
+6. Open **Recall Trace** to follow recalled lot L-2291 across both flows.
 
 Navigation is grouped into two presenter paths plus the platform view:
 
 - **Operations** — **Investigation Workbench** (the hero path above).
 - **Architecture** — **Catalog & Lineage** (dependency graph with a **System view
-  / Data view** lens for order-to-cash operational lineage), then
-  **Modernization** (change-planning impact). The Data view's "Plan a change to
-  …" button opens Modernization with the entity's system of record selected.
+  / Data view** lens for operational lineage, with a flow picker for
+  order-to-cash and procure-to-pay), **Modernization** (change-planning impact),
+  and **Recall Trace** (one lot traced across both flows). The Data view's "Plan
+  a change to …" button opens Modernization with the entity's system of record
+  selected.
 - **Platform** — **Context Ingestion**: how raw CMDB, catalog, observability, and
   lineage exports become trusted context.
 - **More…** — **Presenter Console** and **Classic Investigation** (legacy views).
@@ -124,6 +129,17 @@ and steward decisions preserve auditable memory.
   trail; view versioned, effective-dated field mappings "as of" a date; and see
   the model mapped to ArchiMate and OpenLineage, with an OpenLineage RunEvent
   export per flow.
+- **Procure-to-pay lineage** — a second `lineage_flows` document served by the
+  same lineage services: Purchase Requisition → supplier 850/855/856 → Goods
+  Receipt → Inventory Lot → supplier 810 → three-way Invoice Match → Supplier
+  Payment, keyed by supplier PO number. Sample supplier POs include one held at
+  invoice match. Modernization lineage impact is aggregated across both flows.
+- **Product recall traceability** — the **Recall Trace** view takes a recall
+  notice (sample lot L-2291) and shows which receipt brought the lot in, how much
+  is on hand, which hospitals received it on which orders and shipments, lot
+  number coverage per hop (with an "as of" date that shows the gap before the
+  supplier 856 v2 mapping), untraceable earlier receipts, and read-only
+  recommended actions.
 - **Enterprise fixture ingestion** — optional Alertmanager, integration-catalog,
   CMDB-style, and change records are captured as raw source evidence, resolved
   to canonical keys, normalized into events/relationships, grouped into calm
@@ -263,21 +279,23 @@ identifier, entity ordering, and ordered interface path.
 
 Every relationship traces to a raw source record. Seed captures the curated
 integration inventory and business-process map as **2 batch exports** in
-`source_records` and normalizes them into the **20 dependency/process
+`source_records` and normalizes them into the **25 dependency/process
 relationships**; lineage exports are normalized the same way. Lineage edges also
 carry versioned, effective-dated `mapping_versions` and any data-steward
 `review` / `review_history`, which survive re-normalization; rejected edges are
 excluded from traversal. `message_events` holds sample B2B tracking events keyed
-by PO number for single-order tracing.
+by business identifiers (PO number, supplier PO number, lot number, ship-to) for
+single-order and lot tracing.
 
 The `interfaces` collection uses a flexible schema so a single model can hold
-EDI, REST, FHIR, event, and SFTP interfaces. Seeded footprint: **9 systems,
-13 interfaces, 4 owners, 11 data entities, 3 business processes, 5 source
-records, 1 lineage flow, and 13 message events for 2 sample orders**. Seed
-also captures **14 raw lineage exports** as `source_records` (integration-catalog
-lineage rows, a data-entity master, a trading-partner agreement, and a legacy
-lineage workbook) and normalizes them through the ingestion pipeline into **51
-order-to-cash lineage relationships** (`produces`, `carries`, `transforms_to`,
+EDI, REST, FHIR, event, and SFTP interfaces. Seeded footprint: **10 systems,
+18 interfaces, 6 owners, 21 data entities, 4 business processes, 5 source
+records, 2 lineage flows, 1 recall notice, and 44 message events for 4 sample
+orders and 3 sample supplier POs**. Seed also captures **24 raw lineage exports**
+as `source_records` (integration-catalog lineage rows, data-entity masters,
+trading-partner agreements, and a legacy lineage workbook) and normalizes them
+through the ingestion pipeline into **91 order-to-cash, procure-to-pay, and
+recall lineage relationships** (`produces`, `carries`, `transforms_to`,
 `consumes`, `system_of_record`) with provenance, source record ids, and an
 ingestion run id. One edge is inferred from the legacy workbook to demonstrate
 trust signals. The Context Ingestion tab and Workbench
@@ -321,6 +339,9 @@ Base URL: `http://localhost:4000/api`
 | GET | `/lineage/reviews` · POST `/lineage/reviews/clear` | List steward decisions / reset them for rehearsal |
 | GET | `/lineage/metamodel` | ArchiMate and OpenLineage mapping of the model |
 | GET | `/lineage/flows/:flowKey/openlineage` | OpenLineage RunEvent export, one event per hop |
+| GET | `/lineage/identifiers/:identifier/coverage?as_of=` | Which hops in each flow carry an identifier (for example `lot_number`) |
+| GET | `/lineage/identifiers/:identifier/:value` | Trace one identifier value across flows, grouped by customer |
+| GET | `/recalls` · `/recalls/:recallId?as_of=` | Recall notices; lot trace, coverage, untraceable receipts, recommended actions |
 | POST | `/simulate/:key` | Inject a failure |
 | POST | `/reset` | Restore pristine demo state |
 | GET | `/scenarios` · POST `/scenarios/:id/run` | Named failure scenarios |
@@ -366,13 +387,14 @@ Find_The_Failure/
 │       ├── scenarios.js  # named failure scenarios
 │       ├── seed/         # seed data, inventory/lineage exports, flows, sample message events
 │       └── services/     # graph, impact, search, ingestion, correlation (Workbench),
-│                         # lineage, lineageTrace, lineageReview, lineageStandards
+│                         # lineage, lineageTrace, lineageReview, lineageStandards,
+│                         # lineageIdentifiers (lot trace and recalls)
 └── frontend/
     └── src/
         ├── api.js        # API client
         ├── App.jsx       # grouped navigation shell
         └── components/   # InvestigationWorkbench, Explorer, LineageView,
-                          # LineageGovernance, Modernization, Ingestion,
+                          # LineageGovernance, RecallTrace, Modernization, Ingestion,
                           # DependencyGraph, SearchBar, InterfaceDetails, ...
 ```
 
@@ -390,7 +412,8 @@ lineage data impact, order-to-cash operational lineage, lineage-aware
 modernization, ingested inventory and lineage provenance, flow documents,
 single-order PO tracing, versioned "as of" mappings, the data-steward
 confirm → re-ingest → reject → reset cycle, the ArchiMate/OpenLineage mapping and
-export, enterprise fixture ingestion, quality/provenance scoring, scenarios,
+export, procure-to-pay flow scoping and supplier PO tracing, recall lot tracing
+and "as of" lot coverage, enterprise fixture ingestion, quality/provenance scoring, scenarios,
 Workbench investigation, alert deduplication, alert lifecycle, change
 correlation, read-only ITSM handoff preview, local operator approval decisions,
 local case closure outcomes, related context retrieval, similar-case retrieval,

@@ -4,8 +4,11 @@ import { getDataImpact, getLineageFlow } from "./lineage.js";
 
 const SCOPE = { tenant_id: DEFAULT_TENANT_ID, environment: DEFAULT_ENVIRONMENT };
 
+const STOPPED = new Set(["failed", "on_hold"]);
+
 const deriveStatus = (events, pathLength) => {
   if (events.some((e) => e.status === "failed")) return "failed";
+  if (events.some((e) => e.status === "on_hold")) return "on_hold";
   const delivered = new Set(events.filter((e) => e.status === "delivered").map((e) => e.interface_key));
   return delivered.size >= pathLength ? "completed" : "in_progress";
 };
@@ -47,7 +50,7 @@ export async function traceFlowTransaction(flowKey, value) {
   const steps = design.steps.map((step) => {
     const event = latest.get(step.interface.key) || null;
     const status = event ? event.status : blocked ? "blocked" : "not_reached";
-    if (event?.status === "failed") blocked = true;
+    if (STOPPED.has(event?.status)) blocked = true;
     return {
       step: step.step,
       interface: step.interface,
@@ -66,8 +69,9 @@ export async function traceFlowTransaction(flowKey, value) {
     };
   });
   const status = deriveStatus(events, design.steps.length);
-  const stuck = steps.find((s) => s.status === "failed") || null;
+  const stuck = steps.find((s) => STOPPED.has(s.status)) || null;
   const dataImpact = stuck ? await getDataImpact([stuck.interface.key], flowKey) : null;
+  const notProduced = (dataImpact?.entities_at_risk || []).map((e) => e.name).join(", ");
   return {
     flow: flowKey,
     identifier: design.identifier,
@@ -79,7 +83,9 @@ export async function traceFlowTransaction(flowKey, value) {
     steps,
     data_impact: dataImpact,
     sample_data: true,
-    summary: stuck
+    summary: stuck?.status === "on_hold"
+      ? `${value} is on hold at step ${stuck.step} (${stuck.interface.name}): ${stuck.event?.detail || "awaiting resolution"}${notProduced ? ` Not produced yet: ${notProduced}.` : ""}`
+      : stuck
       ? `${value} stopped at step ${stuck.step} (${stuck.interface.name}). ${dataImpact?.summary || ""}`.trim()
       : status === "completed"
         ? `${value} completed all ${steps.length} hops through ${steps[steps.length - 1]?.output_entity?.name || "the final document"}.`

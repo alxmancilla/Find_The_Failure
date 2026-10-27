@@ -137,6 +137,17 @@ button.danger { background: var(--danger); color: #2a0410; border-color: var(--d
 .steward-review p { margin: 6px 0 0; font-size: 12px; line-height: 1.4; }
 .steward-review small { display: block; margin-top: 8px; color: var(--muted); font-size: 10px; }
 .standards-table { margin: 0 14px 8px; width: calc(100% - 28px); }
+.recall-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; margin: 16px 0; }
+.recall-toolbar label > span { display: block; margin-bottom: 4px; color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.recall-toolbar .lineage-as-of span { display: inline; margin: 0; }
+.recall-notice { padding: 12px; border: 1px solid rgba(255, 84, 112, 0.4); border-radius: 12px; background: rgba(72, 20, 30, 0.35); }
+.recall-coverage-flow, .recall-path-flow { margin-top: 10px; }
+.recall-coverage-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.recall-hop { padding: 4px 8px; border: 1px dashed var(--border); border-radius: 8px; color: var(--muted); font-size: 11px; }
+.recall-hop.mapped { border: 1px solid var(--accent-dim); color: var(--accent); background: rgba(0, 237, 100, 0.08); }
+.recall-hop small { margin-left: 4px; font-size: 10px; opacity: 0.8; }
+.recall-path-flow .po-trace { margin: 6px 0 0; }
+.recall-untraceable { margin: 0 0 16px; }
 .trust-pill { display: inline-block; margin-bottom: 8px; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--border); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; }
 .trust-pill.confirmed { color: var(--accent); border-color: var(--accent-dim); }
 .trust-pill.inferred { color: var(--warn); border-color: rgba(255, 176, 32, 0.5); }

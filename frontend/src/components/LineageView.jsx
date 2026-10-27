@@ -41,7 +41,7 @@ function EntityPanel({ entity, onPlanChange }) {
   );
 }
 
-function TransformationPanel({ transformation, entityName, onReviewed }) {
+function TransformationPanel({ transformation, entityName, identifier = "po_number", onReviewed }) {
   if (!transformation) return <p className="muted mini-copy">Click a lineage edge to see the transformation, field mappings, owner, and evidence.</p>;
   return (
     <section className="panel-section lineage-hop">
@@ -60,7 +60,7 @@ function TransformationPanel({ transformation, entityName, onReviewed }) {
           <thead><tr><th>Field</th><th>Source</th><th>Target</th></tr></thead>
           <tbody>
             {transformation.field_mappings.map((m) => (
-              <tr key={m.field} className={m.field === "po_number" ? "highlight" : ""}><td>{m.field}</td><td>{m.source_path}</td><td>{m.target_path}</td></tr>
+              <tr key={m.field} className={m.field === identifier ? "highlight" : ""}><td>{m.field}</td><td>{m.source_path}</td><td>{m.target_path}</td></tr>
             ))}
           </tbody>
         </table>
@@ -73,6 +73,8 @@ function TransformationPanel({ transformation, entityName, onReviewed }) {
 }
 
 export default function LineageView({ lens, onLensChange, onPlanChange }) {
+  const [flows, setFlows] = useState([]);
+  const [flowKey, setFlowKey] = useState("order-to-cash");
   const [entities, setEntities] = useState([]);
   const [entityKey, setEntityKey] = useState("purchase-order");
   const [direction, setDirection] = useState("both");
@@ -85,19 +87,34 @@ export default function LineageView({ lens, onLensChange, onPlanChange }) {
   const refresh = () => setRefreshKey((k) => k + 1);
 
   useEffect(() => {
-    api.lineageEntities().then((res) => setEntities(res.entities || [])).catch(() => setError("Unable to load lineage entities."));
-    api.lineageFlow().then(setFlow).catch(() => {});
+    api.lineageFlows().then((res) => setFlows(res.flows || [])).catch(() => setFlows([]));
   }, []);
-
-  useEffect(() => setSelectedEdge(null), [entityKey, direction]);
 
   useEffect(() => {
     let ignore = false;
-    api.lineage(entityKey, direction, asOf)
+    setFlow(null);
+    api.lineageEntities(flowKey)
+      .then((res) => {
+        if (ignore) return;
+        const list = res.entities || [];
+        setEntities(list);
+        setEntityKey((current) => (list.some((e) => e.key === current) ? current : list[0]?.key || ""));
+      })
+      .catch(() => setError("Unable to load lineage entities."));
+    api.lineageFlow(flowKey).then((res) => { if (!ignore) setFlow(res); }).catch(() => {});
+    return () => { ignore = true; };
+  }, [flowKey]);
+
+  useEffect(() => setSelectedEdge(null), [entityKey, direction, flowKey]);
+
+  useEffect(() => {
+    if (!entityKey || !entities.some((e) => e.key === entityKey)) return undefined;
+    let ignore = false;
+    api.lineage(entityKey, direction, asOf, flowKey)
       .then((res) => { if (!ignore) { setLineage(res); setError(""); } })
       .catch(() => { if (!ignore) setError("Unable to load lineage."); });
     return () => { ignore = true; };
-  }, [entityKey, direction, asOf, refreshKey]);
+  }, [entityKey, entities, direction, asOf, flowKey, refreshKey]);
 
   const impacted = useMemo(() => ({
     riskEdges: (lineage?.transformations || []).filter((t) => !t.confirmed).map((t) => t.key),
@@ -110,7 +127,15 @@ export default function LineageView({ lens, onLensChange, onPlanChange }) {
       <div className="left">
         <LensToggle lens={lens} onChange={onLensChange} />
         <div className="lineage-toolbar">
-          <div className="lineage-entity-row" aria-label="Order-to-cash data entities">
+          {flows.length > 1 && (
+            <div className="lineage-entity-row" aria-label="Lineage flow">
+              <span className="muted mini-copy">Flow</span>
+              {flows.map((f) => (
+                <button key={f.key} type="button" className={f.key === flowKey ? "active" : ""} onClick={() => setFlowKey(f.key)}>{f.name}</button>
+              ))}
+            </div>
+          )}
+          <div className="lineage-entity-row" aria-label="Flow data entities">
             {entities.map((e) => (
               <button key={e.key} type="button" className={e.key === entityKey ? "active" : ""} onClick={() => setEntityKey(e.key)}>{e.name}</button>
             ))}
@@ -150,7 +175,7 @@ export default function LineageView({ lens, onLensChange, onPlanChange }) {
           </section>
         )}
         <EntityPanel entity={lineage?.entity} onPlanChange={onPlanChange} />
-        <TransformationPanel transformation={transformation} entityName={entityName} onReviewed={refresh} />
+        <TransformationPanel transformation={transformation} entityName={entityName} identifier={flow?.identifier} onReviewed={refresh} />
         <StewardDecisions refreshKey={refreshKey} onReset={refresh} />
         <OrderTrace flow={flow} />
         <StandardsPanel flowKey={flow?.flow} />

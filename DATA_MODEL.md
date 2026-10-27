@@ -30,8 +30,8 @@ layer for integration metadata.
 | `source_records` | Raw imported metadata, exports, and alerts | Inventory export, lineage catalog row, Alertmanager alert |
 | `operational_knowledge` | Runbooks, incident notes, business context | ERP timeout triage note |
 | `investigation_cases` | Persisted Agent v1 case memory | Timeline, evidence, follow-up Q&A |
-| `lineage_flows` | Lineage flows defined as data | Order to Cash: identifier, entity order, path |
-| `message_events` | Sample B2B tracking events keyed by business identifiers | PO-4500012388 failed at order-create |
+| `lineage_flows` | Lineage flows defined as data | Order to Cash, Procure to Pay: identifier, entity order, path |
+| `message_events` | Sample B2B tracking events keyed by business identifiers | PO-4500012388 failed at order-create; lot L-2291 shipped to 3 hospitals |
 
 ---
 
@@ -70,6 +70,17 @@ invoice -> payment-remittance -> cash-application
 advance-ship-notice -> invoice   (inferred, legacy workbook, 60% confidence)
 ~~~
 
+Example lineage path (`transforms_to` edges, procure-to-pay), with the
+cross-flow edge used for recall traceability:
+
+~~~text
+purchase-requisition -> supplier-purchase-order
+  -> supplier-po-ack / supplier-ship-notice / supplier-invoice
+supplier-ship-notice -> goods-receipt -> invoice-match
+supplier-invoice -> invoice-match -> supplier-payment   (three-way match)
+goods-receipt -> inventory-lot -> advance-ship-notice   (recall; lot number reaches the customer 856)
+~~~
+
 ---
 
 ## Core document shapes
@@ -103,7 +114,7 @@ Interfaces do **not** embed graph edges. Downstream dependencies and lineage
 
 Business documents and records in motion. Key fields: `key`, `name`,
 `business_terms` (searchable, e.g. "PO", "EDI 810"), `domain`
-(`order-to-cash`), `entity_kind` (partner-document, transient-message,
+(`order-to-cash`, `procure-to-pay`), `entity_kind` (partner-document, transient-message,
 system-record, event), `identifiers` (e.g. `po_number`), `system_of_record`,
 and `data_owner` (distinct from interface owners).
 
@@ -153,8 +164,10 @@ Raw source metadata, kept unchanged and normalized into `relationships` and
 | Group | Records | Normalized into |
 |---|---|---|
 | Seed baseline | 5 (4 relationship records + 1 alert) | Route/process edges, alert event |
-| `integration-inventory-baseline` | 2 batch exports (inventory, process map) | 20 `depends_on` / `supports_process` edges |
+| `integration-inventory-baseline` | 2 batch exports (inventory, process map) | 25 `depends_on` / `supports_process` edges |
 | `o2c-lineage-catalog` | 14 lineage exports (11 catalog rows, entity master, partner agreement, legacy workbook) | 51 lineage edges |
+| `p2p-lineage-catalog` | 8 lineage exports (6 catalog rows, entity master, lineage assertion) | 35 lineage edges |
+| `recall-traceability` | 2 lineage exports (entity master, lineage assertion) + 1 recall notice (`record_type: "recall"`) | 5 lineage edges, including Inventory Lot → Advance Ship Notice |
 | `enterprise-context-pack` (optional) | 11 Alertmanager, catalog, CMDB, and change records | Alerts, route/process edges, change correlation |
 
 Alerts use `record_type: "alert"` and map to interfaces through `entity_key`.
@@ -166,14 +179,21 @@ records.
 Flows as data. Key fields: `key`, `name`, `domain`, `identifier` (e.g.
 `po_number`), `identifier_label`, `owner`, `entity_order`, and `path` (ordered
 interface keys). Lineage services read ordering and paths from this document,
-so a new flow needs data, not code.
+so a new flow needs data, not code. Two flows are seeded: `order-to-cash`
+(identifier `po_number`, 9 hops) and `procure-to-pay` (identifier
+`supplier_po_number`, 6 hops).
 
 ### `message_events`
 
-Sample B2B tracking events for single-order tracing. Key fields: `flow`,
+Sample B2B tracking events for single-order and lot tracing. Key fields: `flow`,
 `interface_key`, `message_id`, `business_keys` (e.g. `po_number`,
-`invoice_number`), `status`, `observed_at`, `latency_ms`, `detail`. Indexed on
-tenant, environment, flow, and `business_keys.po_number`.
+`supplier_po_number`, `invoice_number`, `receipt_number`, `shipment_id`,
+`ship_to`, `lot_number`, `udi_device_identifier`, `quantity`), `status`,
+`observed_at`, `latency_ms`, `detail`. Indexed on tenant, environment, flow, and
+`business_keys.po_number` / `business_keys.supplier_po_number`, and on tenant,
+environment, and `business_keys.lot_number` / `business_keys.udi_device_identifier`
+for cross-flow lookups. Seeded: 44 events for 4 sample orders and 3 sample
+supplier POs.
 
 ### `operational_knowledge`
 
@@ -202,6 +222,9 @@ grounded follow-up Q&A.
 | Trace one order | `/api/lineage/flows/:flowKey/transactions/:value` | Business-key `find` on `message_events`, aligned to the flow path |
 | Steward review | `/api/lineage/edges/:edgeKey/review` | `updateOne` with `$set: { review }` + `$push: { review_history }` |
 | OpenLineage export | `/api/lineage/flows/:flowKey/openlineage` | Read `carries` edges; emit one RunEvent per hop |
+| Identifier coverage | `/api/lineage/identifiers/:identifier/coverage?as_of=` | Read `carries` / `transforms_to` field mappings per flow hop, as of a date |
+| Trace one identifier value | `/api/lineage/identifiers/:identifier/:value` | Business-key `find` on `message_events` across flows + `$group` by customer |
+| Recall trace | `/api/recalls/:recallId?as_of=` | Recall `source_records` lookup + identifier trace + coverage |
 | Simulate failure | `/api/simulate/:key` | update interface + insert failed event |
 | Reset demo | `/api/reset` | `updateMany`, `deleteMany`, `insertMany` |
 | Modernization impact | `/api/modernization/:systemKey` | `$or` over `source`, `target`, `middleware` + lineage the system performs, produces, or masters |
@@ -236,7 +259,11 @@ This lets a typo like `hosptial` still return **Hospital Order 850**, and `invoc
 
 ### Single-order trace
 
-`/api/lineage/flows/:flowKey/transactions/:value` finds `message_events` by business identifier (for example `PO-4500012388`) and aligns them to the flow path. Hops after a failure are marked `blocked`, and the same data-impact traversal lists the documents not yet produced.
+`/api/lineage/flows/:flowKey/transactions/:value` finds `message_events` by business identifier (for example `PO-4500012388`) and aligns them to the flow path. Hops after a failure are marked `blocked`, and the same data-impact traversal lists the documents not yet produced. A procure-to-pay hold (for example `SPO-7700468` at the three-way match) is reported as `on_hold`.
+
+### Recall trace
+
+`/api/recalls/:recallId` reads the recall notice from `source_records`, finds every `message_events` record carrying its `lot_number` across both flows, and groups them by customer (`ship_to`) to report receipts, shipments, on-hand quantity, and affected hospitals. Lot coverage reads the mapping effective on `as_of`, so receipts posted before the supplier 856 v2 mapping (for example `GR-51877`) are reported as untraceable by lot. Recommended actions are read-only.
 
 ### Agent v1 case memory
 
@@ -288,6 +315,9 @@ be configured for Automated Embedding `$vectorSearch` and Native `$rerank`.
 - "Where is PO-4500012388 right now?"
 - "What was the 850 mapping before the X12 005010 upgrade?"
 - "Which lineage edges are inferred, and who confirmed or rejected them?"
+- "Why is supplier PO SPO-7700468 not paid yet?"
+- "Lot L-2291 is recalled — which hospitals received it, and how much is on hand?"
+- "Which hops carry the lot number, and since when?"
 
 ---
 

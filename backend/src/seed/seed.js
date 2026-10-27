@@ -25,6 +25,8 @@ import { operationalKnowledge } from "./operationalKnowledge.js";
 import { lineageSourceRecords } from "./lineageCatalog.js";
 import { lineageFlows } from "./lineageFlows.js";
 import { messageEvents } from "./messageEvents.js";
+import { p2pLineageSourceRecords, recallLineageSourceRecords } from "./p2pLineageCatalog.js";
+import { recallNotices } from "./recallNotices.js";
 
 async function seed() {
   await connectDB();
@@ -52,7 +54,13 @@ async function seed() {
   await Event.insertMany(events);
   await SourceRecord.insertMany(sourceRecords);
   await OperationalKnowledge.insertMany(operationalKnowledge);
-  await SourceRecord.insertMany([...inventorySourceRecords, ...lineageSourceRecords]);
+  await SourceRecord.insertMany([
+    ...inventorySourceRecords,
+    ...lineageSourceRecords,
+    ...p2pLineageSourceRecords,
+    ...recallLineageSourceRecords,
+    ...recallNotices,
+  ]);
   await LineageFlow.insertMany(lineageFlows);
   await MessageEvent.insertMany(messageEvents);
   const inventory = await normalizeRelationshipSourceRecords({ fixture_group: INVENTORY_FIXTURE_GROUP });
@@ -63,7 +71,7 @@ async function seed() {
       `${dataEntities.length} data entities, ${businessProcesses.length} processes, ` +
       `${interfaces.length} interfaces, ${events.length} events, ` +
       `${sourceRecords.length} source records, ${operationalKnowledge.length} knowledge documents, ` +
-      `${lineageFlows.length} lineage flow, ${messageEvents.length} message events; ` +
+      `${lineageFlows.length} lineage flows, ${recallNotices.length} recall notice, ${messageEvents.length} message events; ` +
       `normalized ${inventory.source_records} inventory exports into ${inventory.relationship_upserts} relationships and ` +
       `${lineage.source_records} lineage records into ${lineage.relationship_upserts} lineage relationships`
   );

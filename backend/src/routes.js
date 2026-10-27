@@ -33,6 +33,7 @@ import { getLineageFlow, listLineageEntities, listLineageFlows, traceLineage } f
 import { clearLineageReviews, listLineageReviews, reviewLineageEdge } from "./services/lineageReview.js";
 import { listFlowTransactions, traceFlowTransaction } from "./services/lineageTrace.js";
 import { exportFlowOpenLineage, getLineageMetamodel } from "./services/lineageStandards.js";
+import { getRecall, identifierCoverage, listRecalls, traceIdentifier } from "./services/lineageIdentifiers.js";
 import { scenarios, getScenario } from "./scenarios.js";
 
 const router = Router();
@@ -139,6 +140,35 @@ router.get(
   wrap(async (req, res) => {
     const result = await exportFlowOpenLineage(req.params.flowKey);
     if (!result) return res.status(404).json({ error: "lineage flow not found" });
+    res.json(result);
+  })
+);
+const asOfParam = (req) => (req.query.as_of && !Number.isNaN(Date.parse(req.query.as_of)) ? req.query.as_of : null);
+router.get(
+  "/lineage/identifiers/:identifier/coverage",
+  wrap(async (req, res) => {
+    const result = await identifierCoverage(req.params.identifier, asOfParam(req));
+    if (result.error) return res.status(400).json({ error: result.error });
+    res.json(result);
+  })
+);
+router.get(
+  "/lineage/identifiers/:identifier/:value",
+  wrap(async (req, res) => {
+    const result = await traceIdentifier(req.params.identifier, req.params.value);
+    if (result.error) return res.status(400).json({ error: result.error });
+    res.json(result);
+  })
+);
+router.get(
+  "/recalls",
+  wrap(async (_req, res) => res.json(await listRecalls()))
+);
+router.get(
+  "/recalls/:recallId",
+  wrap(async (req, res) => {
+    const result = await getRecall(req.params.recallId, asOfParam(req));
+    if (!result) return res.status(404).json({ error: "recall not found" });
     res.json(result);
   })
 );

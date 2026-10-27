@@ -319,7 +319,9 @@ const messageEventSchema = new Schema(
     interface_key: { type: String, ref: "Interface" },
     message_id: String,
     business_keys: Schema.Types.Mixed, // { po_number, invoice_number, ... }
-    status: String, // delivered | failed | pending
+    status: String, // delivered | failed | on_hold | pending
+    movement: String, // receipt | shipment (stock movement events used for lot tracing)
+    quantity: Number,
     observed_at: Date,
     latency_ms: Number,
     detail: String,
@@ -329,6 +331,9 @@ const messageEventSchema = new Schema(
 );
 
 messageEventSchema.index({ tenant_id: 1, environment: 1, flow: 1, "business_keys.po_number": 1, observed_at: 1 });
+messageEventSchema.index({ tenant_id: 1, environment: 1, flow: 1, "business_keys.supplier_po_number": 1, observed_at: 1 });
+messageEventSchema.index({ tenant_id: 1, environment: 1, "business_keys.lot_number": 1, observed_at: 1 });
+messageEventSchema.index({ tenant_id: 1, environment: 1, "business_keys.udi_device_identifier": 1, observed_at: 1 });
 
 export const InvestigationCase = model("InvestigationCase", investigationCaseSchema);
 export const LineageFlow = model("LineageFlow", lineageFlowSchema);

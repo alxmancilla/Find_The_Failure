@@ -283,6 +283,49 @@ Sample orders are seeded B2B tracking events, not a live tracking feed.
 
 Lineage is ingested from curated exports, not automated discovery.
 
+### Optional — Procure-to-pay: same model, second flow (≈2 minutes)
+Use this when architects ask, "Does this generalize beyond one flow?"
+
+1. In the Data view, switch the flow picker to **Procure-to-pay**. **Purchase
+   Requisition** is selected; show the path through the supplier 850, 855, 856,
+   **Goods Receipt**, the supplier 810, the three-way **Invoice Match**, and
+   **Supplier Payment**.
+2. Point out that the identifier label now reads **Follow the supplier PO
+   number**: all 6 hops carry it. The flow is a second `lineage_flows` document
+   served by the same lineage services.
+3. Pick **SPO-7700468**: it is **on hold at Supplier Invoice 810** because of a
+   three-way match hold (invoiced 120 units, received 100). Invoice Match and
+   Supplier Payment are not produced yet.
+4. Pick **SPO-7700451** to contrast a completed supplier PO.
+5. In **Modernization**, analyze **Apex ERP**: **Data Lineage Impact (all
+   flows)** tags each transformation with its flow.
+
+> "Adding a business flow is a data change, not a code change."
+
+### Optional — Product recall traceability (≈3 minutes)
+Use this when the audience asks, "If a manufacturer recalls a lot, how fast can
+we answer who has it?"
+
+1. Go to **Architecture → Recall Trace**. **RCL-2026-014** is selected: Class II,
+   IV-220 Infusion Set, lot **L-2291**.
+2. Show the totals: **300 received, 180 shipped, 120 on hand, 3 hospitals**, and
+   the **Affected hospitals** table with orders, shipments, and units.
+3. Open **Path of lot L-2291** to show the lot crossing from procure-to-pay
+   (supplier 856, goods receipt) into order-to-cash (customer 856).
+4. Point to **Untraceable by lot**: receipt **GR-51877** (250 units) was posted
+   before the supplier 856 v2 mapping captured lot numbers.
+5. In **Lot number coverage**, set **Mappings as of** to `2025-06-01`: the
+   supplier 856 hop no longer carries the lot, which explains the gap. Click
+   **Current** to return.
+6. Show **Recommended actions** (quarantine, notify hospitals, block allocations,
+   confirm with the supplier) and the read-only guardrail.
+
+> "One lot number, traced across two flows, with the mapping history that tells
+> you where traceability ends."
+
+Recall data and hospitals are fictional sample data; no quarantine,
+notification, or regulatory submission is executed.
+
 ### Optional — What-if modernization question
 1. Go to **Architecture → Modernization** (or arrive from the Data view).
 2. Select **X12 Translator** → **Analyze**.
@@ -308,8 +351,9 @@ Lineage is ingested from curated exports, not automated discovery.
 | Relationship traversal | `$graphLookup` over `depends_on` edges in `relationships` builds the upstream/downstream dependency path |
 | Operational lineage | `$graphLookup` over typed, tenant-scoped `transforms_to` edges traces order-to-cash entities; flexible `field_mappings` on edges hold X12/JSON/ERP field paths |
 | Single edge store | Dependency, process, and lineage edges all live in `relationships`; interfaces embed no edges |
-| Flows as data | `lineage_flows` documents define identifier, entity order, and path; no code change for a new flow |
-| Run-time tracing | Business-key index on `message_events` traces one order by PO number against the flow path |
+| Flows as data | `lineage_flows` documents define identifier, entity order, and path; procure-to-pay was added with no lineage-code change |
+| Run-time tracing | Business-key index on `message_events` traces one order by PO number or supplier PO number against the flow path |
+| Cross-flow identifier trace | Lot-number lookup on `message_events` with `$group` by customer answers recall questions across both flows |
 | Versioned mappings | `mapping_versions` on edges answer "what was the mapping as of a date?" |
 | Stewardship audit | `review` / `review_history` on edges; rejected edges filtered inside `$graphLookup` via `restrictSearchWithMatch` |
 | Standards interoperability | ArchiMate / OpenLineage mapping and an OpenLineage RunEvent export generated from relationships |
@@ -331,13 +375,14 @@ Lineage is ingested from curated exports, not automated discovery.
 `relationships` is the single canonical edge store for both dependency and
 lineage traversal; interface documents do not embed graph edges.
 
-Seeded footprint: **9 systems, 13 interfaces, 4 owners, 11 data entities**,
-plus **3 business processes, 5 source records, 8 operational knowledge
-documents, 1 lineage flow, 13 sample message events, 3 failure scenarios**, and
-**1 modernization scenario**. Seed captures **2 inventory/process-map exports**
-and **14 lineage exports** as `source_records` and normalizes them into **20
-dependency/process relationships** and **51 order-to-cash lineage
-relationships**, all with provenance.
+Seeded footprint: **10 systems, 18 interfaces, 6 owners, 21 data entities**,
+plus **4 business processes, 5 source records, 8 operational knowledge
+documents, 2 lineage flows, 1 recall notice, 44 sample message events, 3 failure
+scenarios**, and **1 modernization scenario**. Seed captures **2
+inventory/process-map exports** and **24 lineage exports** as `source_records`
+and normalizes them into **25 dependency/process relationships** and **91
+order-to-cash, procure-to-pay, and recall lineage relationships**, all with
+provenance.
 The optional enterprise fixture pack adds **11 raw source records** for ingestion
 demonstrations, including **3 external Alertmanager signals** that collapse into
 **2 Workbench inbox items** and **3 recent change records** that power the Workbench
@@ -384,7 +429,7 @@ flowchart LR
 
 Use **Operations → Investigation Workbench** as the primary story. For
 architecture audiences, follow **Architecture → Catalog & Lineage →
-Modernization**. **Platform → Context Ingestion** shows where context comes
+Modernization → Recall Trace**. **Platform → Context Ingestion** shows where context comes
 from; Presenter Console and Classic Investigation live under **More…**.
 
 ### Key endpoints
@@ -403,6 +448,8 @@ from; Presenter Console and Classic Investigation live under **More…**.
 | GET | `/api/lineage/flows/:flowKey/transactions/:value` | Single-order trace aligned to the flow path |
 | POST | `/api/lineage/edges/:edgeKey/review` · `/api/lineage/reviews/clear` | Data-steward confirm/reject; reset decisions |
 | GET | `/api/lineage/metamodel` · `/api/lineage/flows/:flowKey/openlineage` | ArchiMate/OpenLineage mapping; OpenLineage export |
+| GET | `/api/lineage/identifiers/:identifier/coverage` · `/api/lineage/identifiers/:identifier/:value` | Identifier coverage per hop; trace one value across flows |
+| GET | `/api/recalls` · `/api/recalls/:recallId?as_of=` | Recall notices and lot trace with recommended actions |
 | GET/POST | `/api/ingestion` · `/api/ingestion/run` | Raw source records, pipeline, quality, and normalization |
 | POST | `/api/ingestion/fixtures` · `/api/ingestion/fixtures/clear` | Load/clear optional enterprise fixture pack |
 | GET | `/api/alerts` | Deduplicated Workbench inbox items with raw signal counts |
@@ -431,3 +478,6 @@ from; Presenter Console and Classic Investigation live under **More…**.
   2025-06-01 respectively.
 - **Order trace picker is empty** — reseed with `npm run seed`; sample
   `message_events` are created at seed time.
+- **ERP order-create failure shows 12 documents at risk, not 5** — expected.
+  Data impact follows the existing ERP → Supplier Replenishment dependency into
+  procure-to-pay documents.

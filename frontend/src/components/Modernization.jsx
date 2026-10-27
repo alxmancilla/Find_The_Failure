@@ -9,7 +9,7 @@ function LineageImpact({ impact, sysName }) {
   const s = impact.summary;
   return (
     <div className="panel-section lineage-impact">
-      <h3>Data Lineage Impact (order-to-cash)</h3>
+      <h3>Data Lineage Impact (all flows)</h3>
       <p className="muted mini-copy">
         Replacing {sysName} means re-implementing {s.transformation_count} transformation{s.transformation_count === 1 ? "" : "s"} and {s.field_mapping_count} field mapping{s.field_mapping_count === 1 ? "" : "s"}, and re-testing {s.translation_hop_count} middleware translation hop{s.translation_hop_count === 1 ? "" : "s"}.
       </p>
@@ -20,7 +20,7 @@ function LineageImpact({ impact, sysName }) {
       </div>
       {impact.transformations.map((t) => (
         <div key={t.key} className="event">
-          <div><strong>{t.from_key} → {t.to_key}</strong> {t.interface && <span className="badge">{t.interface.protocol} {t.interface.message_type}</span>} {!t.confirmed && <span className="badge status-degraded">inferred</span>}</div>
+          <div><strong>{t.from_key} → {t.to_key}</strong> {t.flow && <span className="badge">{t.flow}</span>} {t.interface && <span className="badge">{t.interface.protocol} {t.interface.message_type}</span>} {!t.confirmed && <span className="badge status-degraded">inferred</span>}</div>
           <div className="when">{t.transformation}</div>
           {t.field_mappings.length > 0 && <div className="when">{t.field_mappings.map((m) => `${m.field}: ${m.source_path} → ${m.target_path}`).join(" · ")}</div>}
         </div>

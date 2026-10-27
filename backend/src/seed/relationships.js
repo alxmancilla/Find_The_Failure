@@ -95,6 +95,23 @@ const processRows = [
         evidence: [`${iface.name} participates in the hospital invoicing and cash application process.`],
       })
     ),
+  ...[
+    ["if-supplier-855", "supplier-replenishment"],
+    ["if-supplier-856", "supplier-replenishment"],
+    ["if-receiving-erp", "supplier-replenishment"],
+    ["if-supplier-810", "supplier-invoice-payment"],
+    ["if-erp-820-supplier", "supplier-invoice-payment"],
+  ].map(([from, process]) =>
+    rel({
+      key: `${from}->${process}:supports_process`,
+      from_type: "interface",
+      from_key: from,
+      to_type: "business_process",
+      to_key: process,
+      relationship_type: "supports_process",
+      evidence: [`${from} participates in the ${process} process.`],
+    })
+  ),
 ];
 
 // Curated inventory and process-map exports captured as raw source records;

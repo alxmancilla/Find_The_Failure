@@ -5,6 +5,7 @@ import DemoConsole from "./components/DemoConsole.jsx";
 import Modernization from "./components/Modernization.jsx";
 import Ingestion from "./components/Ingestion.jsx";
 import Investigation from "./components/Investigation.jsx";
+import RecallTrace from "./components/RecallTrace.jsx";
 
 const NAV_GROUPS = [
   { label: "Operations", items: [{ id: "workbench", label: "Investigation Workbench", hint: "Alert to impact, owner, and safe next check" }] },
@@ -13,6 +14,7 @@ const NAV_GROUPS = [
     items: [
       { id: "explorer", label: "Catalog & Lineage", hint: "Dependency graph and order-to-cash data lineage" },
       { id: "modernization", label: "Modernization", hint: "What breaks, and what must be rebuilt, if a system changes" },
+      { id: "recall", label: "Recall Trace", hint: "Trace a recalled lot across procure-to-pay and order-to-cash" },
     ],
   },
   { label: "Platform", items: [{ id: "ingestion", label: "Context Ingestion", hint: "How source records become trusted context" }] },
@@ -77,6 +79,7 @@ export default function App() {
       {tab === "demo" && <DemoConsole />}
       {tab === "explorer" && <Explorer onPlanChange={planChange} />}
       {tab === "modernization" && <Modernization systemKey={modernizationSystem} onSystemChange={setModernizationSystem} />}
+      {tab === "recall" && <RecallTrace />}
       {tab === "ingestion" && <Ingestion />}
       {tab === "investigation" && <Investigation />}
     </div>

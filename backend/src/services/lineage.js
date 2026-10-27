@@ -29,14 +29,18 @@ export async function listLineageFlows() {
   return { flows };
 }
 
+// Flow membership comes from the flow document, so an entity can belong to
+// several flows. `members` restricts traversal to one flow; null crosses flows.
+const scopedTransforms = (members) => (members ? { ...transformMatch, from_key: { $in: members }, to_key: { $in: members } } : transformMatch);
+
 export async function listLineageEntities(flowKey = DEFAULT_FLOW) {
   const flow = await loadFlow(flowKey);
   if (!flow) return null;
-  const entities = await DataEntity.find({ domain: flow.domain }).lean();
+  const entities = await DataEntity.find({ key: { $in: flow.entity_order || [] } }).lean();
   return { flow: flow.key, entities: entities.sort(entityOrder(flow)) };
 }
 
-export function lineagePipeline(entityKey, domain = DEFAULT_FLOW) {
+export function lineagePipeline(entityKey, members = null) {
   const lookup = (as, connectFromField, connectToField) => ({
     $graphLookup: {
       from: "relationships",
@@ -46,11 +50,11 @@ export function lineagePipeline(entityKey, domain = DEFAULT_FLOW) {
       as,
       maxDepth: GRAPH_LOOKUP_MAX_DEPTH,
       depthField: "depth",
-      restrictSearchWithMatch: transformMatch,
+      restrictSearchWithMatch: scopedTransforms(members),
     },
   });
   return [
-    { $match: { key: entityKey, domain } },
+    { $match: { key: entityKey } },
     lookup("downstream", "to_key", "from_key"),
     lookup("upstream", "from_key", "to_key"),
   ];
@@ -59,9 +63,10 @@ export function lineagePipeline(entityKey, domain = DEFAULT_FLOW) {
 export async function traceLineage(entityKey, direction = "both", flowKey = DEFAULT_FLOW, asOf = null) {
   const flow = await loadFlow(flowKey);
   if (!flow) return null;
-  const byEntityOrder = entityOrder(flow);
   const order = flow.entity_order || [];
-  const pipeline = lineagePipeline(entityKey, flow.domain);
+  if (!order.includes(entityKey)) return null;
+  const byEntityOrder = entityOrder(flow);
+  const pipeline = lineagePipeline(entityKey, order);
   const [root] = await DataEntity.aggregate(pipeline);
   if (!root) return null;
 
@@ -246,9 +251,9 @@ export async function getLineageFlow(flowKey = DEFAULT_FLOW) {
   };
 }
 
-function downstreamEntitiesPipeline(entityKeys, domain) {
+function downstreamEntitiesPipeline(entityKeys, members) {
   return [
-    { $match: { key: { $in: entityKeys }, domain } },
+    { $match: { key: { $in: entityKeys } } },
     {
       $graphLookup: {
         from: "relationships",
@@ -257,57 +262,72 @@ function downstreamEntitiesPipeline(entityKeys, domain) {
         connectToField: "from_key",
         as: "downstream",
         maxDepth: GRAPH_LOOKUP_MAX_DEPTH,
-        restrictSearchWithMatch: transformMatch,
+        restrictSearchWithMatch: scopedTransforms(members),
       },
     },
     { $project: { key: 1, "downstream.key": 1, "downstream.to_key": 1, "downstream.interface_key": 1, "downstream.confirmed": 1 } },
   ];
 }
 
-async function reachableDownstream(entityKeys, domain) {
-  const pipeline = downstreamEntitiesPipeline(entityKeys, domain);
+async function reachableDownstream(entityKeys, members = null) {
+  const pipeline = downstreamEntitiesPipeline(entityKeys, members);
   const roots = entityKeys.length ? await DataEntity.aggregate(pipeline) : [];
   const edges = [...new Map(roots.flatMap((r) => r.downstream || []).map((e) => [e.key, e])).values()];
   return { code: `db.data_entities.aggregate(${JSON.stringify(pipeline, null, 2)})`, edges };
 }
 
 const orderedEntities = (keys, flow) => DataEntity.find({ key: { $in: [...keys] } }, { key: 1, name: 1, entity_kind: 1, system_of_record: 1 }).lean().then((list) => list.sort(entityOrder(flow)));
+const combinedFlow = (flows) => ({ entity_order: flows.flatMap((f) => f.entity_order || []) });
+const uniqueByKey = (list) => [...new Map(list.map((item) => [item.key, item])).values()];
 
 // Lineage-derived consequence of interface failures: which documents can no
-// longer be produced downstream. Additive to depends_on impact; never alters it.
-export async function getDataImpact(interfaceKeys, flowKey = DEFAULT_FLOW) {
-  const flow = await loadFlow(flowKey);
-  const domain = flow?.domain || flowKey;
-  const hops = await Relationship.find({ relationship_type: "carries", from_key: { $in: interfaceKeys }, flow: flowKey, ...SCOPE }, { output_entity: 1 }).lean();
-  const originKeys = [...new Set(hops.map((h) => h.output_entity).filter(Boolean))];
-  const { code, edges } = await reachableDownstream(originKeys, domain);
-  const downstreamKeys = new Set(edges.map((e) => e.to_key).filter((k) => !originKeys.includes(k)));
-  const atRiskInterfaceKeys = [...new Set(edges.map((e) => e.interface_key).filter((k) => k && !interfaceKeys.includes(k)))];
+// longer be produced downstream. Evaluated per flow (or one flow when given);
+// additive to depends_on impact and never alters it.
+export async function getDataImpact(interfaceKeys, flowKey = null) {
+  const flows = flowKey ? [await loadFlow(flowKey)].filter(Boolean) : await LineageFlow.find(SCOPE).lean();
+  const perFlow = [];
+  for (const flow of flows) {
+    const hops = await Relationship.find({ relationship_type: "carries", from_key: { $in: interfaceKeys }, flow: flow.key, ...SCOPE }, { output_entity: 1 }).lean();
+    const originKeys = [...new Set(hops.map((h) => h.output_entity).filter(Boolean))];
+    if (!originKeys.length) continue;
+    const { code, edges } = await reachableDownstream(originKeys, flow.entity_order || []);
+    perFlow.push({
+      flow: flow.key,
+      originKeys,
+      downstreamKeys: edges.map((e) => e.to_key).filter((k) => !originKeys.includes(k)),
+      interfaceKeys: edges.map((e) => e.interface_key).filter((k) => k && !interfaceKeys.includes(k)),
+      inferred: edges.filter((e) => e.confirmed === false).length,
+      code,
+    });
+  }
+  const order = combinedFlow(flows);
+  const originKeys = new Set(perFlow.flatMap((f) => f.originKeys));
+  const downstreamKeys = new Set(perFlow.flatMap((f) => f.downstreamKeys).filter((k) => !originKeys.has(k)));
+  const atRiskInterfaceKeys = [...new Set(perFlow.flatMap((f) => f.interfaceKeys))];
   const [origin, downstream, interfaces, processContext] = await Promise.all([
-    orderedEntities(originKeys, flow),
-    orderedEntities(downstreamKeys, flow),
+    orderedEntities(originKeys, order),
+    orderedEntities(downstreamKeys, order),
     Interface.find({ key: { $in: atRiskInterfaceKeys } }, { key: 1, name: 1, protocol: 1, message_type: 1 }).lean(),
     getBusinessProcessContext(atRiskInterfaceKeys),
   ]);
-  const inferred = edges.filter((e) => e.confirmed === false);
   return {
+    flows: perFlow.map((f) => f.flow),
     origin_entities: origin,
     entities_at_risk: downstream,
     interfaces_at_risk: interfaces,
-    business_processes: processContext.business_processes,
-    inferred_edges: inferred.length,
+    business_processes: uniqueByKey(processContext.business_processes),
+    inferred_edges: perFlow.reduce((sum, f) => sum + f.inferred, 0),
     summary: origin.length
       ? `${origin.map((e) => e.name).join(", ")} may not be produced; ${downstream.length} downstream document${downstream.length === 1 ? "" : "s"} at risk${downstream.length ? `: ${downstream.map((e) => e.name).join(", ")}` : ""}.`
-      : "No order-to-cash lineage passes through the impacted interfaces.",
-    mongodb_trace: { collection: "data_entities", operation: "aggregate", code, purpose: "Follow scoped transforms_to edges downstream from entities the failed interfaces produce." },
+      : "No lineage flow passes through the impacted interfaces.",
+    mongodb_trace: { collection: "data_entities", operation: "aggregate", code: perFlow[0]?.code || null, purpose: "Per flow, follow transforms_to edges restricted to the flow's entities, downstream from entities the failed interfaces produce." },
   };
 }
 
-// Modernization: what lineage a system performs, produces, or masters.
-export async function getSystemLineageImpact(systemKey, flowKey = DEFAULT_FLOW) {
-  const flow = await loadFlow(flowKey);
-  const domain = flow?.domain || flowKey;
-  const lineageInterfaceKeys = await Relationship.distinct("from_key", { relationship_type: "carries", flow: flowKey, ...SCOPE });
+// Modernization: what lineage a system performs, produces, or masters, across all flows.
+export async function getSystemLineageImpact(systemKey) {
+  const flow = combinedFlow(await LineageFlow.find(SCOPE).lean());
+  const lineageInterfaceKeys = await Relationship.distinct("from_key", { relationship_type: "carries", ...SCOPE });
   const [performed, produced, mastered, middleware] = await Promise.all([
     Relationship.find({ ...transformMatch, transformed_by: systemKey }).lean(),
     Relationship.find({ relationship_type: "produces", from_key: systemKey, ...SCOPE }).lean(),
@@ -315,7 +335,7 @@ export async function getSystemLineageImpact(systemKey, flowKey = DEFAULT_FLOW) 
     Interface.find({ middleware: systemKey, key: { $in: lineageInterfaceKeys } }, { key: 1, name: 1, protocol: 1, message_type: 1, source: 1, target: 1 }).lean(),
   ]);
   const producedKeys = [...new Set(produced.map((r) => r.to_key))];
-  const { code, edges } = await reachableDownstream(producedKeys, domain);
+  const { code, edges } = await reachableDownstream(producedKeys);
   const dependentKeys = new Set(edges.map((e) => e.to_key).filter((k) => !producedKeys.includes(k)));
   const ifaceKeys = [...new Set(performed.map((r) => r.interface_key).filter(Boolean))];
   const [producedEntities, masteredEntities, dependentEntities, performedIfaces] = await Promise.all([
@@ -329,6 +349,7 @@ export async function getSystemLineageImpact(systemKey, flowKey = DEFAULT_FLOW) 
     const iface = ifaceMap.get(r.interface_key);
     return {
       key: r.key,
+      flow: r.flow,
       from_key: r.from_key,
       to_key: r.to_key,
       interface: iface ? { key: iface.key, name: iface.name, protocol: iface.protocol, message_type: iface.message_type } : null,

@@ -12,7 +12,7 @@ const daysAgo = (d) => new Date(now.getTime() - d * 24 * 3600 * 1000);
 const toMappings = (mappings) => mappings.map(([field, source_path, target_path]) => ({ field, source_path, target_path }));
 
 // Each row carries effective-dated mapping versions; the latest is current.
-const row = (external_id, interface_key, input_entity, output_entity, transformed_by, transformation, mappings, { version = "v1", standard = null, effective_from = "2024-01-01", history = [] } = {}) => ({
+export const lineageRow = (external_id, interface_key, input_entity, output_entity, transformed_by, transformation, mappings, { version = "v1", standard = null, effective_from = "2024-01-01", history = [] } = {}) => ({
   external_id,
   interface_key,
   input_entity,
@@ -27,6 +27,7 @@ const row = (external_id, interface_key, input_entity, output_entity, transforme
     { version, standard, effective_from: new Date(effective_from), effective_to: null, field_mappings: toMappings(mappings) },
   ],
 });
+const row = lineageRow;
 
 const catalogRows = [
   row("LIN-850-01", "if-hospital-850", "purchase-order", "purchase-order", "hospital-123", "Hospital submits the purchase order as an X12 850 envelope.", [
@@ -92,6 +93,7 @@ const catalogRows = [
   row("LIN-856-09", "if-erp-856", "sales-order", "advance-ship-notice", "apex-erp", "Shipped sales order lines become an X12 856 ship notice.", [
     ["po_number", "SALES_ORDER.CUSTOMER_PO_REF", "X12 856 PRF01"],
     ["quantity", "DELIVERY_LINE.SHIPPED_QTY", "X12 856 SN102"],
+    ["lot_number", "DELIVERY_LINE.LOT_NO", "X12 856 LIN/REF*LT"],
   ]),
   row("LIN-810-10", "if-erp-810", "sales-order", "invoice", "apex-erp", "Billed sales order becomes an X12 810 invoice.", [
     ["po_number", "SALES_ORDER.CUSTOMER_PO_REF", "X12 810 BIG04"],
@@ -105,11 +107,11 @@ const catalogRows = [
   ]),
 ];
 
-const record = ({ sourceSystem, externalId, entityType, entityKey, observedAt, evidence, trust, payload }) => ({
-  key: `${LINEAGE_FIXTURE_GROUP}:${sourceSystem}:${externalId}`,
+export const lineageRecord = ({ group = LINEAGE_FIXTURE_GROUP, flow = LINEAGE_FLOW, sourceSystem, externalId, entityType, entityKey, observedAt, evidence, trust, payload }) => ({
+  key: `${group}:${sourceSystem}:${externalId}`,
   tenant_id: DEFAULT_TENANT_ID,
   environment: DEFAULT_ENVIRONMENT,
-  fixture_group: LINEAGE_FIXTURE_GROUP,
+  fixture_group: group,
   source_system: sourceSystem,
   record_type: "lineage",
   external_id: externalId,
@@ -127,8 +129,9 @@ const record = ({ sourceSystem, externalId, entityType, entityKey, observedAt, e
     captured_at: now,
     trust_level: trust,
   },
-  payload: { flow: LINEAGE_FLOW, ...payload },
+  payload: { flow, ...payload },
 });
+const record = lineageRecord;
 
 export const lineageSourceRecords = [
   ...catalogRows.map(({ external_id, interface_key, ...lineage }) => record({

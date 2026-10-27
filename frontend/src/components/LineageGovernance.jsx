@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
 
-const STATUS_LABEL = { delivered: "Delivered", failed: "Failed", blocked: "Blocked", not_reached: "Not reached", pending: "Pending" };
+const STATUS_LABEL = { delivered: "Delivered", failed: "Failed", on_hold: "On hold", blocked: "Blocked", not_reached: "Not reached", pending: "Pending" };
 const when = (d) => (d ? new Date(d).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
 const day = (d) => (d ? new Date(d).toISOString().slice(0, 10) : "—");
 
@@ -12,7 +12,9 @@ export function OrderTrace({ flow }) {
   const [trace, setTrace] = useState(null);
 
   useEffect(() => {
-    api.lineageTransactions(flow?.flow).then((res) => setTransactions(res.transactions || [])).catch(() => setTransactions([]));
+    setSelected("");
+    if (!flow?.flow) return;
+    api.lineageTransactions(flow.flow).then((res) => setTransactions(res.transactions || [])).catch(() => setTransactions([]));
   }, [flow?.flow]);
 
   useEffect(() => {
@@ -45,7 +47,7 @@ export function OrderTrace({ flow }) {
             <li key={step.interface.key} className={`${step.changes_shape ? "changes" : ""} ${live ? `trace-${live.status}` : ""}`}>
               <strong>{step.step}. {step.interface.name} {live && <span className={`trace-pill trace-${live.status}`}>{STATUS_LABEL[live.status] || live.status}</span>}</strong>
               <small>{step.from_system.name} → {step.to_system.name}{step.via?.length ? ` (via ${step.via.map((s) => s.name).join(", ")})` : ""}{step.changes_shape ? ` · ${step.input_entity?.name} → ${step.output_entity?.name}` : ""}</small>
-              <code>{step.po_number_mapping?.target_path || "—"} · mapping {step.mapping_version}</code>
+              <code>{step.identifier_mapping?.target_path || "—"} · mapping {step.mapping_version}</code>
               {live?.event && <small>{live.event.message_id} · {when(live.event.observed_at)} · {live.event.detail}</small>}
             </li>
           );

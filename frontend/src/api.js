@@ -30,9 +30,14 @@ export const api = {
     }),
   reset: () => json(`/reset`, { method: "POST" }),
   modernization: (systemKey) => json(`/modernization/${systemKey}`),
-  lineageEntities: () => json(`/lineage/entities`),
-  lineage: (entityKey, direction = "both", asOf = "") =>
-    json(`/lineage/${encodeURIComponent(entityKey)}?direction=${encodeURIComponent(direction)}${asOf ? `&as_of=${encodeURIComponent(asOf)}` : ""}`),
+  lineageFlows: () => json(`/lineage/flows`),
+  lineageEntities: (flowKey = "order-to-cash") => json(`/lineage/entities?flow=${encodeURIComponent(flowKey)}`),
+  lineage: (entityKey, direction = "both", asOf = "", flowKey = "order-to-cash") =>
+    json(`/lineage/${encodeURIComponent(entityKey)}?direction=${encodeURIComponent(direction)}&flow=${encodeURIComponent(flowKey)}${asOf ? `&as_of=${encodeURIComponent(asOf)}` : ""}`),
+  identifierCoverage: (identifier, asOf = "") =>
+    json(`/lineage/identifiers/${encodeURIComponent(identifier)}/coverage${asOf ? `?as_of=${encodeURIComponent(asOf)}` : ""}`),
+  recalls: () => json(`/recalls`),
+  recall: (recallId, asOf = "") => json(`/recalls/${encodeURIComponent(recallId)}${asOf ? `?as_of=${encodeURIComponent(asOf)}` : ""}`),
   lineageFlow: (flowKey = "order-to-cash") => json(`/lineage/flows/${encodeURIComponent(flowKey)}`),
   lineageTransactions: (flowKey = "order-to-cash") => json(`/lineage/flows/${encodeURIComponent(flowKey)}/transactions`),
   lineageTransaction: (value, flowKey = "order-to-cash") =>

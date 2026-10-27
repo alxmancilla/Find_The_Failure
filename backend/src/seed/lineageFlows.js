@@ -16,4 +16,21 @@ export const lineageFlows = [
       "if-erp-inventory", "if-erp-855", "if-erp-856", "if-erp-810", "if-hospital-820",
     ],
   },
+  {
+    key: "procure-to-pay",
+    name: "Procure to Pay",
+    description: "Inventory reorder through supplier purchase order, receipt, three-way match, and supplier payment.",
+    domain: "procure-to-pay",
+    identifier: "supplier_po_number",
+    identifier_label: "supplier PO number",
+    owner: "p2p-data-stewardship",
+    entity_order: [
+      "purchase-requisition", "supplier-purchase-order", "supplier-po-ack", "supplier-ship-notice",
+      "goods-receipt", "inventory-lot", "supplier-invoice", "invoice-match", "supplier-payment",
+    ],
+    path: [
+      "if-inventory-supplier", "if-supplier-855", "if-supplier-856", "if-receiving-erp",
+      "if-supplier-810", "if-erp-820-supplier",
+    ],
+  },
 ];

@@ -28,8 +28,19 @@ export const businessProcesses = [
       "Inventory-driven replenishment flow from Apex ERP inventory updates through supplier EDI reorder transmission.",
     criticality: "tier-2",
     owner: "b2b-operations",
-    data_entities: ["inventory-request", "purchase-order"],
+    data_entities: ["inventory-request", "purchase-order", "purchase-requisition", "supplier-purchase-order", "supplier-po-ack", "supplier-ship-notice", "goods-receipt", "inventory-lot"],
     lifecycle: "production",
     sla: "Supplier replenishment order transmitted within 30 minutes of reorder trigger",
+  },
+  {
+    key: "supplier-invoice-payment",
+    name: "Supplier Invoice and Payment",
+    description:
+      "Procure-to-pay accounts-payable flow from supplier invoice through three-way match and supplier payment remittance.",
+    criticality: "tier-2",
+    owner: "erp-integration",
+    data_entities: ["supplier-invoice", "invoice-match", "supplier-payment"],
+    lifecycle: "production",
+    sla: "Match within 2 business days; pay on supplier terms",
   },
 ];

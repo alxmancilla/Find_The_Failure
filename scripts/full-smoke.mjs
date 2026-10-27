@@ -117,6 +117,42 @@ try {
   const olHop = openLineage.events.find((e) => e.job.name === "if-gateway-x12");
   assert(openLineage.event_count === o2cFlow.steps.length && olHop?.outputs[0]?.facets?.columnLineage?.fields?.["canonical.order.poNumber"], "OpenLineage export incomplete");
 
+  // Procure-to-pay: a second flow defined as data, served by the same services.
+  assert(lineageFlows.flows.length === 2 && lineageFlows.flows.some((f) => f.key === "procure-to-pay"), "procure-to-pay flow document missing");
+  const p2pEntities = await get("/lineage/entities?flow=procure-to-pay");
+  assert(p2pEntities.entities[0]?.key === "purchase-requisition", "procure-to-pay entities not ordered by flow document");
+  const p2pLineage = await get("/lineage/purchase-requisition?direction=downstream&flow=procure-to-pay");
+  const p2pKeys = p2pLineage.entities.map((e) => e.key);
+  assert(p2pKeys.includes("supplier-payment") && p2pKeys.includes("invoice-match"), "procure-to-pay lineage does not reach supplier payment");
+  assert(!p2pKeys.includes("advance-ship-notice"), "flow-scoped lineage leaked into order-to-cash");
+  const p2pFlow = await get("/lineage/flows/procure-to-pay");
+  assert(p2pFlow.steps.length === 6 && p2pFlow.steps.every((s) => s.identifier_mapping), "supplier PO number not mapped on every procure-to-pay hop");
+  const heldSupplierPo = await get("/lineage/flows/procure-to-pay/transactions/SPO-7700468");
+  assert(heldSupplierPo.status === "on_hold" && heldSupplierPo.stuck_at?.interface.key === "if-supplier-810", "held supplier PO trace incorrect");
+  assert(heldSupplierPo.data_impact?.entities_at_risk.some((e) => e.key === "supplier-payment") && heldSupplierPo.steps.at(-1).status === "blocked", "held supplier PO downstream impact missing");
+  const paidSupplierPo = await get("/lineage/flows/procure-to-pay/transactions/SPO-7700451");
+  assert(paidSupplierPo.status === "completed", "completed supplier PO trace incorrect");
+  const erpModernization = await get("/modernization/apex-erp");
+  assert(new Set(erpModernization.lineage_impact.transformations.map((t) => t.flow)).size === 2, "modernization lineage impact not aggregated across flows");
+
+  // Recall traceability: one lot traced across both flows.
+  const recallList = await get("/recalls");
+  assert(recallList.recalls.some((r) => r.key === "RCL-2026-014"), "recall notice missing");
+  const recallDetail = await get("/recalls/RCL-2026-014");
+  assert(recallDetail.trace.receipts.length === 1 && recallDetail.trace.customers.length === 3, "lot trace receipts/customers incorrect");
+  assert(recallDetail.trace.totals.received === 300 && recallDetail.trace.totals.on_hand === 120, "lot trace quantities incorrect");
+  assert(recallDetail.trace.flows.length === 2, "lot trace did not cross both flows");
+  assert(recallDetail.untraceable_receipts.some((r) => r.receipt_number === "GR-51877"), "untraceable pre-v2 receipt missing");
+  assert(recallDetail.recommended_actions.length >= 3 && recallDetail.guardrail, "recall actions or guardrail missing");
+  const mappedHops = (cov, flowKey) => cov.flows.find((f) => f.flow === flowKey).hops.filter((h) => h.mapped).map((h) => h.interface.key).sort();
+  const lotCoverage = await get("/lineage/identifiers/lot_number/coverage");
+  assert(JSON.stringify(mappedHops(lotCoverage, "procure-to-pay")) === JSON.stringify(["if-receiving-erp", "if-supplier-856"]), "procure-to-pay lot coverage incorrect");
+  assert(JSON.stringify(mappedHops(lotCoverage, "order-to-cash")) === JSON.stringify(["if-erp-856"]), "order-to-cash lot coverage incorrect");
+  const pastLotCoverage = await get("/lineage/identifiers/lot_number/coverage?as_of=2025-06-01");
+  assert(!mappedHops(pastLotCoverage, "procure-to-pay").includes("if-supplier-856"), "as-of lot coverage did not show the pre-v2 gap");
+  const lotDownstream = await get("/lineage/inventory-lot?direction=downstream&flow=procure-to-pay");
+  assert(lotDownstream.entities.length === 1, "inventory lot should have no in-flow downstream; cross-flow edge belongs to recall trace");
+
   await post("/ingestion/fixtures/clear");
   const fixtureLoad = await post("/ingestion/fixtures");
   assert(fixtureLoad.source_records_loaded >= 10, "enterprise fixture pack did not load");
@@ -251,6 +287,19 @@ try {
       asOfMappingVersion: asOfX12Hop.mapping_version,
       stewardReviewCycle: "confirmed -> rejected -> reset",
       openLineageEvents: openLineage.event_count,
+    },
+    procureToPay: {
+      entities: p2pEntities.entities.length,
+      hops: p2pFlow.steps.length,
+      heldAt: heldSupplierPo.stuck_at.interface.key,
+    },
+    recall: {
+      lot: recallDetail.recall.lot_number,
+      received: recallDetail.trace.totals.received,
+      shipped: recallDetail.trace.totals.shipped,
+      onHand: recallDetail.trace.totals.on_hand,
+      hospitals: recallDetail.trace.customers.length,
+      untraceableReceipts: recallDetail.untraceable_receipts.length,
     },
     ingestion: {
       records: ingestion.source_records.length,
