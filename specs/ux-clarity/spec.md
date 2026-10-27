@@ -44,7 +44,6 @@ projector. Some navigation hints are stale after procure-to-pay and recall.
 ## 6. Non-goals
 
 - Presenter display scaling.
-- Frontend component tests (need new test dependencies; pending approval).
 
 ## 7. Requirements
 
@@ -97,6 +96,7 @@ Unchanged. The MongoDB proof moves to its own tab.
 - [ ] REQ-001 to REQ-012 visible in the running demo (pending a manual visual pass).
 - [x] `cd frontend && npm run build` passes.
 - [x] `npm run smoke` passes with unchanged results.
+- [x] `cd frontend && npm test` passes (14 component tests).
 
 ## 12. Product risks
 
@@ -105,7 +105,8 @@ Unchanged. The MongoDB proof moves to its own tab.
 
 ## 13. Validation plan
 
-- Build, smoke, and a manual pass through the architecture path.
+- Build, smoke, `cd frontend && npm test`, and a manual pass through the
+  architecture path.
 
 ## 14. Implementation tasks
 
@@ -125,10 +126,12 @@ Unchanged. The MongoDB proof moves to its own tab.
 - The Workbench link selects the matching inbox alert but does not open a case;
   the presenter still clicks **Open investigation case**.
 
+- Component tests use Vitest 3 (supports the project's Vite 5), Testing
+  Library, and jsdom; the API module and React Flow graph are mocked.
+
 ## 16. Roadmap priority
 
-1. Frontend component tests (Vitest + Testing Library), once approved.
-2. URL routing so links are shareable and browser back works.
+1. URL routing so links are shareable and browser back works.
 
 ## 17. Follow-ups
 

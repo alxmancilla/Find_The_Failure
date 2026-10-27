@@ -424,3 +424,12 @@ and reset/cleanup. It clears the optional fixture pack and steward decisions so
 the normal rehearsal baseline remains stable.
 
 For the smaller backend-only check, run `cd backend && node smoke.mjs`.
+
+Frontend component tests (Vitest + Testing Library, jsdom; no backend needed)
+cover the Data view answer line, tabs, as-of banner, retry state, linked order
+traces, the Recall Trace answer and links, the arrow-key radio groups, and the
+Workbench Triage/Case lock and lineage focus:
+
+```bash
+cd frontend && npm test
+```

@@ -9,4 +9,8 @@ export default defineConfig({
       "/api": "http://localhost:4000",
     },
   },
+  test: {
+    environment: "jsdom",
+    include: ["src/**/*.test.jsx"],
+  },
 });
