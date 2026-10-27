@@ -42,7 +42,7 @@ workflow in [`specs/`](./specs/).
 2. Trace a sample order by PO number to show where it stopped.
 3. Confirm or reject the inferred lineage edge as a data steward.
 4. Click **Plan a change to …** to see what must be rebuilt in **Modernization**.
-5. Switch the flow picker to **Procure-to-pay** to show the same model on the
+5. Set **Flow** to **Procure to Pay** to show the same model on the
    supplier side, including a supplier PO held at invoice match.
 6. Open **Recall Trace** to follow recalled lot L-2291 across both flows.
 
@@ -50,8 +50,9 @@ Navigation is grouped into two presenter paths plus the platform view:
 
 - **Operations** — **Investigation Workbench** (the hero path above).
 - **Architecture** — **Catalog & Lineage** (dependency graph with a **System view
-  / Data view** lens for operational lineage, with a flow picker for
-  order-to-cash and procure-to-pay), **Modernization** (change-planning impact),
+  / Data view** lens for operational lineage, with a **Flow** selector for
+  order-to-cash and procure-to-pay, an answer line above the graph, and
+  **Details / Trace / Governance / Proof** tabs), **Modernization** (change-planning impact),
   and **Recall Trace** (one lot traced across both flows). The Data view's "Plan
   a change to …" button opens Modernization with the entity's system of record
   selected.

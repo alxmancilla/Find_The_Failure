@@ -12,7 +12,7 @@ const NAV_GROUPS = [
   {
     label: "Architecture",
     items: [
-      { id: "explorer", label: "Catalog & Lineage", hint: "Dependency graph and order-to-cash data lineage" },
+      { id: "explorer", label: "Catalog & Lineage", hint: "Dependency graph and data lineage for order-to-cash and procure-to-pay" },
       { id: "modernization", label: "Modernization", hint: "What breaks, and what must be rebuilt, if a system changes" },
       { id: "recall", label: "Recall Trace", hint: "Trace a recalled lot across procure-to-pay and order-to-cash" },
     ],
@@ -41,7 +41,7 @@ export default function App() {
           <div>
             <h1>Find the Failure</h1>
             <span className="muted">Apex Health Supply · EDI Integration Impact Explorer</span>
-            <span className="hero-hint">Operations: Workbench · Architecture: Catalog & Lineage → Modernization</span>
+            <span className="hero-hint">Operations: Workbench · Architecture: Catalog & Lineage → Modernization → Recall Trace</span>
           </div>
         </div>
         <div className="header-meta">

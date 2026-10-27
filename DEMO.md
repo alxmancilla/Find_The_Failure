@@ -228,22 +228,24 @@ Use this when the audience asks, "How does order data actually move across our
 systems?"
 
 1. Go to **Architecture → Catalog & Lineage** and switch the lens to **Data view**.
-2. **Purchase Order** is selected by default. Show the path to **Canonical
-   Order**, **Sales Order**, **Order Acknowledgment**, **Advance Ship Notice**,
+2. **Purchase Order** is selected in the **Data entity** list by default. Read
+   the answer line above the graph (connected documents, confirmed and inferred
+   edges, PO number coverage), then show the path to **Canonical Order**,
+   **Sales Order**, **Order Acknowledgment**, **Advance Ship Notice**,
    **Invoice**, and **Payment Remittance**.
-3. Point to the right panel: system of record, producers, consumers, and the
-   interfaces that carry the entity.
+3. Point to the **Details** tab on the right: system of record, producers,
+   consumers, and the interfaces that carry the entity.
 4. Click a lineage edge (for example **Integration API to Apex ERP**) to show the
    transformation, owner, evidence, and field mappings with the PO number
    highlighted.
-5. Open **Follow the PO number** to walk all nine hops from `X12 850 BEG03` to
-   `CASH_APPLICATION.CUSTOMER_PO_REF`.
-6. Point to the amber animated **Advance Ship Notice → Invoice** edge: it is
-   inferred from a legacy lineage workbook at 60% confidence and needs SME
-   confirmation.
-7. Switch direction to **Upstream** on **Invoice** to answer "where did this
+5. Open the **Trace** tab to walk all nine hops of **Follow the PO number** from
+   `X12 850 BEG03` to `CASH_APPLICATION.CUSTOMER_PO_REF`.
+6. Point to the dashed amber **⚠ Advance Ship Notice → Invoice** edge (see the
+   graph legend): it is inferred from a legacy lineage workbook at 60%
+   confidence and needs SME confirmation.
+7. Set **Direction** to **↑ Upstream** on **Invoice** to answer "where did this
    invoice come from?"
-8. Open **MongoDB proof** to show the `$graphLookup` pipeline over typed,
+8. Open the **Proof** tab to show the `$graphLookup` pipeline over typed,
    tenant-scoped `transforms_to` relationships.
 9. Point out **Data owner** (Order-to-Cash Data Stewardship) versus **Interface
    owner** (B2B Operations / ERP Integration), and the **Via** systems on
@@ -257,7 +259,7 @@ systems?"
 Use this when architects or data-governance stakeholders ask, "Can this answer
 for one real order, and who decides what is true?"
 
-1. In **Follow the PO number**, pick **PO-4500012388**. The trace shows it was
+1. In the **Trace** tab, pick **PO-4500012388**. The trace shows it was
    delivered through hop 3, **failed at Integration API → Apex ERP**, and that
    the remaining hops are blocked. The summary says the Sales Order may not be
    produced, and the amber line lists the 7 downstream documents not produced
@@ -265,14 +267,17 @@ for one real order, and who decides what is true?"
 2. Pick **PO-4500012345** to contrast a completed order that reached cash
    application.
 3. Click the amber **Advance Ship Notice → Invoice** edge and use **Data steward
-   review → Confirm**. The inferred warning clears and the decision appears under
-   **Steward decisions**. Use **Reject** to remove the edge from lineage. Use
-   **Reset steward decisions** before the next rehearsal.
+   review → Confirm**. The inferred warning clears and the decision appears in
+   the **Governance** tab under **Steward decisions**. Use **Reject** to remove
+   the edge from lineage. Use **Reset steward decisions** before the next
+   rehearsal.
 4. Click **Gateway to X12 Translation**: the hop shows mapping **v3 (X12
-   005010)**. Set **As of** to `2025-01-01` to show the earlier **v2 (X12
-   004010)** mapping (`canonical.order.po`).
-5. Open **Standards mapping** to show the ArchiMate / OpenLineage mapping, then
-   **Export this flow as OpenLineage RunEvents** for interoperability.
+   005010)**. Set **Mappings as of** to `2025-01-01` to show the earlier **v2
+   (X12 004010)** mapping (`canonical.order.po`). The blue banner confirms the
+   date; click **Back to current** to return.
+5. In the **Governance** tab, open **Standards mapping** to show the ArchiMate /
+   OpenLineage mapping, then **Export this flow as OpenLineage RunEvents** for
+   interoperability.
 
 > "One model answers design-time and run-time lineage, with steward control over
 > what counts as truth."
@@ -288,14 +293,14 @@ Lineage is ingested from curated exports, not automated discovery.
 ### Optional — Procure-to-pay: same model, second flow (≈2 minutes)
 Use this when architects ask, "Does this generalize beyond one flow?"
 
-1. In the Data view, switch the flow picker to **Procure-to-pay**. **Purchase
+1. In the Data view, set **Flow** to **Procure to Pay**. **Purchase
    Requisition** is selected; show the path through the supplier 850, 855, 856,
    **Goods Receipt**, the supplier 810, the three-way **Invoice Match**, and
    **Supplier Payment**.
-2. Point out that the identifier label now reads **Follow the supplier PO
-   number**: all 6 hops carry it. The flow is a second `lineage_flows` document
+2. Point out that the answer line and the **Trace** tab now use the supplier PO
+   number: all 6 hops carry it. The flow is a second `lineage_flows` document
    served by the same lineage services.
-3. Pick **SPO-7700468**: it is **on hold at Supplier Invoice 810** because of a
+3. In the **Trace** tab, pick **SPO-7700468**: it is **on hold at Supplier Invoice 810** because of a
    three-way match hold (invoiced 120 units, received 100). Invoice Match and
    Supplier Payment are not produced yet.
 4. Pick **SPO-7700451** to contrast a completed supplier PO.
@@ -310,17 +315,19 @@ we answer who has it?"
 
 1. Go to **Architecture → Recall Trace**. **RCL-2026-014** is selected: Class II,
    IV-220 Infusion Set, lot **L-2291**.
-2. Show the totals: **300 received, 180 shipped, 120 on hand, 3 hospitals**, and
-   the **Affected hospitals** table with orders, shipments, and units.
-3. Open **Path of lot L-2291** to show the lot crossing from procure-to-pay
-   (supplier 856, goods receipt) into order-to-cash (customer 856).
-4. Point to **Untraceable by lot**: receipt **GR-51877** (250 units) was posted
-   before the supplier 856 v2 mapping captured lot numbers.
-5. In **Lot number coverage**, set **Mappings as of** to `2025-06-01`: the
-   supplier 856 hop no longer carries the lot, which explains the gap. Click
-   **Current** to return.
-6. Show **Recommended actions** (quarantine, notify hospitals, block allocations,
+2. Read the answer at the top: the lot reached **3 hospitals**, **120 units**
+   are on hand, and **1 receipt (250 units)** cannot be traced by lot.
+3. Show **Recommended actions** (quarantine, notify hospitals, block allocations,
    confirm with the supplier) and the read-only guardrail.
+4. Scroll to the evidence: totals (**300 received, 180 shipped**), the
+   **Affected hospitals** table, and **Path of lot L-2291** crossing from
+   procure-to-pay (supplier 856, goods receipt) into order-to-cash (customer
+   856).
+5. Point to **Untraceable by lot**: receipt **GR-51877** was posted before the
+   supplier 856 v2 mapping captured lot numbers.
+6. Set **Mappings as of** to `2025-06-01`: in **Lot number coverage** the
+   supplier 856 hop changes from **✓** to **—**, which explains the gap. Click
+   **Back to current** in the banner to return.
 
 > "One lot number, traced across two flows, with the mapping history that tells
 > you where traceability ends."

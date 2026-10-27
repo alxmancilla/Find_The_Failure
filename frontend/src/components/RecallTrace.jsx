@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
+import { AsOfBanner } from "./LineageGovernance.jsx";
 
 const when = (d) => (d ? new Date(d).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" }) : "—");
 
@@ -17,7 +18,7 @@ function Coverage({ coverage }) {
           <div className="recall-coverage-row">
             {f.hops.map((h) => (
               <span key={h.interface?.key} className={`recall-hop ${h.mapped ? "mapped" : ""}`} title={h.mapping ? `${h.mapping.source_path} → ${h.mapping.target_path}` : "Lot not mapped"}>
-                {h.interface?.name} <small>{h.mapping_version}{h.mapping_standard ? ` · ${h.mapping_standard}` : ""}</small>
+                <span aria-label={h.mapped ? "carries the lot" : "lot not mapped"}>{h.mapped ? "✓ " : "— "}</span>{h.interface?.name} <small>{h.mapping_version}{h.mapping_standard ? ` · ${h.mapping_standard}` : ""}</small>
               </span>
             ))}
           </div>
@@ -27,6 +28,20 @@ function Coverage({ coverage }) {
         <p className="muted mini-copy">Internal steps carrying the lot: {coverage.internal_steps.map((s) => `${s.from_key} → ${s.to_key}`).join(" · ")}</p>
       )}
     </div>
+  );
+}
+
+function RecallAnswer({ recall, trace, untraceable }) {
+  const hospitals = trace.customers.map((c) => c.ship_to);
+  const untraceableUnits = untraceable.reduce((sum, r) => sum + (r.quantity || 0), 0);
+  return (
+    <p className="recall-answer" role="status">
+      Lot <strong>{recall.lot_number}</strong> ({recall.product}) reached <strong>{hospitals.length} hospital{hospitals.length === 1 ? "" : "s"}</strong>
+      {hospitals.length ? `: ${hospitals.join(", ")}` : ""}. <strong>{trace.totals.on_hand} units</strong> are still on hand.
+      {untraceable.length > 0 && (
+        <span className="warn"> ⚠ {untraceable.length} receipt{untraceable.length === 1 ? "" : "s"} ({untraceableUnits} units) cannot be traced by lot.</span>
+      )}
+    </p>
   );
 }
 
@@ -69,12 +84,18 @@ export default function RecallTrace() {
           <label className="lineage-as-of">
             <span>Mappings as of</span>
             <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} />
-            {asOf && <button type="button" onClick={() => setAsOf("")}>Current</button>}
           </label>
         </div>
+        <AsOfBanner asOf={asOf} onClear={() => setAsOf("")} subject="lot mappings" inset />
         {error && <p className="feed-status">{error}</p>}
         {recall && trace && (
           <>
+            <RecallAnswer recall={recall} trace={trace} untraceable={detail.untraceable_receipts} />
+            <div className="panel-section">
+              <h3>Recommended actions</h3>
+              {detail.recommended_actions.map((a) => <div key={a} className="next-action">{a}</div>)}
+              <p className="approval-guardrail">{detail.guardrail}</p>
+            </div>
             <div className="panel-section recall-notice">
               <h3>{recall.recall_class} · {recall.product}</h3>
               <p className="mini-copy">{recall.reason}</p>
@@ -121,11 +142,6 @@ export default function RecallTrace() {
               </div>
             )}
             <Coverage coverage={detail.coverage} />
-            <div className="panel-section">
-              <h3>Recommended actions</h3>
-              {detail.recommended_actions.map((a) => <div key={a} className="next-action">{a}</div>)}
-              <p className="approval-guardrail">{detail.guardrail}</p>
-            </div>
             <details className="detail-stack">
               <summary>MongoDB proof <span>business-key aggregation</span></summary>
               <p className="muted mini-copy lineage-trace-copy">{trace.mongodb_trace.purpose}</p>

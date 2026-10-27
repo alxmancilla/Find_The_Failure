@@ -5,8 +5,52 @@ const STATUS_LABEL = { delivered: "Delivered", failed: "Failed", on_hold: "On ho
 const when = (d) => (d ? new Date(d).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
 const day = (d) => (d ? new Date(d).toISOString().slice(0, 10) : "—");
 
+const longDay = (d) => new Date(`${d}T00:00:00`).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" });
+
+export function AsOfBanner({ asOf, onClear, subject = "mappings", inset = false }) {
+  if (!asOf) return null;
+  return (
+    <div className={`as-of-banner ${inset ? "inset" : ""}`} role="status">
+      <span>Viewing {subject} as of <strong>{longDay(asOf)}</strong>. Current mappings may differ.</span>
+      <button type="button" onClick={onClear}>Back to current</button>
+    </div>
+  );
+}
+
+// Radio group with arrow-key navigation.
+export function Segmented({ label, options, value, onChange }) {
+  const move = (event, index) => {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const next = options[(index + step + options.length) % options.length];
+    onChange(next.id);
+    event.currentTarget.parentElement.querySelectorAll("button")[options.indexOf(next)]?.focus();
+  };
+  return (
+    <div>
+      <span className="control-label" id={`seg-${label}`}>{label}</span>
+      <div className="segmented" role="radiogroup" aria-labelledby={`seg-${label}`}>
+        {options.map((option, index) => (
+          <button
+            key={option.id}
+            type="button"
+            role="radio"
+            aria-checked={option.id === value}
+            tabIndex={option.id === value ? 0 : -1}
+            onClick={() => onChange(option.id)}
+            onKeyDown={(event) => move(event, index)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Design path ("follow the identifier") with an optional per-order overlay.
-export function OrderTrace({ flow }) {
+export function OrderTrace({ flow, defaultOpen = false }) {
   const [transactions, setTransactions] = useState([]);
   const [selected, setSelected] = useState("");
   const [trace, setTrace] = useState(null);
@@ -25,7 +69,7 @@ export function OrderTrace({ flow }) {
   if (!flow) return null;
   const statusByStep = new Map((trace?.steps || []).map((s) => [s.step, s]));
   return (
-    <details className="detail-stack lineage-trace" open={Boolean(selected)}>
+    <details className="detail-stack lineage-trace" open={defaultOpen || Boolean(selected)}>
       <summary>Follow the {flow.identifier_label || "PO number"} <span>{flow.steps.length} hops</span></summary>
       <div className="order-trace-picker">
         <label>

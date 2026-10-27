@@ -52,7 +52,7 @@ Create specs under `specs/<short-feature-name>/spec.md`.
 
 ## Spec index
 
-All specs below are `validated`.
+Specs below are `validated` unless marked otherwise.
 
 **Operations (Investigation Workbench)**
 
@@ -77,6 +77,10 @@ All specs below are `validated`.
 - [`lineage-governance`](./lineage-governance/spec.md) — order tracing, steward review, versioned mappings, standards
 - [`procure-to-pay`](./procure-to-pay/spec.md) — second lineage flow on the supplier side, supplier PO tracing
 - [`product-recall-traceability`](./product-recall-traceability/spec.md) — lot trace across both flows, lot coverage, Recall Trace view
+
+**Cross-cutting**
+
+- [`ux-clarity`](./ux-clarity/spec.md) — answer-first architecture screens, tabbed Data view, as-of banner, legend, 12px font floor (`implemented`; build and smoke pass, manual visual pass pending)
 
 ## Change discipline
 

@@ -1,20 +1,49 @@
 import { useEffect, useMemo, useState } from "react";
 import DependencyGraph from "./DependencyGraph.jsx";
-import { MappingVersion, OrderTrace, StandardsPanel, StewardDecisions, StewardReview } from "./LineageGovernance.jsx";
+import { AsOfBanner, MappingVersion, OrderTrace, Segmented, StandardsPanel, StewardDecisions, StewardReview } from "./LineageGovernance.jsx";
 import { api } from "../api.js";
 
 const DIRECTIONS = [
-  { id: "both", label: "Both" },
-  { id: "upstream", label: "Upstream" },
-  { id: "downstream", label: "Downstream" },
+  { id: "upstream", label: "↑ Upstream" },
+  { id: "both", label: "↕ Both" },
+  { id: "downstream", label: "↓ Downstream" },
 ];
+
+const LINEAGE_LEGEND = [
+  { kind: "ok", label: "Confirmed" },
+  { kind: "risk", label: "Inferred · needs steward review" },
+];
+
+const PANEL_TABS = [
+  { id: "details", label: "Details" },
+  { id: "trace", label: "Trace" },
+  { id: "governance", label: "Governance" },
+  { id: "proof", label: "Proof" },
+];
+
+const DIRECTION_WORD = { upstream: "upstream", downstream: "downstream", both: "connected" };
+
+function AnswerLine({ lineage, flow, direction }) {
+  if (!lineage?.entity) return null;
+  const related = lineage.entities.filter((e) => e.key !== lineage.entity.key).length;
+  const { confirmed, inferred } = lineage.data_quality;
+  const mapped = flow?.steps.filter((s) => s.identifier_mapping).length;
+  return (
+    <div className="answer-line" title={lineage.summary}>
+      <span><strong>{lineage.entity.name}</strong> · {related} {DIRECTION_WORD[direction]} document{related === 1 ? "" : "s"}</span>
+      <span className="chip ok">✓ {confirmed} confirmed</span>
+      {inferred > 0 && <span className="chip risk">⚠ {inferred} inferred · needs review</span>}
+      {flow && <span className="chip">{flow.identifier_label} on {mapped}/{flow.steps.length} hops</span>}
+    </div>
+  );
+}
 
 export function LensToggle({ lens, onChange }) {
   return (
     <div className="lens-toggle" role="group" aria-label="Catalog lens">
       <button type="button" className={lens === "system" ? "active" : ""} aria-pressed={lens === "system"} onClick={() => onChange("system")}>System view</button>
       <button type="button" className={lens === "data" ? "active" : ""} aria-pressed={lens === "data"} onClick={() => onChange("data")}>Data view</button>
-      <span className="muted">{lens === "data" ? "Operational lineage · order-to-cash" : "Interfaces and dependency paths"}</span>
+      <span className="muted">{lens === "data" ? "Operational lineage by business flow" : "Interfaces and dependency paths"}</span>
     </div>
   );
 }
@@ -82,6 +111,7 @@ export default function LineageView({ lens, onLensChange, onPlanChange }) {
   const [flow, setFlow] = useState(null);
   const [selectedEdge, setSelectedEdge] = useState(null);
   const [asOf, setAsOf] = useState("");
+  const [panelTab, setPanelTab] = useState("details");
   const [refreshKey, setRefreshKey] = useState(0);
   const [error, setError] = useState("");
   const refresh = () => setRefreshKey((k) => k + 1);
@@ -121,71 +151,89 @@ export default function LineageView({ lens, onLensChange, onPlanChange }) {
   }), [lineage]);
   const entityName = (key) => lineage?.entities.find((e) => e.key === key)?.name || key;
   const transformation = lineage?.transformations.find((t) => t.key === selectedEdge);
+  const inferredCount = lineage?.data_quality?.inferred || 0;
+  const selectEdge = (edgeKey) => {
+    setSelectedEdge(edgeKey);
+    setPanelTab("details");
+  };
 
   return (
     <div className="main">
       <div className="left">
         <LensToggle lens={lens} onChange={onLensChange} />
-        <div className="lineage-toolbar">
+        <div className="lineage-toolbar lineage-controls">
           {flows.length > 1 && (
-            <div className="lineage-entity-row" aria-label="Lineage flow">
-              <span className="muted mini-copy">Flow</span>
-              {flows.map((f) => (
-                <button key={f.key} type="button" className={f.key === flowKey ? "active" : ""} onClick={() => setFlowKey(f.key)}>{f.name}</button>
-              ))}
-            </div>
+            <Segmented label="Flow" options={flows.map((f) => ({ id: f.key, label: f.name }))} value={flowKey} onChange={setFlowKey} />
           )}
-          <div className="lineage-entity-row" aria-label="Flow data entities">
-            {entities.map((e) => (
-              <button key={e.key} type="button" className={e.key === entityKey ? "active" : ""} onClick={() => setEntityKey(e.key)}>{e.name}</button>
-            ))}
-          </div>
-          <div className="lineage-direction-row" aria-label="Lineage direction">
-            {DIRECTIONS.map((d) => (
-              <button key={d.id} type="button" className={d.id === direction ? "active" : ""} onClick={() => setDirection(d.id)}>{d.label}</button>
-            ))}
-            <label className="lineage-as-of">
-              <span>As of</span>
-              <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} />
-              {asOf && <button type="button" onClick={() => setAsOf("")}>Current</button>}
-            </label>
-            <span className="muted mini-copy">Amber animated edges are inferred and need data steward review.</span>
-          </div>
+          <label>
+            <span className="control-label">Data entity</span>
+            <select value={entityKey} onChange={(e) => setEntityKey(e.target.value)}>
+              {entities.map((e, i) => <option key={e.key} value={e.key}>{i + 1}. {e.name}</option>)}
+            </select>
+          </label>
+          <Segmented label="Direction" options={DIRECTIONS} value={direction} onChange={setDirection} />
+          <label className="lineage-as-of">
+            <span className="control-label">Mappings as of</span>
+            <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} />
+          </label>
         </div>
+        <AnswerLine lineage={lineage} flow={flow} direction={direction} />
+        <AsOfBanner asOf={asOf} onClear={() => setAsOf("")} />
         {error && <p className="feed-status">{error}</p>}
         <DependencyGraph
           flow={lineage?.graph?.edges?.length ? lineage.graph : null}
           impacted={impacted}
           selectedId={entityKey}
+          legend={LINEAGE_LEGEND}
           emptyText="No transformations found for this entity in the selected direction."
           onSelectSystem={setEntityKey}
-          onSelectInterface={setSelectedEdge}
+          onSelectInterface={selectEdge}
         />
       </div>
       <aside className="right">
-        {lineage && (
-          <section className="panel-section">
-            <h3>Operational lineage</h3>
-            <p className="mini-copy">{lineage.summary}</p>
-            <div className="chip-row">
-              <span className="chip">{lineage.data_quality.confirmed} confirmed</span>
-              {lineage.data_quality.inferred > 0 && <span className="chip risk">{lineage.data_quality.inferred} inferred</span>}
-              <span className="chip">avg confidence {Math.round((lineage.data_quality.average_confidence || 0) * 100)}%</span>
-            </div>
-          </section>
-        )}
-        <EntityPanel entity={lineage?.entity} onPlanChange={onPlanChange} />
-        <TransformationPanel transformation={transformation} entityName={entityName} identifier={flow?.identifier} onReviewed={refresh} />
-        <StewardDecisions refreshKey={refreshKey} onReset={refresh} />
-        <OrderTrace flow={flow} />
-        <StandardsPanel flowKey={flow?.flow} />
-        {lineage?.mongodb_trace && (
-          <details className="detail-stack">
-            <summary>MongoDB proof <span>$graphLookup</span></summary>
-            <p className="muted mini-copy lineage-trace-copy">{lineage.mongodb_trace.purpose}</p>
-            <pre className="lineage-pipeline">{`db.${lineage.mongodb_trace.collection}.aggregate(${JSON.stringify(lineage.mongodb_trace.pipeline, null, 2)})`}</pre>
-          </details>
-        )}
+        <div className="panel-tabs" role="tablist" aria-label="Lineage details">
+          {PANEL_TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              id={`lineage-tab-${t.id}`}
+              aria-selected={panelTab === t.id}
+              aria-controls={`lineage-panel-${t.id}`}
+              onClick={() => setPanelTab(t.id)}
+            >
+              {t.label}
+              {t.id === "governance" && inferredCount > 0 && <span className="tab-count" aria-label={`${inferredCount} inferred`}>{inferredCount}</span>}
+            </button>
+          ))}
+        </div>
+        <div role="tabpanel" id={`lineage-panel-${panelTab}`} aria-labelledby={`lineage-tab-${panelTab}`}>
+          {panelTab === "details" && (
+            <>
+              <EntityPanel entity={lineage?.entity} onPlanChange={onPlanChange} />
+              <TransformationPanel transformation={transformation} entityName={entityName} identifier={flow?.identifier} onReviewed={refresh} />
+            </>
+          )}
+          {panelTab === "trace" && <OrderTrace flow={flow} defaultOpen />}
+          {panelTab === "governance" && (
+            <>
+              {inferredCount > 0 && (
+                <p className="muted mini-copy lineage-trace-copy">
+                  {inferredCount} inferred edge{inferredCount === 1 ? "" : "s"} (dashed amber in the graph). Click one to confirm or reject it.
+                </p>
+              )}
+              <StewardDecisions refreshKey={refreshKey} onReset={refresh} />
+              <StandardsPanel flowKey={flow?.flow} />
+            </>
+          )}
+          {panelTab === "proof" && lineage?.mongodb_trace && (
+            <section className="panel-section">
+              <h3>MongoDB proof · $graphLookup</h3>
+              <p className="muted mini-copy">{lineage.mongodb_trace.purpose}</p>
+              <pre className="lineage-pipeline">{`db.${lineage.mongodb_trace.collection}.aggregate(${JSON.stringify(lineage.mongodb_trace.pipeline, null, 2)})`}</pre>
+            </section>
+          )}
+        </div>
       </aside>
     </div>
   );

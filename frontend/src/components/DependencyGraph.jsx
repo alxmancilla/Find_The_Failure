@@ -51,7 +51,32 @@ function SystemNode({ data }) {
 
 const nodeTypes = { system: SystemNode };
 
-export default function DependencyGraph({ flow, impacted, selectedId, emptyText, onSelectSystem, onSelectInterface }) {
+const EDGE_STYLE = {
+  ok: { color: "#4b5680", icon: "" },
+  risk: { color: "#ffb020", icon: "⚠ " },
+  failed: { color: "#ff5470", icon: "✕ " },
+};
+
+export const IMPACT_LEGEND = [
+  { kind: "ok", label: "Healthy" },
+  { kind: "risk", label: "At risk (downstream)" },
+  { kind: "failed", label: "Failed" },
+];
+
+function Legend({ items }) {
+  return (
+    <ul className="graph-legend" aria-label="Graph legend">
+      {items.map((item) => (
+        <li key={item.kind}>
+          <span className={`graph-legend-line ${item.kind}`} aria-hidden="true" />
+          {EDGE_STYLE[item.kind].icon}{item.label}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export default function DependencyGraph({ flow, impacted, selectedId, emptyText, legend = IMPACT_LEGEND, onSelectSystem, onSelectInterface }) {
   const { rfNodes, rfEdges } = useMemo(() => {
     if (!flow) return { rfNodes: [], rfEdges: [] };
     const pos = Object.fromEntries(layout(flow.nodes, flow.edges).map((p) => [p.id, p]));
@@ -76,17 +101,17 @@ export default function DependencyGraph({ flow, impacted, selectedId, emptyText,
     const failedEdges = new Set(impacted?.failedEdges || []);
     const riskEdges = new Set(impacted?.riskEdges || []);
     const rfEdges = flow.edges.map((e) => {
-      const failed = failedEdges.has(e.id);
-      const risk = riskEdges.has(e.id);
-      const color = failed ? "#ff5470" : risk ? "#ffb020" : "#4b5680";
+      const kind = failedEdges.has(e.id) ? "failed" : riskEdges.has(e.id) ? "risk" : "ok";
+      const { color, icon } = EDGE_STYLE[kind];
+      const flagged = kind !== "ok";
       return {
         id: e.id,
         source: e.source,
         target: e.target,
-        label: `${e.data.label} (${e.data.protocol})`,
-        animated: failed || risk,
-        style: { stroke: color, strokeWidth: failed || risk ? 2.5 : 1.5 },
-        labelStyle: { fill: "#9aa4c0", fontSize: 10 },
+        label: `${icon}${e.data.label} (${e.data.protocol})`,
+        animated: flagged,
+        style: { stroke: color, strokeWidth: flagged ? 2.5 : 1.5, strokeDasharray: kind === "risk" ? "6 4" : undefined },
+        labelStyle: { fill: flagged ? color : "#9aa4c0", fontSize: 12 },
         labelBgStyle: { fill: "#141a2e" },
         markerEnd: { type: MarkerType.ArrowClosed, color },
       };
@@ -110,6 +135,7 @@ export default function DependencyGraph({ flow, impacted, selectedId, emptyText,
         <Background color="#2a3350" gap={20} />
         <Controls showInteractive={false} />
       </ReactFlow>
+      {legend?.length > 0 && <Legend items={legend} />}
     </div>
   );
 }
