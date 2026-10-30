@@ -175,6 +175,8 @@ supplier 810 → three-way match → supplier payment.
 | Versioned subdocuments | Effective-dated mappings answer "as of" questions |
 | Provenance | Every edge links to its raw source record and ingestion run |
 | Case memory | Auditable investigations, decisions, and grounded Q&A |
+| Schema validation | `$jsonSchema` validators (warn mode) on edges, tracking events, source records, and flows |
+| Index discipline | Every index serves a known query; hot paths are tenant-scoped; `syncIndexes()` drops the rest |
 
 ---
 
@@ -183,12 +185,16 @@ supplier 810 → three-way match → supplier payment.
 **Implemented and tested**
 - Ingestion pipeline, typed edge store, traversal, impact, lineage, steward
   review, versioned mappings, OpenLineage export, recall trace, case memory
+- Database validators, query-aligned indexes, explicit connection settings
+  (`appName`, pool size, timeouts, retryable writes, `w: "majority"`)
 - `npm run smoke` (API end to end) · `cd frontend && npm test` (14 component tests)
 
 **Sample data, by design**
 - Fictional company, seeded exports and alerts
 - Order, supplier PO, and lot tracking events are seeded, not a live feed
 - Agent v1 is deterministic and read-only; no LLM tool orchestration
+- Not yet production-hardened: no transactions for multi-step writes, history
+  arrays are not capped, single-tenant data
 
 ---
 
