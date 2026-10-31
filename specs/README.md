@@ -122,6 +122,10 @@ Specs below are `validated` unless marked otherwise.
 
 - [`ux-clarity`](./ux-clarity/spec.md) — answer-first architecture screens, tabbed Data view, as-of banner, legend, 12px font floor, cross-screen links, loading/retry states, Workbench triage/case steps (`implemented`; build and smoke pass, manual visual pass pending)
 - [`mongodb-hygiene`](./mongodb-hygiene/spec.md) — `$jsonSchema` validators (warn), index cleanup with `syncIndexes()`, tenant-scoped hot-path queries, explicit connection settings
+- [`mongodb-transactions`](./mongodb-transactions/spec.md) — all-or-nothing multi-document write flows (`draft`)
+- [`bounded-history-arrays`](./bounded-history-arrays/spec.md) — `$slice` caps on every history array (`draft`)
+- [`business-key-attribute-pattern`](./business-key-attribute-pattern/spec.md) — one `{k, v}` index for every business identifier in `message_events` (`draft`)
+- [`requirement-test-backfill`](./requirement-test-backfill/spec.md) — tag smoke assertions, backend test suite, untested-requirement list (`draft`)
 
 ## Change discipline
 

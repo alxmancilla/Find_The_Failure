@@ -2,10 +2,11 @@
 status: validated
 owner: demo-team
 created: 2026-10-26
-updated: 2026-10-26
+updated: 2026-10-31
 release_type: architecture demo extension
 baseline_tag: product-recall-traceability-2026-10-26
 depends_on: [procure-to-pay]
+amended_by: [business-key-attribute-pattern]
 ---
 
 # Product Recall Traceability Spec
@@ -148,3 +149,9 @@ spans supplier EDI, receiving, inventory, and customer shipping records.
 ## 17. Follow-ups
 
 - Unit-level serial tracing; DSCSA-style transaction history for drug products.
+
+## 18. Amendments
+
+| Requirement here | Changed by | Now |
+|---|---|---|
+| REQ-010 (index on `business_keys.lot_number`) | [`business-key-attribute-pattern`](../business-key-attribute-pattern/spec.md) REQ-002 | Lot lookups use the shared `business_key_attributes` index |

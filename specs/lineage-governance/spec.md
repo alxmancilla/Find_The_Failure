@@ -2,9 +2,10 @@
 status: validated
 owner: demo-team
 created: 2026-10-26
-updated: 2026-10-26
+updated: 2026-10-31
 release_type: architecture review follow-up
 baseline_tag: lineage-governance-2026-10-26
+amended_by: [business-key-attribute-pattern]
 ---
 
 # Lineage Governance Spec
@@ -141,3 +142,9 @@ effective date and no link to standard metamodels.
 ## 17. Follow-ups
 
 - Publish OpenLineage events to an external lineage backend.
+
+## 18. Amendments
+
+| Requirement here | Changed by | Now |
+|---|---|---|
+| REQ-001 (index by tenant, environment, flow, and PO number) | [`business-key-attribute-pattern`](../business-key-attribute-pattern/spec.md) REQ-002 | One `business_key_attributes` index serves every identifier; `flow` is filtered after the index scan |
