@@ -8,6 +8,7 @@
     "start:app": "bash scripts/app.sh",
     "seed": "cd backend && npm run seed",
     "smoke": "node scripts/full-smoke.mjs",
-    "stop": "docker compose down"
+    "stop": "docker compose down",
+    "spec:check": "node scripts/spec-check.mjs"
   }
 }

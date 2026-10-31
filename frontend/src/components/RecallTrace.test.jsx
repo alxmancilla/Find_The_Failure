@@ -34,7 +34,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("RecallTrace", () => {
-  it("answers first: hospitals, on-hand units, and untraceable receipts, then the actions", async () => {
+  it("[ux-clarity:REQ-006] answers first: hospitals, on-hand units, and untraceable receipts, then the actions", async () => {
     render(<RecallTrace />);
     const answer = await screen.findByText((_, el) => el?.classList?.contains("recall-answer"));
     expect(answer.textContent).toContain("reached 2 hospitals: Hospital A, Hospital B");
@@ -45,7 +45,7 @@ describe("RecallTrace", () => {
     expect(actions.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("opens linked orders in the Data view on the right flow and entity", async () => {
+  it("[ux-clarity:REQ-010] opens linked orders in the Data view on the right flow and entity", async () => {
     const onOpenLineage = vi.fn();
     render(<RecallTrace onOpenLineage={onOpenLineage} />);
     fireEvent.click(await screen.findByRole("button", { name: "PO-1" }));
@@ -56,14 +56,14 @@ describe("RecallTrace", () => {
     expect(onOpenLineage).toHaveBeenLastCalledWith({ flow: "procure-to-pay", entity: "goods-receipt", transaction: "SPO-9" });
   });
 
-  it("renders plain text instead of links when no navigation handler is given", async () => {
+  it("[ux-clarity:REQ-010] renders plain text instead of links when no navigation handler is given", async () => {
     render(<RecallTrace />);
     await screen.findByText(/cannot be traced by lot/);
     expect(screen.queryByRole("button", { name: "PO-1" })).toBeNull();
     expect(screen.getByText("PO-1")).toBeTruthy();
   });
 
-  it("shows a retry notice when the trace fails and recovers on Retry", async () => {
+  it("[ux-clarity:REQ-011] shows a retry notice when the trace fails and recovers on Retry", async () => {
     api.recall.mockRejectedValueOnce(new Error("Failed to fetch"));
     render(<RecallTrace />);
     expect((await screen.findByRole("alert")).textContent).toContain("Unable to load recall trace.");
@@ -72,7 +72,7 @@ describe("RecallTrace", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("shows an empty state when no recall notices exist", async () => {
+  it("[ux-clarity:REQ-011] shows an empty state when no recall notices exist", async () => {
     api.recalls.mockResolvedValueOnce({ recalls: [] });
     render(<RecallTrace />);
     expect(await screen.findByText("No recall notices")).toBeTruthy();

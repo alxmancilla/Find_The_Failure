@@ -1,13 +1,13 @@
-# MongoDB Hygiene Spec
-
 ---
 status: validated
 owner: demo-team
 created: 2026-10-27
 updated: 2026-10-27
 release_type: platform hardening
-baseline_tag: TBD
+baseline_tag: mongodb-hygiene-2026-10-27
 ---
+
+# MongoDB Hygiene Spec
 
 ## 1. Problem
 

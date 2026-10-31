@@ -1,13 +1,14 @@
-# Operations Workbench Spec
-
 ---
 status: validated
 owner: demo-team
 created: 2026-09-16
-updated: 2026-09-16
+updated: 2026-10-31
 release_type: operations demo baseline
 baseline_tag: operations-workbench-2026-09-16
+amended_by: [ux-clarity]
 ---
+
+# Operations Workbench Spec
 
 ## 1. Problem
 
@@ -281,3 +282,11 @@ Workbench case state only; they do not close tickets or modify external systems.
   production incident-correlation policy.
 - Keep future UI improvements focused on curation before adding more visible
   features.
+
+## 18. Amendments
+
+Later specs changed parts of this one. Current behaviour follows them:
+
+| Requirement here | Changed by | Now |
+|---|---|---|
+| REQ-019 (Presenter Mode consolidates the right rail) | [`ux-clarity`](../ux-clarity/spec.md) REQ-012 | Presenter Mode still defaults on; the right rail is split into **1. Triage** and **2. Case** steps |

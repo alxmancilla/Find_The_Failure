@@ -1,5 +1,3 @@
-# Workbench Simplification / Presenter Mode Spec
-
 ---
 status: validated
 owner: demo-team
@@ -8,6 +6,8 @@ updated: 2026-10-23
 release_type: demo UX refinement
 baseline_tag: workbench-simplification-2026-10-23
 ---
+
+# Workbench Simplification / Presenter Mode Spec
 
 ## 1. Problem
 

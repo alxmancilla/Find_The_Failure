@@ -1,5 +1,3 @@
-# Operational Priority Spec
-
 ---
 status: validated
 owner: demo-team
@@ -8,6 +6,8 @@ updated: 2026-09-16
 release_type: next demo enhancement
 baseline_tag: operations-workbench-2026-09-16
 ---
+
+# Operational Priority Spec
 
 ## 1. Problem
 

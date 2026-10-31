@@ -447,3 +447,12 @@ Workbench Triage/Case lock and lineage focus:
 ```bash
 cd frontend && npm test
 ```
+
+Spec checks (no backend needed) validate spec front matter, baseline tags, and
+`amends` / `supersedes` links, and report which numbered requirements are
+referenced by automated tests (`[<spec>:REQ-001]` in test names and smoke
+assertion messages). See [`specs/README.md`](./specs/README.md).
+
+```bash
+npm run spec:check            # add -- --strict to fail on untested requirements
+```

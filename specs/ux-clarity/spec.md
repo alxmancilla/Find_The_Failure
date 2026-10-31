@@ -1,13 +1,14 @@
-# UX Clarity Spec
-
 ---
 status: implemented
 owner: demo-team
-created: 2026-10-27
-updated: 2026-10-27
+created: 2026-10-26
+updated: 2026-10-31
 release_type: UX polish
-baseline_tag: TBD
+baseline_tag: none
+amends: [operations-workbench]
 ---
+
+# UX Clarity Spec
 
 ## 1. Problem
 
@@ -128,6 +129,11 @@ Unchanged. The MongoDB proof moves to its own tab.
 
 - Component tests use Vitest 3 (supports the project's Vite 5), Testing
   Library, and jsdom; the API module and React Flow graph are mocked.
+- Scope history: REQ-001–REQ-009 were implemented first (`8384cab`); REQ-010–
+  REQ-012 were added afterwards and implemented in `9d6a51b`, without a
+  separate review. Future scope changes use a new spec or a dated amendment.
+- REQ-012 amends [`operations-workbench`](../operations-workbench/spec.md)
+  REQ-019 (right rail).
 
 ## 16. Roadmap priority
 

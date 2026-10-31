@@ -1,5 +1,3 @@
-# MongoDB Agent Hardening Spec
-
 ---
 status: validated
 owner: demo-team
@@ -8,6 +6,8 @@ updated: 2026-09-30
 release_type: production-shaped hardening
 baseline_tag: operations-workbench-2026-09-16
 ---
+
+# MongoDB Agent Hardening Spec
 
 ## 1. Problem
 

@@ -21,12 +21,52 @@ expected behavior.
 
 ## Spec lifecycle
 
-Use this lifecycle in each spec frontmatter:
+Use this lifecycle in each spec front matter:
 
 1. `draft` — problem and requirements are still being shaped.
-2. `accepted` — ready to implement.
+2. `accepted` — the demo owner approved scope and acceptance criteria.
 3. `implemented` — code/docs have been changed.
-4. `validated` — tests/smoke checks pass and demo behavior is confirmed.
+4. `validated` — every acceptance criterion is checked and demo behavior is confirmed.
+5. `superseded` — replaced by a later spec (`superseded_by` is required).
+
+**Gate:** a spec is committed as `draft` on its own, and implementation starts
+only after the demo owner approves it and it is marked `accepted`. Specs created
+before 2026-10-31 were written in the same commit as their code; they are not
+retroactively gated.
+
+## Front matter and links
+
+Front matter starts on line 1 (see [`template.md`](./template.md)):
+
+- `created` / `updated` — `updated` changes when requirements, decisions, or
+  status change.
+- `baseline_tag` — an existing git tag marking the validated state or the
+  baseline the change builds on, or `none`.
+- `depends_on` — specs this one requires.
+- `amends` / `amended_by` — partial changes to an earlier spec. Both sides list
+  each other, and the amended spec has an **Amendments** section saying which
+  requirements changed and where current behaviour is described.
+- `supersedes` / `superseded_by` — full replacement.
+
+Scope added after a spec is `implemented` goes in a new spec or a dated
+amendment, not into the existing requirement list.
+
+## Requirement traceability
+
+Automated tests reference the requirements they check in their test name or
+assertion message, as `[<spec>:REQ-001]` or `[<spec>:REQ-001,REQ-002]`:
+
+~~~js
+it("[ux-clarity:REQ-010] opens linked orders in the Data view", ...);
+assert(ok, "[procure-to-pay:REQ-010] held supplier PO trace incorrect");
+~~~
+
+`npm run spec:check` validates front matter, baseline tags, links, and
+duplicate IDs; fails if a `validated` spec has unchecked acceptance criteria or
+a test references an unknown requirement; and reports, per spec, which
+requirements no automated test references. `npm run spec:check -- --strict`
+also fails on untested requirements in `validated` specs. Requirements checked
+manually say so in the spec's acceptance criteria.
 
 ## Required structure
 
@@ -56,7 +96,7 @@ Specs below are `validated` unless marked otherwise.
 
 **Operations (Investigation Workbench)**
 
-- [`operations-workbench`](./operations-workbench/spec.md) — baseline Workbench journey
+- [`operations-workbench`](./operations-workbench/spec.md) — baseline Workbench journey (amended by `ux-clarity`)
 - [`operational-priority`](./operational-priority/spec.md) — priority and SLA risk
 - [`alert-lifecycle`](./alert-lifecycle/spec.md) — local alert lifecycle states
 - [`change-correlation`](./change-correlation/spec.md) — "What changed?" evidence
@@ -71,7 +111,7 @@ Specs below are `validated` unless marked otherwise.
 
 **Architecture (lineage)**
 
-- [`operational-lineage`](./operational-lineage/spec.md) — order-to-cash Data view
+- [`operational-lineage`](./operational-lineage/spec.md) — order-to-cash Data view (amended by `architecture-integrity`, `procure-to-pay`)
 - [`lineage-integration`](./lineage-integration/spec.md) — data impact, lineage-aware Modernization, modelling fixes
 - [`architecture-integrity`](./architecture-integrity/spec.md) — ingested lineage, single edge store, flows as data, grouped navigation
 - [`lineage-governance`](./lineage-governance/spec.md) — order tracing, steward review, versioned mappings, standards
@@ -87,11 +127,12 @@ Specs below are `validated` unless marked otherwise.
 
 For future work, use this flow:
 
-1. Draft or update the spec.
-2. Review scope and acceptance criteria.
-3. Implement the smallest useful slice.
-4. Run the validation plan.
-5. Update the spec status and follow-ups.
+1. Draft the spec and commit it as `draft`.
+2. The demo owner reviews scope and acceptance criteria; mark it `accepted`.
+3. Implement the smallest useful slice; tag tests with `[<spec>:REQ-…]`.
+4. Run the validation plan and `npm run spec:check`.
+5. Update the spec status, `updated`, and follow-ups; create the baseline tag
+   when the spec is `validated`.
 
 The current baseline is captured in
 [`operations-workbench/spec.md`](./operations-workbench/spec.md), tagged as

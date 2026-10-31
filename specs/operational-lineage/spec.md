@@ -1,13 +1,14 @@
-# Operational Lineage (Order-to-Cash) Spec
-
 ---
 status: validated
 owner: demo-team
 created: 2026-10-26
-updated: 2026-10-26
+updated: 2026-10-31
 release_type: architecture demo extension
 baseline_tag: operational-lineage-2026-10-26
+amended_by: [architecture-integrity, procure-to-pay]
 ---
+
+# Operational Lineage (Order-to-Cash) Spec
 
 ## 1. Problem
 
@@ -179,3 +180,14 @@ Workbench Investigation Summary.
   Application, data owners, wire-entity semantics, and tenant-scoped indexes.
 - OpenLineage-style event ingestion as `source_records`.
 - Field-change impact analysis.
+
+## 18. Amendments
+
+Later specs changed parts of this one. Current behaviour follows them:
+
+| Requirement / decision here | Changed by | Now |
+|---|---|---|
+| REQ-003, REQ-005 (lineage and `field_mappings` declared on interfaces) | [`architecture-integrity`](../architecture-integrity/spec.md) REQ-002–REQ-004 | Lineage is ingested from `source_records` into `relationships` edges; interfaces persist no lineage |
+| REQ-007 (`/lineage/flows/order-to-cash` path) | [`architecture-integrity`](../architecture-integrity/spec.md) REQ-005, REQ-006 | Paths come from `lineage_flows` documents; the endpoint works for any flow |
+| REQ-008 ("Catalog Explorer") | [`architecture-integrity`](../architecture-integrity/spec.md) REQ-007 | The view is **Catalog & Lineage** under Architecture |
+| Decision "order-to-cash only" | [`procure-to-pay`](../procure-to-pay/spec.md) REQ-006–REQ-008 | Two flows, selected in the Data view |

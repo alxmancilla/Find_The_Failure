@@ -1,13 +1,14 @@
-# Procure-to-Pay Lineage Spec
-
 ---
 status: validated
 owner: demo-team
-created: 2026-10-27
-updated: 2026-10-27
+created: 2026-10-26
+updated: 2026-10-26
 release_type: architecture demo extension
-baseline_tag: TBD
+baseline_tag: procure-to-pay-2026-10-26
+amends: [operational-lineage]
 ---
+
+# Procure-to-Pay Lineage Spec
 
 ## 1. Problem
 

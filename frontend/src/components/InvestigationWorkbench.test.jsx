@@ -22,7 +22,7 @@ afterEach(cleanup);
 const caseTab = () => screen.getByRole("tab", { name: /2\. Case/ });
 
 describe("InvestigationWorkbench", () => {
-  it("starts on Triage with the Case step locked until a case is open", async () => {
+  it("[ux-clarity:REQ-012] starts on Triage with the Case step locked until a case is open", async () => {
     render(<InvestigationWorkbench />);
     await screen.findByRole("heading", { level: 2, name: "Gateway lag" });
     expect(screen.getByRole("tab", { name: /1\. Triage/ }).getAttribute("aria-selected")).toBe("true");
@@ -32,14 +32,14 @@ describe("InvestigationWorkbench", () => {
     expect(screen.queryByRole("heading", { name: "Decision and closure" })).toBeNull();
   });
 
-  it("selects the alert on the interface a lineage trace stopped at", async () => {
+  it("[ux-clarity:REQ-010] selects the alert on the interface a lineage trace stopped at", async () => {
     render(<InvestigationWorkbench focus={{ interfaceKey: "if-integration-erp", context: "PO-4500012388", nonce: 1 }} />);
     expect(await screen.findByRole("heading", { level: 2, name: "ERP timeout" })).toBeTruthy();
     expect(screen.getByText(/Opened from the lineage trace of PO-4500012388/)).toBeTruthy();
     expect(caseTab().disabled).toBe(true);
   });
 
-  it("explains when no inbox alert matches the traced interface", async () => {
+  it("[ux-clarity:REQ-010] explains when no inbox alert matches the traced interface", async () => {
     render(<InvestigationWorkbench focus={{ interfaceKey: "if-supplier-810", context: "SPO-7700468", nonce: 2 }} />);
     expect(await screen.findByText(/No inbox alert on if-supplier-810 yet \(traced from SPO-7700468\)/)).toBeTruthy();
     expect(screen.getByRole("heading", { level: 2, name: "Gateway lag" })).toBeTruthy();

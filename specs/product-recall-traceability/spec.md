@@ -1,14 +1,14 @@
-# Product Recall Traceability Spec
-
 ---
 status: validated
 owner: demo-team
-created: 2026-10-27
-updated: 2026-10-27
+created: 2026-10-26
+updated: 2026-10-26
 release_type: architecture demo extension
-baseline_tag: TBD
-depends_on: procure-to-pay
+baseline_tag: product-recall-traceability-2026-10-26
+depends_on: [procure-to-pay]
 ---
+
+# Product Recall Traceability Spec
 
 ## 1. Problem
 

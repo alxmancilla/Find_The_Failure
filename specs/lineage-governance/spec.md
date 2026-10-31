@@ -1,5 +1,3 @@
-# Lineage Governance Spec
-
 ---
 status: validated
 owner: demo-team
@@ -8,6 +6,8 @@ updated: 2026-10-26
 release_type: architecture review follow-up
 baseline_tag: lineage-governance-2026-10-26
 ---
+
+# Lineage Governance Spec
 
 ## 1. Problem
 

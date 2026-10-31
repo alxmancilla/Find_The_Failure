@@ -51,7 +51,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("LineageView", () => {
-  it("leads with an answer line built from lineage and flow coverage", async () => {
+  it("[ux-clarity:REQ-005] leads with an answer line built from lineage and flow coverage", async () => {
     render(<LineageView lens="data" onLensChange={() => {}} />);
     expect(await screen.findByText("✓ 1 confirmed")).toBeTruthy();
     expect(screen.getByText("⚠ 1 inferred · needs review")).toBeTruthy();
@@ -59,7 +59,7 @@ describe("LineageView", () => {
     expect(screen.getByText(/1 connected document$/)).toBeTruthy();
   });
 
-  it("counts inferred edges on the Governance tab and returns to Details when an edge is clicked", async () => {
+  it("[ux-clarity:REQ-007] counts inferred edges on the Governance tab and returns to Details when an edge is clicked", async () => {
     render(<LineageView lens="data" onLensChange={() => {}} />);
     const governance = await screen.findByRole("tab", { name: /Governance/ });
     await waitFor(() => expect(governance.textContent).toContain("1"));
@@ -71,7 +71,7 @@ describe("LineageView", () => {
     expect(screen.getByText("Data steward review")).toBeTruthy();
   });
 
-  it("opens a linked order in the Trace tab and links the stuck hop to the Workbench", async () => {
+  it("[ux-clarity:REQ-010] opens a linked order in the Trace tab and links the stuck hop to the Workbench", async () => {
     const onInvestigate = vi.fn();
     render(<LineageView lens="data" onLensChange={() => {}} target={{ flow: "order-to-cash", entity: "purchase-order", transaction: "PO-1" }} onInvestigate={onInvestigate} />);
     expect(screen.getByRole("tab", { name: "Trace" }).getAttribute("aria-selected")).toBe("true");
@@ -80,7 +80,7 @@ describe("LineageView", () => {
     expect(onInvestigate).toHaveBeenCalledWith("if-b", "PO-1");
   });
 
-  it("shows a retry notice when loading fails and recovers on Retry", async () => {
+  it("[ux-clarity:REQ-011] shows a retry notice when loading fails and recovers on Retry", async () => {
     api.lineageEntities.mockRejectedValueOnce(new Error("Failed to fetch"));
     render(<LineageView lens="data" onLensChange={() => {}} />);
     expect(await screen.findByRole("alert")).toBeTruthy();
@@ -89,7 +89,7 @@ describe("LineageView", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("shows a banner while viewing mappings as of a past date", async () => {
+  it("[ux-clarity:REQ-008] shows a banner while viewing mappings as of a past date", async () => {
     const { container } = render(<LineageView lens="data" onLensChange={() => {}} />);
     await screen.findByText("✓ 1 confirmed");
     fireEvent.change(container.querySelector('input[type="date"]'), { target: { value: "2025-01-01" } });
@@ -106,7 +106,7 @@ describe("Segmented", () => {
     return <Segmented label="Direction" options={[{ id: "a", label: "A" }, { id: "b", label: "B" }, { id: "c", label: "C" }]} value={value} onChange={setValue} />;
   }
 
-  it("moves selection and focus with arrow keys and wraps around", () => {
+  it("[ux-clarity:REQ-009] moves selection and focus with arrow keys and wraps around", () => {
     render(<Harness />);
     const radio = (name) => screen.getByRole("radio", { name });
     fireEvent.keyDown(radio("A"), { key: "ArrowRight" });

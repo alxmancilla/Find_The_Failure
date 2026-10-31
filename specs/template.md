@@ -1,13 +1,25 @@
-# <Feature Name> Spec
-
 ---
 status: draft
 owner: demo-team
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 release_type: TBD
-baseline_tag: TBD
+baseline_tag: none
+depends_on: []
+amends: []
 ---
+
+# <Feature Name> Spec
+
+<!--
+Front matter rules (checked by `npm run spec:check`):
+- status: draft | accepted | implemented | validated | superseded
+- updated: bump when requirements, decisions, or status change
+- baseline_tag: an existing git tag, or `none`
+- depends_on / amends / supersedes: spec folder names; the target spec must list
+  this spec in amended_by / superseded_by
+-->
+
 
 ## 1. Problem
 
@@ -65,9 +77,11 @@ Vector Search, `$graphLookup`, aggregation, flexible documents, or case memory.
 
 ## 11. Acceptance criteria
 
-- [ ] Criterion 1
-- [ ] Criterion 2
-- [ ] Criterion 3
+Each criterion names how it is checked: an automated test that references the
+requirement as `[<spec>:REQ-001]`, or a manual check with an owner.
+
+- [ ] REQ-001 — automated: `<test file>`
+- [ ] REQ-002 — manual: <what is checked>, by <owner>
 
 ## 12. Product risks
 

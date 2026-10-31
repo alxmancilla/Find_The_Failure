@@ -1,5 +1,3 @@
-# Architecture Integrity Spec
-
 ---
 status: validated
 owner: demo-team
@@ -7,7 +5,10 @@ created: 2026-10-26
 updated: 2026-10-26
 release_type: architecture review follow-up
 baseline_tag: architecture-integrity-2026-10-26
+amends: [operational-lineage]
 ---
+
+# Architecture Integrity Spec
 
 ## 1. Problem
 

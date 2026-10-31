@@ -1,5 +1,3 @@
-# Grounded Follow-up Q&A Spec
-
 ---
 status: validated
 owner: demo-team
@@ -8,6 +6,8 @@ updated: 2026-09-30
 release_type: agent memory enhancement
 baseline_tag: operations-workbench-2026-09-16
 ---
+
+# Grounded Follow-up Q&A Spec
 
 ## 1. Problem
 
