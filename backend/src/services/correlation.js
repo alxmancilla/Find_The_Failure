@@ -1,5 +1,14 @@
 import { Event, Interface, InvestigationCase, Owner, SourceRecord, System } from "../models.js";
 import { DEFAULT_ENVIRONMENT, DEFAULT_TENANT_ID } from "../demoDefaults.js";
+import { withTransaction } from "../db.js";
+import {
+  APPROVAL_DECISIONS_LIMIT,
+  CASE_MESSAGES_LIMIT,
+  CASE_OUTCOMES_LIMIT,
+  CASE_TIMELINE_LIMIT,
+  LIFECYCLE_HISTORY_LIMIT,
+  pushCapped,
+} from "../historyLimits.js";
 import { demoFeedAlertKeys, demoFeedAlerts } from "../seed/sourceRecords.js";
 import { getImpact } from "./impact.js";
 import { GRAPH_LOOKUP_MAX_DEPTH } from "./graphConfig.js";
@@ -58,7 +67,7 @@ export async function updateAlertLifecycle(sourceRecordKey, status, actor = "dem
         "workbench_lifecycle.updated_at": now,
         "workbench_lifecycle.updated_by": actor,
       },
-      $push: { "workbench_lifecycle.history": historyEntry },
+      $push: { "workbench_lifecycle.history": pushCapped(historyEntry, LIFECYCLE_HISTORY_LIMIT) },
     },
     { new: true }
   ).lean();
@@ -104,12 +113,12 @@ export async function ingestDemoAlerts() {
 
 export async function clearWorkbenchDemoState() {
   const keys = demoFeedAlertKeys;
-  const [sourceRecords, events, cases, lifecycle] = await Promise.all([
-    SourceRecord.deleteMany({ key: { $in: keys } }),
-    Event.deleteMany({ source_record_id: { $in: keys } }),
-    InvestigationCase.deleteMany({}),
-    SourceRecord.updateMany({ record_type: "alert" }, { $unset: { workbench_lifecycle: "" } }),
-  ]);
+  const { sourceRecords, events, cases, lifecycle } = await withTransaction(async () => ({
+    sourceRecords: await SourceRecord.deleteMany({ key: { $in: keys } }),
+    events: await Event.deleteMany({ source_record_id: { $in: keys } }),
+    cases: await InvestigationCase.deleteMany({}),
+    lifecycle: await SourceRecord.updateMany({ record_type: "alert" }, { $unset: { workbench_lifecycle: "" } }),
+  }));
   const [alertList, caseMemory] = await Promise.all([listAlerts(), listInvestigationCases()]);
 
   return {
@@ -145,30 +154,34 @@ export async function createInvestigationCase(sourceRecordKey) {
 
   const now = new Date();
   const key = `case-${now.toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)}-${Math.random().toString(36).slice(2, 7)}`;
-  const lifecycle = await updateAlertLifecycle(sourceRecordKey, "investigating", "agent-workbench");
-  const persistedInvestigation = {
-    ...investigation,
-    alert: lifecycle?.alert || investigation.alert,
-    mongodb_trace: addCaseWriteTrace(investigation.mongodb_trace, key, sourceRecordKey),
-  };
-  const projections = buildCaseProjections(persistedInvestigation);
-  const doc = await InvestigationCase.create({
-    key,
-    ...projections,
-    alert_key: sourceRecordKey,
-    alert_snapshot: persistedInvestigation.alert,
-    status: "open",
-    summary: persistedInvestigation.investigation_summary,
-    top_fault_domain: persistedInvestigation.likely_fault_domains?.[0],
-    investigation_result: persistedInvestigation,
-    approval_state: initialApprovalState(now),
-    approval_decisions: [],
-    case_outcome: initialCaseOutcome(now),
-    case_outcomes: [],
-    evidence: persistedInvestigation.evidence || [],
-    recommended_next_actions: persistedInvestigation.recommended_next_actions || [],
-    timeline: buildCaseTimeline(now, persistedInvestigation),
-    messages: [],
+  // The investigation above uses Atlas Search, so only the two writes run in the transaction.
+  const { doc, persistedInvestigation } = await withTransaction(async () => {
+    const lifecycle = await updateAlertLifecycle(sourceRecordKey, "investigating", "agent-workbench");
+    const persisted = {
+      ...investigation,
+      alert: lifecycle?.alert || investigation.alert,
+      mongodb_trace: addCaseWriteTrace(investigation.mongodb_trace, key, sourceRecordKey),
+    };
+    const projections = buildCaseProjections(persisted);
+    const created = await InvestigationCase.create({
+      key,
+      ...projections,
+      alert_key: sourceRecordKey,
+      alert_snapshot: persisted.alert,
+      status: "open",
+      summary: persisted.investigation_summary,
+      top_fault_domain: persisted.likely_fault_domains?.[0],
+      investigation_result: persisted,
+      approval_state: initialApprovalState(now),
+      approval_decisions: [],
+      case_outcome: initialCaseOutcome(now),
+      case_outcomes: [],
+      evidence: persisted.evidence || [],
+      recommended_next_actions: persisted.recommended_next_actions || [],
+      timeline: buildCaseTimeline(now, persisted).slice(-CASE_TIMELINE_LIMIT),
+      messages: [],
+    });
+    return { doc: created, persistedInvestigation: persisted };
   });
 
   return { case: formatCase(doc.toObject()), investigation: persistedInvestigation };
@@ -206,14 +219,14 @@ export async function recordApprovalDecision(caseKey, { decision, actor = "demo-
         },
       },
       $push: {
-        approval_decisions: entry,
-        timeline: {
+        approval_decisions: pushCapped(entry, APPROVAL_DECISIONS_LIMIT),
+        timeline: pushCapped({
           at: now,
           event: "approval_decision_recorded",
           label: `Approval ${entry.label.toLowerCase()}`,
           detail: `${entry.actor} recorded ${entry.label.toLowerCase()} for the handoff preview. ${entry.guardrail}`,
           status: "complete",
-        },
+        }, CASE_TIMELINE_LIMIT),
       },
     },
     { new: true }
@@ -255,14 +268,14 @@ export async function recordCaseOutcome(caseKey, { outcome, actor = "demo-operat
         },
       },
       $push: {
-        case_outcomes: entry,
-        timeline: {
+        case_outcomes: pushCapped(entry, CASE_OUTCOMES_LIMIT),
+        timeline: pushCapped({
           at: now,
           event: "case_outcome_recorded",
           label: `Case ${entry.label.toLowerCase()}`,
           detail: `${entry.actor} marked the case ${entry.label.toLowerCase()}. ${entry.guardrail}`,
           status: "complete",
-        },
+        }, CASE_TIMELINE_LIMIT),
       },
     },
     { new: true }
@@ -284,26 +297,24 @@ export async function answerCaseFollowUp(caseKey, question) {
     { key: caseKey },
     {
       $push: {
-        messages: {
-          $each: [
-            { at: now, role: "user", text: trimmed },
-            {
-              at: now,
-              role: "agent",
-              text: answer.text,
-              grounded_in: answer.grounded_in,
-              citations: answer.citations,
-              mongodb_trace: answer.mongodb_trace,
-            },
-          ],
-        },
-        timeline: {
+        messages: pushCapped([
+          { at: now, role: "user", text: trimmed },
+          {
+            at: now,
+            role: "agent",
+            text: answer.text,
+            grounded_in: answer.grounded_in,
+            citations: answer.citations,
+            mongodb_trace: answer.mongodb_trace,
+          },
+        ], CASE_MESSAGES_LIMIT),
+        timeline: pushCapped({
           at: now,
           event: "follow_up_answered",
           label: "Grounded follow-up answered",
           detail: trimmed,
           status: "complete",
-        },
+        }, CASE_TIMELINE_LIMIT),
       },
     },
     { new: true }

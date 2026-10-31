@@ -189,11 +189,13 @@ Sample B2B tracking events for single-order and lot tracing. Key fields: `flow`,
 `interface_key`, `message_id`, `business_keys` (e.g. `po_number`,
 `supplier_po_number`, `invoice_number`, `receipt_number`, `shipment_id`,
 `ship_to`, `lot_number`, `udi_device_identifier`, `quantity`), `status`,
-`observed_at`, `latency_ms`, `detail`. Indexed on tenant, environment, flow, and
-`business_keys.po_number` / `business_keys.supplier_po_number`, and on tenant,
-environment, and `business_keys.lot_number` / `business_keys.udi_device_identifier`
-for cross-flow lookups. Seeded: 44 events for 4 sample orders and 3 sample
-supplier POs.
+`observed_at`, `latency_ms`, `detail`. `business_key_attributes` holds the
+same keys as `[{ k, v }]` pairs (attribute pattern), derived when the document is
+validated, so one index `{tenant_id, environment, business_key_attributes.k,
+business_key_attributes.v, observed_at}` serves every identifier. Lookups use
+`$elemMatch` so `k` and `v` match the same pair, for example
+`{ business_key_attributes: { $elemMatch: { k: "lot_number", v: "L-2291" } } }`.
+Seeded: 44 events for 4 sample orders and 3 sample supplier POs.
 
 ### `operational_knowledge`
 
@@ -220,7 +222,7 @@ grounded follow-up Q&A.
 | Trace data lineage | `/api/lineage/:entityKey?direction=&as_of=` | `$graphLookup` over scoped `transforms_to` edges, then hydrate producers/consumers/carriers |
 | Follow the identifier | `/api/lineage/flows/:flowKey` | Read the `lineage_flows` path + `carries` edges per hop |
 | Trace one order | `/api/lineage/flows/:flowKey/transactions/:value` | Business-key `find` on `message_events`, aligned to the flow path |
-| Steward review | `/api/lineage/edges/:edgeKey/review` | `updateOne` with `$set: { review }` + `$push: { review_history }` |
+| Steward review | `/api/lineage/edges/:edgeKey/review` | `updateOne` with `$set: { review }` + `$push: { review_history: { $each, $slice: -20 } }` |
 | OpenLineage export | `/api/lineage/flows/:flowKey/openlineage` | Read `carries` edges; emit one RunEvent per hop |
 | Identifier coverage | `/api/lineage/identifiers/:identifier/coverage?as_of=` | Read `carries` / `transforms_to` field mappings per flow hop, as of a date |
 | Trace one identifier value | `/api/lineage/identifiers/:identifier/:value` | Business-key `find` on `message_events` across flows + `$group` by customer |
@@ -342,11 +344,36 @@ and server start and logs the count of non-matching documents
 | `source_records` | `{tenant_id, environment, record_type, observed_at}` (+ `payload.alert_group_key` / `source_system, entity_key` variants) | Alert inbox, deduplication, change correlation, recall notices |
 | `investigation_cases` | `{tenant_id, environment, updatedAt}` and `{tenant_id, environment, <projected key>, updatedAt}` | Case list and similar-case retrieval |
 | `events` | `{tenant_id, environment, interface_key, timestamp}` | Recent events and similar failures |
-| `message_events` | `{tenant_id, environment, flow, business_keys.<id>, observed_at}` and lot / UDI variants | Order, supplier PO, and lot traces |
+| `message_events` | `{tenant_id, environment, business_key_attributes.k, business_key_attributes.v, observed_at}` | Order, supplier PO, lot, and UDI traces (one index for every identifier) |
 
 `interfaces` and `operational_knowledge` have no secondary B-tree indexes beyond
 `key`: search and related-context retrieval use Atlas Search / Vector Search
 indexes, created by `ensureSearchIndexes()`.
+
+**History caps.** Every history array is appended with
+`$push: { $each: [...], $slice: -N }`, which keeps the newest N entries
+(`backend/src/historyLimits.js`):
+
+| Array | Cap |
+|---|---|
+| `relationships.review_history` | 20 |
+| `source_records.workbench_lifecycle.history` | 20 |
+| `investigation_cases.timeline` | 100 |
+| `investigation_cases.messages` | 50 (25 questions and answers) |
+| `investigation_cases.approval_decisions` | 20 |
+| `investigation_cases.case_outcomes` | 20 |
+
+Current state (`review`, `workbench_lifecycle.status`, `approval_state`,
+`case_outcome`) is stored separately and is never trimmed.
+
+**Transactions.** Multi-document write flows run in one transaction each through
+`withTransaction()` in `backend/src/db.js` (snapshot read concern, majority
+write concern; Mongoose passes the session automatically): failure simulation,
+demo reset, ingestion run, clearing the enterprise fixture pack, clearing
+Workbench state, clearing steward decisions, and opening a case. Atlas Search
+cannot run inside a transaction, so investigation reads run before the case
+writes and response-building reads run after the commit. Seed is not
+transactional; it drops and reloads all data and runs `collMod`.
 
 ---
 
@@ -357,8 +384,8 @@ ingested from curated exports, not discovered automatically, and the order
 traces use seeded sample events. `$graphLookup` has a 100 MB per-stage memory limit and
 does not spill to disk. Dynamic Atlas Search is great for the demo, but
 production should tune paths, analyzers, boosts, synonyms, and index limits.
-Failure simulation and rehearsal resets use separate writes; use transactions if
-atomicity matters. The enterprise fixture pack demonstrates source contracts,
+Transactions have a 60-second default limit; re-check ingestion runs at real
+volume. The enterprise fixture pack demonstrates source contracts,
 alias resolution, provenance, and quality findings, but a real PoC still needs
 live connectors or governed file drops from CMDB, integration engines, APIs,
 observability feeds, or knowledge systems, plus SME validation and access

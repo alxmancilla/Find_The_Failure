@@ -1,4 +1,4 @@
-import { Interface, LineageFlow, MessageEvent, Relationship, SourceRecord } from "../models.js";
+import { Interface, LineageFlow, MessageEvent, Relationship, SourceRecord, businessKeyMatch } from "../models.js";
 import { DEFAULT_ENVIRONMENT, DEFAULT_TENANT_ID } from "../demoDefaults.js";
 import { mappingAsOf } from "./lineage.js";
 
@@ -11,8 +11,7 @@ const brief = (i) => (i ? { key: i.key, name: i.name, protocol: i.protocol, mess
 // Trace one business identifier (for example a lot number) across every flow.
 export async function traceIdentifier(identifier, value) {
   if (!IDENTIFIER.test(identifier)) return { error: "identifier must be a lowercase field name" };
-  const field = `business_keys.${identifier}`;
-  const filter = { ...SCOPE, [field]: value };
+  const filter = { ...SCOPE, ...businessKeyMatch(identifier, value) };
   const customerPipeline = [
     { $match: { ...filter, movement: "shipment" } },
     { $group: { _id: "$business_keys.ship_to", orders: { $addToSet: "$business_keys.po_number" }, shipments: { $addToSet: "$business_keys.shipment_id" }, quantity: { $sum: "$quantity" }, last_shipped_at: { $max: "$observed_at" } } },
@@ -109,7 +108,7 @@ export async function getRecall(recallId, asOf = null) {
   const [trace, coverage, untraceable] = await Promise.all([
     traceIdentifier("lot_number", notice.lot_number),
     identifierCoverage("lot_number", asOf),
-    MessageEvent.find({ ...SCOPE, movement: "receipt", "business_keys.udi_device_identifier": notice.udi_device_identifier, "business_keys.lot_number": { $exists: false } }).sort({ observed_at: 1 }).lean(),
+    MessageEvent.find({ ...SCOPE, movement: "receipt", ...businessKeyMatch("udi_device_identifier", notice.udi_device_identifier), "business_key_attributes.k": { $ne: "lot_number" } }).sort({ observed_at: 1 }).lean(),
   ]);
   const hospitals = trace.customers.map((c) => c.ship_to);
   const actions = [

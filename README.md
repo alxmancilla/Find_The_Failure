@@ -324,7 +324,12 @@ Search. On every seed and server start, `backend/src/dbSetup.js` applies
 `$jsonSchema` validators (`moderate` level, `warn` action) to `relationships`,
 `message_events`, `source_records`, and `lineage_flows`, logs how many documents
 do not match, and runs `syncIndexes()` so indexes removed from a schema are
-dropped (Atlas Search indexes are not affected). Investigation cases also project
+dropped (Atlas Search indexes are not affected). Multi-document write flows
+(failure simulation, reset, ingestion runs, clearing fixtures, Workbench state,
+or steward decisions, and opening a case) each run in one transaction, every
+history array is capped with `$slice`, and `message_events` uses the attribute
+pattern so one index serves every business identifier (see
+[`DATA_MODEL.md`](./DATA_MODEL.md#validation-and-indexes)). Investigation cases also project
 key fields such as interface, business process, dedupe group, confidence score,
 related-context keys, and change keys at the top level while preserving the full
 investigation snapshot. New investigations use those projections to retrieve
@@ -383,20 +388,23 @@ Find_The_Failure/
 ├── .env                  # centralized config (git-ignored)
 ├── .env.example          # config template (local + Atlas)
 ├── docker-compose.yml    # MongoDB Atlas Local
-├── package.json          # root scripts: demo, start:app, seed, smoke, stop
+├── package.json          # root scripts: demo, start:app, seed, smoke, stop, spec:check
 ├── scripts/
 │   ├── demo.sh           # local launcher (starts Docker DB)
 │   ├── app.sh            # Atlas launcher (no Docker)
-│   └── full-smoke.mjs    # end-to-end smoke test (npm run smoke)
+│   ├── full-smoke.mjs    # end-to-end smoke test (npm run smoke)
+│   └── spec-check.mjs    # spec metadata and requirement-to-test checker
 ├── DEMO.md               # presenter runbook
 ├── DECK.md               # presentation slides (Marp Markdown)
 ├── DATA_MODEL.md         # collections, document shapes, query patterns
 ├── specs/                # spec-driven design records
 ├── backend/
+│   ├── test/             # backend tests against the database (cd backend && npm test)
 │   └── src/
 │       ├── config.js     # loads root .env
-│       ├── db.js         # Mongoose connection (appName, pool, timeouts, durability)
+│       ├── db.js         # Mongoose connection (appName, pool, timeouts, durability) + withTransaction
 │       ├── dbSetup.js    # $jsonSchema validators + syncIndexes on seed/startup
+│       ├── historyLimits.js # caps for every history array
 │       ├── models.js     # 12 collections
 │       ├── routes.js     # REST API
 │       ├── server.js     # Express app
@@ -438,6 +446,14 @@ and reset/cleanup. It clears the optional fixture pack and steward decisions so
 the normal rehearsal baseline remains stable.
 
 For the smaller backend-only check, run `cd backend && node smoke.mjs`.
+
+Backend tests (Node test runner) run against the configured database and restore
+what they change: transaction rollback, history caps, validators, indexes and
+query plans, connection settings, and the seeded model. Run them after a seed:
+
+```bash
+cd backend && npm test
+```
 
 Frontend component tests (Vitest + Testing Library, jsdom; no backend needed)
 cover the Data view answer line, tabs, as-of banner, retry state, linked order

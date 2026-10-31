@@ -12,7 +12,7 @@ import { join, relative } from "node:path";
 
 const ROOT = new URL("..", import.meta.url).pathname;
 const SPECS = join(ROOT, "specs");
-const TEST_ROOTS = ["scripts/full-smoke.mjs", "backend/smoke.mjs", "frontend/src"];
+const TEST_ROOTS = ["scripts/full-smoke.mjs", "backend/smoke.mjs", "backend/test", "frontend/src"];
 const STATUSES = ["draft", "accepted", "implemented", "validated", "superseded"];
 const LINK_PAIRS = [["amends", "amended_by"], ["supersedes", "superseded_by"]];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -83,7 +83,7 @@ function testFiles(path) {
   if (statSync(abs).isFile()) return [abs];
   return readdirSync(abs, { recursive: true })
     .map((f) => join(abs, f))
-    .filter((f) => /\.test\.jsx?$/.test(f));
+    .filter((f) => /\.test\.(jsx?|mjs)$/.test(f));
 }
 
 const covered = new Map();

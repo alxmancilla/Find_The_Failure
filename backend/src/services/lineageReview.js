@@ -1,6 +1,8 @@
 import { Relationship } from "../models.js";
 import { DEFAULT_ENVIRONMENT, DEFAULT_TENANT_ID } from "../demoDefaults.js";
 import { normalizeLineageRecords } from "./ingestion.js";
+import { withTransaction } from "../db.js";
+import { REVIEW_HISTORY_LIMIT, pushCapped } from "../historyLimits.js";
 
 const SCOPE = { tenant_id: DEFAULT_TENANT_ID, environment: DEFAULT_ENVIRONMENT };
 const LINEAGE_TYPES = ["transforms_to", "carries", "produces", "consumes", "system_of_record"];
@@ -36,7 +38,7 @@ export async function reviewLineageEdge(edgeKey, { decision, note, actor } = {})
     previous: { confirmed: edge.confirmed, confidence: edge.confidence },
   };
   const set = decision === "confirmed" ? { confirmed: true, confidence: 1 } : { confirmed: false };
-  await Relationship.updateOne({ key: edgeKey }, { $set: { ...set, review }, $push: { review_history: review } });
+  await Relationship.updateOne({ key: edgeKey }, { $set: { ...set, review }, $push: { review_history: pushCapped(review, REVIEW_HISTORY_LIMIT) } });
   const updated = await Relationship.findOne({ key: edgeKey }).lean();
   return {
     edge: formatReview(updated),
@@ -44,7 +46,7 @@ export async function reviewLineageEdge(edgeKey, { decision, note, actor } = {})
     mongodb_trace: {
       collection: "relationships",
       operation: "updateOne",
-      code: `db.relationships.updateOne({ key: ${JSON.stringify(edgeKey)} }, { $set: { ...${JSON.stringify(set)}, review: { status: ${JSON.stringify(decision)}, ... } }, $push: { review_history: { ... } } })`,
+      code: `db.relationships.updateOne({ key: ${JSON.stringify(edgeKey)} }, { $set: { ...${JSON.stringify(set)}, review: { status: ${JSON.stringify(decision)}, ... } }, $push: { review_history: { $each: [{ ... }], $slice: -${REVIEW_HISTORY_LIMIT} } } })`,
     },
   };
 }
@@ -57,7 +59,9 @@ export async function listLineageReviews() {
 // Rehearsal reset: remove decisions and re-normalize so edges return to the
 // confidence asserted by their source records.
 export async function clearLineageReviews() {
-  const result = await Relationship.updateMany({ "review.status": { $exists: true } }, { $unset: { review: "", review_history: "" } });
-  const lineage = await normalizeLineageRecords();
+  const { result, lineage } = await withTransaction(async () => ({
+    result: await Relationship.updateMany({ "review.status": { $exists: true } }, { $unset: { review: "", review_history: "" } }),
+    lineage: await normalizeLineageRecords(),
+  }));
   return { ok: true, cleared: result.modifiedCount || 0, lineage_relationship_upserts: lineage.relationship_upserts };
 }

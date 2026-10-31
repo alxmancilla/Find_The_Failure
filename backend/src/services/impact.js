@@ -7,6 +7,7 @@ import {
 import { getDataImpact, getSystemLineageImpact } from "./lineage.js";
 import { events as seedEvents } from "../seed/events.js";
 import { DEFAULT_ENVIRONMENT, DEFAULT_TENANT_ID } from "../demoDefaults.js";
+import { withTransaction } from "../db.js";
 
 export const EVENT_SCOPE = { tenant_id: DEFAULT_TENANT_ID, environment: DEFAULT_ENVIRONMENT };
 
@@ -69,30 +70,32 @@ export async function findSimilarFailures(interfaceKey) {
 
 // Simulate a failure by recording a failed event and flagging the interface.
 export async function simulateFailure(interfaceKey, reason, detail) {
-  const iface = await Interface.findOne({ key: interfaceKey });
-  if (!iface) return null;
-
-  iface.last_status = "failed";
-  await iface.save();
-
-  await Event.create({
-    interface_key: interfaceKey,
-    status: "failed",
-    message_type: iface.message_type,
-    reason: reason || "ERP endpoint timeout",
-    detail: detail || "Simulated failure injected from the Impact Explorer.",
-    severity: "critical",
+  const found = await withTransaction(async () => {
+    const iface = await Interface.findOne({ key: interfaceKey });
+    if (!iface) return false;
+    iface.last_status = "failed";
+    await iface.save();
+    await Event.create({
+      interface_key: interfaceKey,
+      status: "failed",
+      message_type: iface.message_type,
+      reason: reason || "ERP endpoint timeout",
+      detail: detail || "Simulated failure injected from the Impact Explorer.",
+      severity: "critical",
+    });
+    return true;
   });
-
-  return getImpact(interfaceKey);
+  return found ? getImpact(interfaceKey) : null;
 }
 
 // Reset to a pristine demo state: all interfaces healthy and the event history
 // restored to the original seed (drops any simulated failures).
 export async function resetStatuses() {
-  await Interface.updateMany({}, { $set: { last_status: "healthy" } });
-  await Event.deleteMany({});
-  await Event.insertMany(seedEvents);
+  await withTransaction(async () => {
+    await Interface.updateMany({}, { $set: { last_status: "healthy" } });
+    await Event.deleteMany({});
+    await Event.insertMany(seedEvents);
+  });
   return { ok: true };
 }
 

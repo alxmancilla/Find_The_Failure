@@ -1,5 +1,6 @@
 import { Event, Interface, Relationship, SourceRecord } from "../models.js";
 import { DEFAULT_ENVIRONMENT, DEFAULT_TENANT_ID } from "../demoDefaults.js";
+import { withTransaction } from "../db.js";
 import { buildEnterpriseFixtureSourceRecords, ENTERPRISE_FIXTURE_GROUP } from "./ingestionFixtures.js";
 
 const STALE_DAYS = 45;
@@ -38,13 +39,15 @@ export async function loadEnterpriseFixtures() {
 }
 
 export async function clearEnterpriseFixtures() {
-  const records = await SourceRecord.find({ fixture_group: ENTERPRISE_FIXTURE_GROUP }).select("key").lean();
-  const keys = records.map((record) => record.key);
-  const [events, relationships, sourceRecords] = await Promise.all([
-    Event.deleteMany({ $or: [{ fixture_group: ENTERPRISE_FIXTURE_GROUP }, { source_record_id: { $in: keys } }] }),
-    Relationship.deleteMany({ fixture_group: ENTERPRISE_FIXTURE_GROUP }),
-    SourceRecord.deleteMany({ fixture_group: ENTERPRISE_FIXTURE_GROUP }),
-  ]);
+  const { events, relationships, sourceRecords } = await withTransaction(async () => {
+    const records = await SourceRecord.find({ fixture_group: ENTERPRISE_FIXTURE_GROUP }).select("key").lean();
+    const keys = records.map((record) => record.key);
+    return {
+      events: await Event.deleteMany({ $or: [{ fixture_group: ENTERPRISE_FIXTURE_GROUP }, { source_record_id: { $in: keys } }] }),
+      relationships: await Relationship.deleteMany({ fixture_group: ENTERPRISE_FIXTURE_GROUP }),
+      sourceRecords: await SourceRecord.deleteMany({ fixture_group: ENTERPRISE_FIXTURE_GROUP }),
+    };
+  });
   return {
     ok: true,
     fixture_group: ENTERPRISE_FIXTURE_GROUP,
@@ -56,11 +59,21 @@ export async function clearEnterpriseFixtures() {
 }
 
 export async function runIngestion() {
-  const records = await SourceRecord.find().lean();
   const now = new Date();
   const ingestion_run_id = `ingestion-run-${now.toISOString()}`;
+  const run = await withTransaction(() => normalizeAllSourceRecords(ingestion_run_id, now));
+  return {
+    ok: true,
+    ingestion_run_id,
+    ...run,
+    quality: await getDataQuality(),
+  };
+}
+
+// All writes of one ingestion run; called inside a transaction.
+async function normalizeAllSourceRecords(ingestion_run_id, now) {
+  const records = await SourceRecord.find().lean();
   let event_upserts = 0;
-  let ignored = 0;
 
   const relationshipRecords = records.filter((record) => record.record_type === "relationship");
   const relationship_upserts = await upsertRelationshipsFromRecords(relationshipRecords, ingestion_run_id, now);
@@ -92,21 +105,15 @@ export async function runIngestion() {
   }
 
   const lineage = await normalizeLineageRecords({ ingestion_run_id, now });
-  ignored = records.length - relationshipRecords.length - event_upserts - lineage.source_records;
-  await Promise.all([
-    SourceRecord.updateMany({ tenant_id: { $exists: false } }, { $set: { tenant_id: DEFAULT_TENANT_ID } }),
-    SourceRecord.updateMany({ environment: { $exists: false } }, { $set: { environment: DEFAULT_ENVIRONMENT } }),
-    SourceRecord.updateMany({}, { $set: { ingestion_status: "ingested", ingested_at: now, ingestion_run_id } }),
-  ]);
+  await SourceRecord.updateMany({ tenant_id: { $exists: false } }, { $set: { tenant_id: DEFAULT_TENANT_ID } });
+  await SourceRecord.updateMany({ environment: { $exists: false } }, { $set: { environment: DEFAULT_ENVIRONMENT } });
+  await SourceRecord.updateMany({}, { $set: { ingestion_status: "ingested", ingested_at: now, ingestion_run_id } });
   return {
-    ok: true,
-    ingestion_run_id,
     source_records: records.length,
     relationship_upserts,
     event_upserts,
     lineage_relationship_upserts: lineage.relationship_upserts,
-    ignored,
-    quality: await getDataQuality(),
+    ignored: records.length - relationshipRecords.length - event_upserts - lineage.source_records,
   };
 }
 

@@ -33,13 +33,18 @@ export const VALIDATORS = {
   },
   message_events: {
     bsonType: "object",
-    required: ["key", "tenant_id", "environment", "flow", "interface_key", "business_keys", "status", "observed_at"],
+    required: ["key", "tenant_id", "environment", "flow", "interface_key", "business_keys", "business_key_attributes", "status", "observed_at"],
     properties: {
       key: STRING,
       ...SCOPE_FIELDS,
       flow: STRING,
       interface_key: STRING,
       business_keys: { bsonType: "object" },
+      business_key_attributes: {
+        bsonType: "array",
+        minItems: 1,
+        items: { bsonType: "object", required: ["k", "v"], properties: { k: STRING } },
+      },
       status: { enum: ["delivered", "failed", "on_hold", "pending"] },
       movement: { enum: ["receipt", "shipment"] },
       quantity: { bsonType: NUMBER, minimum: 0 },

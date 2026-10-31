@@ -1,4 +1,4 @@
-import { LineageFlow, MessageEvent } from "../models.js";
+import { LineageFlow, MessageEvent, businessKeyMatch } from "../models.js";
 import { DEFAULT_ENVIRONMENT, DEFAULT_TENANT_ID } from "../demoDefaults.js";
 import { getDataImpact, getLineageFlow } from "./lineage.js";
 
@@ -17,8 +17,7 @@ const deriveStatus = (events, pathLength) => {
 export async function listFlowTransactions(flowKey) {
   const flow = await LineageFlow.findOne({ key: flowKey, ...SCOPE }).lean();
   if (!flow) return null;
-  const idPath = `business_keys.${flow.identifier}`;
-  const events = await MessageEvent.find({ flow: flowKey, ...SCOPE, [idPath]: { $exists: true } }).sort({ observed_at: 1 }).lean();
+  const events = await MessageEvent.find({ ...SCOPE, flow: flowKey, ...businessKeyMatch(flow.identifier) }).sort({ observed_at: 1 }).lean();
   const byId = new Map();
   events.forEach((e) => {
     const id = e.business_keys[flow.identifier];
@@ -40,7 +39,7 @@ export async function listFlowTransactions(flowKey) {
 export async function traceFlowTransaction(flowKey, value) {
   const design = await getLineageFlow(flowKey);
   if (!design) return null;
-  const filter = { flow: flowKey, ...SCOPE, [`business_keys.${design.identifier}`]: value };
+  const filter = { ...SCOPE, flow: flowKey, ...businessKeyMatch(design.identifier, value) };
   const events = await MessageEvent.find(filter).sort({ observed_at: 1 }).lean();
   if (!events.length) return { flow: flowKey, identifier: design.identifier, value, status: "not_found", steps: [] };
 

@@ -1,10 +1,10 @@
 ---
-status: accepted
+status: validated
 owner: demo-team
 created: 2026-10-31
 updated: 2026-10-31
 release_type: quality
-baseline_tag: none
+baseline_tag: requirement-test-backfill-2026-10-31
 depends_on: [mongodb-transactions, bounded-history-arrays, business-key-attribute-pattern]
 amends: []
 ---
@@ -68,9 +68,11 @@ No changes.
 
 ## 11. Acceptance criteria
 
-- [ ] REQ-001 — automated: `npm run spec:check` shows the tagged coverage.
-- [ ] REQ-002, REQ-003 — automated: `cd backend && npm test` passes.
-- [ ] REQ-004 — manual: section 18 matches `spec:check`, by demo-team.
+- [x] REQ-001 — automated: `npm run spec:check` shows the tagged coverage
+  (28 → 131 of 181 requirements).
+- [x] REQ-002, REQ-003 — automated: `cd backend && npm test` passes (21 tests).
+- [x] REQ-004 — manual: section 18 matches `spec:check`, by demo-team (done by
+  the agent on 2026-10-31).
 
 ## 12. Product risks
 
@@ -82,9 +84,9 @@ No changes.
 
 ## 14. Implementation tasks
 
-- [ ] Tag smoke assertions.
-- [ ] Backend test suite and script.
-- [ ] Untested-requirement list.
+- [x] Tag smoke assertions.
+- [x] Backend test suite and script.
+- [x] Untested-requirement list.
 
 ## 15. Decisions
 
@@ -101,4 +103,32 @@ No changes.
 
 ## 18. Untested requirements
 
-To be completed during implementation.
+Requirements in `validated` specs with no automated test reference after this
+backfill (2026-10-31), and why:
+
+| Spec | Requirements | Reason |
+|---|---|---|
+| `operations-workbench` | REQ-003, REQ-005, REQ-006, REQ-007, REQ-009, REQ-019 | UI-only (demo controls, guided path, playbook phases, stage panel, priority card, Presenter Mode) |
+| `operational-priority` | REQ-001–REQ-006 | UI-only; priority is derived in the frontend |
+| `workbench-simplification` | REQ-001–REQ-004 | UI-only |
+| `alert-deduplication` | REQ-003 | UI-only (signal count on alert cards) |
+| `alert-lifecycle` | REQ-002, REQ-007 | UI-only |
+| `change-correlation` | REQ-004 | UI-only |
+| `change-correlation` | REQ-006 | Gap: evidence mentions changes, but no smoke case is built from a fixture alert, so the follow-up half is unchecked |
+| `change-correlation` | REQ-007 | Process: read-only by design; there is no outbound client in the backend |
+| `grounded-follow-up-qa` | REQ-004 | UI-only |
+| `similar-case-retrieval` | REQ-004 | UI-only |
+| `itsm-handoff-preview` | REQ-007 | Process: no external calls (see `change-correlation` REQ-007) |
+| `operator-approval-decision-log` | REQ-006, REQ-007 | REQ-006 UI-only; REQ-007 process |
+| `case-closure-outcomes` | REQ-007, REQ-008 | REQ-007 UI-only; REQ-008 process |
+| `architecture-integrity` | REQ-007, REQ-008 | UI-only (navigation groups, Plan-a-change link) |
+| `operational-lineage` | REQ-003, REQ-005 | Amended by `architecture-integrity` (lineage no longer on interfaces) |
+| `operational-lineage` | REQ-008 | UI-only (System view / Data view lens) |
+| `lineage-governance` | REQ-001 | Amended by `business-key-attribute-pattern` (index); the collection is exercised by REQ-002 tests |
+| `procure-to-pay` | REQ-008 | UI-only (flow picker; the component test mocks a single flow) |
+| `product-recall-traceability` | REQ-010 | Amended by `business-key-attribute-pattern` |
+| `mongodb-transactions` | REQ-002, REQ-003, REQ-004 | Manual code review (recorded in that spec) |
+| `bounded-history-arrays` | REQ-001, REQ-006 | Manual code and doc review (recorded in that spec) |
+| `requirement-test-backfill` | REQ-001–REQ-004 | Process: checked by running `spec:check` and `npm test` |
+
+UI-only requirements are the candidates for the roadmap item below.

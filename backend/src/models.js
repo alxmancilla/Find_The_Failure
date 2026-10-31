@@ -301,6 +301,8 @@ const messageEventSchema = new Schema(
     interface_key: { type: String, ref: "Interface" },
     message_id: String,
     business_keys: Schema.Types.Mixed, // { po_number, invoice_number, ... }
+    // Attribute pattern: the same keys as [{ k, v }] so one index serves every identifier.
+    business_key_attributes: [{ _id: false, k: { type: String, required: true }, v: Schema.Types.Mixed }],
     status: String, // delivered | failed | on_hold | pending
     movement: String, // receipt | shipment (stock movement events used for lot tracing)
     quantity: Number,
@@ -312,10 +314,15 @@ const messageEventSchema = new Schema(
   { collection: "message_events", timestamps: true }
 );
 
-messageEventSchema.index({ tenant_id: 1, environment: 1, flow: 1, "business_keys.po_number": 1, observed_at: 1 });
-messageEventSchema.index({ tenant_id: 1, environment: 1, flow: 1, "business_keys.supplier_po_number": 1, observed_at: 1 });
-messageEventSchema.index({ tenant_id: 1, environment: 1, "business_keys.lot_number": 1, observed_at: 1 });
-messageEventSchema.index({ tenant_id: 1, environment: 1, "business_keys.udi_device_identifier": 1, observed_at: 1 });
+messageEventSchema.pre("validate", function deriveBusinessKeyAttributes() {
+  this.business_key_attributes = Object.entries(this.business_keys || {}).map(([k, v]) => ({ k, v }));
+});
+
+// Query with { business_key_attributes: { $elemMatch: { k, v } } } so k and v match the same pair.
+messageEventSchema.index({ tenant_id: 1, environment: 1, "business_key_attributes.k": 1, "business_key_attributes.v": 1, observed_at: 1 });
+
+// Filter for message events carrying a business identifier (optionally with a value).
+export const businessKeyMatch = (k, v) => ({ business_key_attributes: { $elemMatch: v === undefined ? { k } : { k, v } } });
 
 export const InvestigationCase = model("InvestigationCase", investigationCaseSchema);
 export const LineageFlow = model("LineageFlow", lineageFlowSchema);

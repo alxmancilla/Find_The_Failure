@@ -1,10 +1,10 @@
 ---
-status: accepted
+status: validated
 owner: demo-team
 created: 2026-10-31
 updated: 2026-10-31
 release_type: platform hardening
-baseline_tag: none
+baseline_tag: bounded-history-arrays-2026-10-31
 depends_on: []
 amends: []
 ---
@@ -70,10 +70,12 @@ No API changes. Arrays already over a cap are trimmed on their next update.
 
 ## 11. Acceptance criteria
 
-- [ ] REQ-002–REQ-005 — automated: `backend/test/history-limits.test.mjs`
+- [x] REQ-002–REQ-005 — automated: `backend/test/history-limits.test.mjs`
   (pushes past each cap and checks length and newest-last order).
-- [ ] REQ-001, REQ-006 — manual: code and doc review, by demo-team.
-- [ ] `npm run smoke` passes with unchanged results.
+- [x] REQ-001, REQ-006 — manual: code and doc review, by demo-team (done by the
+  agent on 2026-10-31: all six pushes use `pushCapped` from
+  `backend/src/historyLimits.js`; `DATA_MODEL.md` lists every cap).
+- [x] `npm run smoke` passes with unchanged results.
 
 ## 12. Product risks
 
@@ -85,9 +87,9 @@ No API changes. Arrays already over a cap are trimmed on their next update.
 
 ## 14. Implementation tasks
 
-- [ ] Caps module and `$slice` on every push.
-- [ ] History limit tests.
-- [ ] Docs and spec status.
+- [x] Caps module and `$slice` on every push.
+- [x] History limit tests.
+- [x] Docs and spec status.
 
 ## 15. Decisions
 

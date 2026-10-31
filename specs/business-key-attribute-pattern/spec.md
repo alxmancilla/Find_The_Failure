@@ -1,10 +1,10 @@
 ---
-status: accepted
+status: validated
 owner: demo-team
 created: 2026-10-31
 updated: 2026-10-31
 release_type: platform hardening
-baseline_tag: none
+baseline_tag: business-key-attribute-pattern-2026-10-31
 depends_on: [mongodb-hygiene]
 amends: [lineage-governance, product-recall-traceability]
 ---
@@ -67,10 +67,10 @@ Attribute pattern; multikey compound index with `$elemMatch` bounds on `k` and `
 
 ## 11. Acceptance criteria
 
-- [ ] REQ-001, REQ-002, REQ-004 — automated: `backend/test/mongodb-setup.test.mjs`.
-- [ ] REQ-003 — automated: `backend/test/mongodb-setup.test.mjs` (`explain()`
+- [x] REQ-001, REQ-002, REQ-004 — automated: `backend/test/mongodb-setup.test.mjs`.
+- [x] REQ-003 — automated: `backend/test/mongodb-setup.test.mjs` (`explain()`
   uses the new index for each query shape).
-- [ ] REQ-005 — automated: existing trace assertions in `scripts/full-smoke.mjs`.
+- [x] REQ-005 — automated: existing trace assertions in `scripts/full-smoke.mjs`.
 
 ## 12. Product risks
 
@@ -83,10 +83,10 @@ Seed, `cd backend && npm test`, `npm run smoke`, `npm run spec:check`.
 
 ## 14. Implementation tasks
 
-- [ ] Schema field, validate hook, index, validator.
-- [ ] Update the five query sites.
-- [ ] Amend `lineage-governance` REQ-001 and `product-recall-traceability` REQ-010.
-- [ ] Tests, docs, and spec status.
+- [x] Schema field, validate hook, index, validator.
+- [x] Update the five query sites.
+- [x] Amend `lineage-governance` REQ-001 and `product-recall-traceability` REQ-010.
+- [x] Tests, docs, and spec status.
 
 ## 15. Decisions
 
