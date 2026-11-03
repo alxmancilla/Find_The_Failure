@@ -37,7 +37,7 @@ regression in clicks goes unnoticed until a live session.
 
 ## 5. Demo success criteria
 
-- `npm run smoke` prints per-question timings and fails when a budget is exceeded.
+- `npm run smoke` prints per-question timings and warns when a budget is exceeded.
 - Click paths for the hero questions are covered by frontend tests.
 
 ## 6. Non-goals
@@ -57,8 +57,8 @@ L-2291? **Q3** Lineage: where did PO-1 go, end to end?
   time budget (section 15), set from a measured baseline.
 - **REQ-002:** `npm run smoke` shall time the API call behind each question
   (investigation, recall trace, order trace) and print the timings.
-- **REQ-003:** `npm run smoke` shall fail when a timing exceeds its budget,
-  naming the question, the time, and the budget.
+- **REQ-003:** `npm run smoke` shall print a warning when a timing exceeds its
+  budget, naming the question, the time, and the budget, without failing the run.
 - **REQ-004:** Frontend tests shall walk each question's click path from the
   screen's landing state to the answer and assert the click count is within
   target.
@@ -85,15 +85,16 @@ retrieval as served from the configured cluster.
 
 - [ ] REQ-001 — manual: baseline and targets recorded in section 15, by demo-team
 - [ ] REQ-002 — automated: `scripts/full-smoke.mjs` prints `[targets]`
-- [ ] REQ-003 — automated: `scripts/full-smoke.mjs` assertion tagged per question
+- [ ] REQ-003 — automated: `scripts/full-smoke.mjs` budget check tagged per question (warning only)
 - [ ] REQ-004 — automated: `InvestigationWorkbench.test.jsx`, `RecallTrace.test.jsx`, `LineageView.test.jsx`
 - [ ] REQ-005 — manual: `DEMO.md` reviewed, by demo-team
 - [ ] REQ-006 — manual: `specs/template.md` reviewed, by demo-team
 
 ## 12. Product risks
 
-- Timings vary with network and cluster tier; budgets too tight cause flaky
-  smoke runs, too loose catch nothing. Budgets start at about 2× baseline.
+- Timings vary with network and cluster tier; budgets too tight cause noisy
+  warnings, too loose catch nothing. Budgets start at about 2× baseline.
+- Warnings can be overlooked; the pre-session check in `DEMO.md` says to read them.
 - Click counts in tests can drift from the real UI if tests use shortcuts.
 - First call after a reseed is slower; the smoke run measures after one warm-up call.
 
@@ -116,8 +117,8 @@ retrieval as served from the configured cluster.
 
 - Targets (proposed, to be replaced by measured values before `accepted`):
   Q1 ≤ 3 clicks, API ≤ 3 s · Q2 ≤ 1 click, API ≤ 2 s · Q3 ≤ 3 clicks, API ≤ 2 s.
-- Budgets fail the smoke run rather than warn: a readiness check that only
-  warns gets ignored.
+- Budgets warn, not fail (approved 2026-11-03): network and cluster variance
+  should not block a rehearsal; functional assertions still fail the run.
 
 ## 16. Roadmap priority
 
