@@ -105,12 +105,12 @@ Console output only. Example lines:
 
 ## 11. Acceptance criteria
 
-- [ ] REQ-001 — automated: `backend/test/related-context.test.mjs`
-- [ ] REQ-002 — automated: `backend/test/search-index.test.mjs` (stubbed transient error)
-- [ ] REQ-003 — automated: `backend/test/search-index.test.mjs` (stubbed probe); manual: Atlas reseed + immediate smoke, by demo-team
-- [ ] REQ-004 — automated: `backend/test/search-index.test.mjs` (timeout path)
-- [ ] REQ-005 — manual: run `npm run demo` with another MongoDB on 27017, by demo-team
-- [ ] REQ-006 — manual: fresh clone, empty volume, `npm run demo` then `npm run smoke` passes first time, by demo-team
+- [x] REQ-001 — automated: `backend/test/related-context.test.mjs`
+- [x] REQ-002 — automated: `backend/test/search-index.test.mjs` (stubbed transient error)
+- [x] REQ-003 — automated: `backend/test/search-index.test.mjs` (stubbed probe); manual: Atlas reseed + immediate smoke passed 2026-11-03 (probe returned 8 documents), by demo-team
+- [x] REQ-004 — automated: `backend/test/search-index.test.mjs` (timeout path)
+- [x] REQ-005 — manual: fresh clone with `fle-demo-mongodb` on 27017 exited 1 naming that container, no `ftf-mongo` created (2026-11-03), by demo-team
+- [x] REQ-006 — manual: fresh clone, empty volume, `npm run demo` then `npm run smoke` passed first time (2026-11-03), by demo-team
 - [ ] REQ-007 — manual: README and DECK-dev.md reviewed, by demo-team
 
 ## 12. Product risks
