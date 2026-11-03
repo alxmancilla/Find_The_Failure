@@ -16,6 +16,39 @@ const assert = (condition, message) => {
   if (!condition) throw new Error(message);
 };
 
+// Hero-question API budgets (specs/demo-outcome-targets). Exceeding one warns; it never fails the run.
+const TARGET_BUDGETS_MS = { "Q1 investigation": 4500, "Q2 recall": 750, "Q3 order trace": 1000 };
+
+async function measureTargets() {
+  const timingFeed = await post("/alerts/demo-feed");
+  const paths = {
+    "Q1 investigation": "/investigation/" + encodeURIComponent(timingFeed.alerts[0].key),
+    "Q2 recall": "/recalls/RCL-2026-014",
+    "Q3 order trace": "/lineage/flows/order-to-cash/transactions/PO-4500012345",
+  };
+  const timings = {};
+  for (const [question, path] of Object.entries(paths)) {
+    await get(path);
+    const runs = [];
+    for (let i = 0; i < 3; i++) {
+      const start = performance.now();
+      await get(path);
+      runs.push(performance.now() - start);
+    }
+    timings[question] = Math.round(runs.sort((a, b) => a - b)[1]);
+  }
+  await cleanup();
+  return timings;
+}
+
+const seconds = (ms) => `${(ms / 1000).toFixed(ms < 1000 ? 2 : 1)} s`;
+function reportTargets(timings) {
+  console.log("[targets] " + Object.entries(timings).map(([q, ms]) => `${q} ${seconds(ms)} (budget ${seconds(TARGET_BUDGETS_MS[q])})`).join(" · "));
+  for (const [q, ms] of Object.entries(timings)) {
+    if (ms > TARGET_BUDGETS_MS[q]) console.warn(`[targets] warning [demo-outcome-targets:REQ-003]: ${q} took ${seconds(ms)}, over its ${seconds(TARGET_BUDGETS_MS[q])} budget`);
+  }
+}
+
 async function cleanup() {
   await post("/lineage/reviews/clear").catch(() => null);
   await post("/ingestion/fixtures/clear").catch(() => null);
@@ -263,8 +296,13 @@ try {
   const resetAlerts = await get("/alerts");
   assert(resetAlerts.alerts.every((alert) => alert.lifecycle_status === "new"), "[alert-lifecycle:REQ-006][operations-workbench:REQ-004] reset should clear alert lifecycle metadata");
 
+  const targets = await measureTargets();
+  assert(Object.keys(TARGET_BUDGETS_MS).every((q) => Number.isFinite(targets[q])), "[demo-outcome-targets:REQ-002] hero-question timings missing");
+  reportTargets(targets);
+
   console.log(JSON.stringify({
     ok: true,
+    targetsMs: targets,
     searchEngine: searchApex.engine,
     typoSearchEngine: typo.engine,
     interfaces: interfaces.length,

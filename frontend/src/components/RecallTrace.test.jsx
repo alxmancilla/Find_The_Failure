@@ -79,6 +79,12 @@ describe("RecallTrace", () => {
     expect(api.recall).not.toHaveBeenCalled();
   });
 
+  it("[demo-outcome-targets:REQ-004] Q2: the hospitals answer shows with no clicks after opening the screen", async () => {
+    render(<RecallTrace />);
+    const answer = await screen.findByText((_, el) => el?.classList?.contains("recall-answer"));
+    expect(answer.textContent).toContain("reached 2 hospitals: Hospital A, Hospital B");
+  });
+
   it("[navigation-routing:REQ-005] loads the notice from the URL and reports a new selection", async () => {
     api.recalls.mockResolvedValueOnce({ recalls: [{ key: "RCL-1", product: "IV Set", lot_number: "L-1" }, { key: "RCL-2", product: "Gauze", lot_number: "L-2" }] });
     const onRecallChange = vi.fn();

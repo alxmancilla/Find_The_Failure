@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import InvestigationWorkbench from "./InvestigationWorkbench.jsx";
 import { api } from "../api.js";
 
@@ -44,4 +44,35 @@ describe("InvestigationWorkbench", () => {
     expect(await screen.findByText(/No inbox alert on if-supplier-810 yet \(traced from SPO-7700468\)/)).toBeTruthy();
     expect(screen.getByRole("heading", { level: 2, name: "Gateway lag" })).toBeTruthy();
   });
+
+  it("[demo-outcome-targets:REQ-004] Q1: impact, owner, and next safe check in 1 click from the landing screen", async () => {
+    const investigation = {
+      alert: alert("a1", "if-gateway-x12", "Gateway lag"),
+      investigation_summary: "Gateway lag is delaying hospital orders.",
+      topology: { alert_interface: { key: "if-gateway-x12", name: "850 Gateway to X12 Translation" }, downstream_interfaces: [] },
+      impacted_business_processes: [{ key: "hospital-order-fulfillment", name: "Hospital Order Fulfillment" }],
+      affected_systems: [],
+      owners: [{ key: "edi-ops", name: "EDI Operations" }],
+      likely_fault_domains: [{ key: "x12-translator", name: "X12 Translator", type: "system", score: 0.8, reason: "Queue depth over threshold" }],
+      evidence: [],
+      recommended_next_actions: ["Check the X12 translation queue depth"],
+      related_context: { documents: [] },
+      similar_cases: { documents: [] },
+      change_correlation: { documents: [] },
+      alert_deduplication: { signal_count: 1, suppressed_count: 0 },
+    };
+    Object.assign(api, {
+      createInvestigationCase: vi.fn().mockResolvedValue({ case: { key: "case-1", timeline: [] }, investigation }),
+    });
+    let clicks = 0;
+    const click = (el) => { clicks += 1; fireEvent.click(el); };
+    render(<InvestigationWorkbench />);
+    await screen.findByRole("heading", { level: 2, name: "Gateway lag" });
+    const summary = screen.getByRole("heading", { name: "Investigation summary" }).closest("section");
+    click(within(summary).getByRole("button", { name: "Open investigation case" }));
+    expect(await within(summary).findByText("Hospital Order Fulfillment", {}, { timeout: 6000 })).toBeTruthy();
+    expect(within(summary).getByText("EDI Operations")).toBeTruthy();
+    expect(within(summary).getByText("Check the X12 translation queue depth")).toBeTruthy();
+    expect(clicks).toBeLessThanOrEqual(1);
+  }, 10000);
 });

@@ -48,6 +48,7 @@ What user or demo problem are we solving?
 - Success criterion 1
 - Success criterion 2
 - Success criterion 3
+- Targets moved ([`demo-outcome-targets`](./demo-outcome-targets/spec.md)): Qn or none
 
 ## 6. Non-goals
 

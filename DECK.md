@@ -191,8 +191,8 @@ supplier 810 → three-way match → supplier payment.
 - Transactions for multi-document writes, capped history arrays, one index for
   every business identifier
 - `npm run smoke` (API end to end) · `cd backend && npm test` (31 backend tests) ·
-  `cd frontend && npm test` (22 component tests) · `npm run spec:check`
-  (141 of 200 spec requirements referenced by tests)
+  `cd frontend && npm test` (25 component tests) · `npm run spec:check`
+  (144 of 200 spec requirements referenced by tests)
 
 **Sample data, by design**
 - Fictional company, seeded exports and alerts

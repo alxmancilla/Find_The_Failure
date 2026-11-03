@@ -93,7 +93,7 @@ before the writes. Operations on one session must be sequential (no `Promise.all
   nothing behind, caps hold, validators flag bad documents, `explain()` uses
   the intended index
 - `npm run spec:check` — every spec requirement ID is matched to the tests
-  that reference it: **141 of 200** covered; the rest are listed with a reason
+  that reference it: **144 of 200** covered; the rest are listed with a reason
 
 ```js
 it("[mongodb-transactions:REQ-005] rolls back every write when the flow fails", ...)

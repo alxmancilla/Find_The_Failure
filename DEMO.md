@@ -41,12 +41,23 @@ Before presenting:
 1. Start backend + frontend.
 2. Wait for backend startup to report Search indexes queryable.
 3. Run `npm run smoke` from the repository root.
-4. Confirm the smoke output reports `ok: true`.
+4. Confirm the smoke output reports `ok: true`, and read the `[targets]` line:
+   any `[targets] warning` means a hero question is slower than its budget
+   (table below); warm up or check the cluster before presenting.
 5. Open `http://localhost:5173` or `http://127.0.0.1:5173`.
 6. Start in **Operations → Investigation Workbench**. Use the top **Next best
    action** coach and the left-side **Recommended flow** as the presenter guide.
    For an architecture audience, start in **Architecture → Catalog & Lineage**
    (section "Operational lineage for architects" below).
+
+**Hero-question targets** ([`demo-outcome-targets`](./specs/demo-outcome-targets/spec.md)).
+Clicks count from the app's landing screen; times are the API call behind the answer.
+
+| Question | Clicks | API budget |
+|---|---|---|
+| Q1 Which process is hit, who owns it, what's the next safe check? (Workbench → **Open investigation case**) | 1 | 4.5 s |
+| Q2 Which hospitals received the recalled lot? (**Recall Trace**) | 1 | 0.75 s |
+| Q3 Where did an order go, end to end? (**Catalog & Lineage** → **Data view** → **Trace** → pick the order) | 4 | 1 s |
 
 `npm run smoke` returns the demo to a clean rehearsal state by clearing
 demo-feed alerts, lifecycle state, cases, simulated failures, the optional

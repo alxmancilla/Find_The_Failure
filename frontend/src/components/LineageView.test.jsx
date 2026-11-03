@@ -80,6 +80,19 @@ describe("LineageView", () => {
     expect(onInvestigate).toHaveBeenCalledWith("if-b", "PO-1");
   });
 
+  it("[demo-outcome-targets:REQ-004] Q3: an order's end-to-end trace in 2 interactions from the Data view", async () => {
+    let interactions = 0;
+    render(<LineageView lens="data" onLensChange={() => {}} />);
+    interactions += 1;
+    fireEvent.click(await screen.findByRole("tab", { name: "Trace" }));
+    const picker = await screen.findByRole("combobox", { name: "Trace a sample order" });
+    await waitFor(() => expect(picker.querySelectorAll("option").length).toBe(2));
+    interactions += 1;
+    fireEvent.change(picker, { target: { value: "PO-1" } });
+    expect(await screen.findByText("PO-1 failed at Hop 2")).toBeTruthy();
+    expect(interactions).toBeLessThanOrEqual(2);
+  });
+
   it("[ux-clarity:REQ-011] shows a retry notice when loading fails and recovers on Retry", async () => {
     api.lineageEntities.mockRejectedValueOnce(new Error("Failed to fetch"));
     render(<LineageView lens="data" onLensChange={() => {}} />);
