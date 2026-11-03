@@ -40,17 +40,16 @@ Read-only and human-supervised: nothing is sent to ITSM, paging, or remediation.
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  sources[CMDB / catalog / observability / lineage exports]
-  atlas[(MongoDB Atlas context layer)]
-  search[Atlas Search + Vector Search]
-  graph[Typed relationships + $graphLookup]
-  ui[Workbench · Lineage · Modernization · Recall]
-  cases[(Case memory)]
-  sources --> atlas --> search --> ui
-  atlas --> graph --> ui
-  ui --> cases --> ui
+```text
+CMDB / catalog / observability / lineage exports
+                    │  ingest + normalize (with provenance)
+                    ▼
+          MongoDB Atlas context layer
+           │                         │
+ Atlas Search + Vector Search   typed relationships + $graphLookup
+           └────────────┬────────────┘
+                        ▼
+  Workbench · Lineage · Modernization · Recall  ◄──►  case memory
 ```
 
 Node + Express + Mongoose backend · React + Vite + React Flow frontend.
@@ -171,12 +170,14 @@ supplier 810 → three-way match → supplier payment.
 | Atlas Search | Fuzzy, typo-tolerant search across the estate |
 | Vector Search + rerank (optional) | Related runbooks and incident notes |
 | `$graphLookup` | Dependency impact and lineage traversal over one edge store |
-| Business-key indexes | One order, supplier PO, or lot traced across flows |
+| Attribute pattern | One `{k, v}` index traces any order, supplier PO, lot, or UDI across flows |
 | Versioned subdocuments | Effective-dated mappings answer "as of" questions |
 | Provenance | Every edge links to its raw source record and ingestion run |
 | Case memory | Auditable investigations, decisions, and grounded Q&A |
 | Schema validation | `$jsonSchema` validators (warn mode) on edges, tracking events, source records, and flows |
 | Index discipline | Every index serves a known query; hot paths are tenant-scoped; `syncIndexes()` drops the rest |
+| Transactions | Multi-document write flows (reset, ingestion, opening a case) are all-or-nothing |
+| Bounded arrays | Every history array is capped with `$push` + `$slice` |
 
 ---
 
@@ -187,14 +188,17 @@ supplier 810 → three-way match → supplier payment.
   review, versioned mappings, OpenLineage export, recall trace, case memory
 - Database validators, query-aligned indexes, explicit connection settings
   (`appName`, pool size, timeouts, retryable writes, `w: "majority"`)
-- `npm run smoke` (API end to end) · `cd frontend && npm test` (14 component tests)
+- Transactions for multi-document writes, capped history arrays, one index for
+  every business identifier
+- `npm run smoke` (API end to end) · `cd backend && npm test` (21 database tests) ·
+  `cd frontend && npm test` (14 component tests) · `npm run spec:check`
+  (131 of 181 spec requirements referenced by tests)
 
 **Sample data, by design**
 - Fictional company, seeded exports and alerts
 - Order, supplier PO, and lot tracking events are seeded, not a live feed
 - Agent v1 is deterministic and read-only; no LLM tool orchestration
-- Not yet production-hardened: no transactions for multi-step writes, history
-  arrays are not capped, single-tenant data
+- Single-tenant data; not load-tested at production volume
 
 ---
 

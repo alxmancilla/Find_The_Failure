@@ -10,7 +10,9 @@ instead of hours.
 > can understand how the landscape fits together.
 
 For a step-by-step presenter walkthrough, see [`DEMO.md`](./DEMO.md); for
-presentation slides, see [`DECK.md`](./DECK.md) (Marp Markdown). For
+presentation slides, see [`DECK.md`](./DECK.md) (architects, about 45 minutes)
+or [`DECK-dev.md`](./DECK-dev.md) (developers, 20 minutes: three reusable MongoDB
+patterns with code), both Marp Markdown. For
 collections, document shapes, and query patterns, see
 [`DATA_MODEL.md`](./DATA_MODEL.md). For future changes, use the lightweight spec
 workflow in [`specs/`](./specs/).
@@ -395,7 +397,8 @@ Find_The_Failure/
 │   ├── full-smoke.mjs    # end-to-end smoke test (npm run smoke)
 │   └── spec-check.mjs    # spec metadata and requirement-to-test checker
 ├── DEMO.md               # presenter runbook
-├── DECK.md               # presentation slides (Marp Markdown)
+├── DECK.md               # presentation slides for architects (Marp Markdown)
+├── DECK-dev.md           # 20-minute developer cut: patterns, code, try-it steps
 ├── DATA_MODEL.md         # collections, document shapes, query patterns
 ├── specs/                # spec-driven design records
 ├── backend/
