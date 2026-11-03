@@ -48,7 +48,7 @@ more credible for enterprise review without changing the user journey.
 - Do not add authentication or row-level authorization in this slice.
 - Do not change the fictional single-tenant demo company.
 - Do not add autonomous remediation or external integrations.
-- Do not replace the current deterministic Agent v1 flow.
+- Do not replace the current deterministic agent flow.
 
 ## 7. Requirements
 

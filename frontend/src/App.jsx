@@ -58,7 +58,7 @@ export default function App() {
           </div>
         </div>
         <div className="header-meta">
-          <span className="scope-pill">Bounded Agent v1 PoC</span>
+          <span className="scope-pill">Bounded agent PoC</span>
           <nav className="tabs" aria-label="Application views">
             {NAV_GROUPS.map((group) => (
               <div key={group.label} className="nav-group" role="group" aria-label={group.label}>

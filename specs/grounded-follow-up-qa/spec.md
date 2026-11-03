@@ -84,7 +84,7 @@ and agent messages.
 ## 12. Product risks
 
 - Deterministic answers may appear less flexible than LLM answers; frame this as a
-  safe Agent v1 grounding pattern.
+  safe agent grounding pattern.
 - Grounded answers must avoid implying recent changes or similar cases are proven
   root cause.
 

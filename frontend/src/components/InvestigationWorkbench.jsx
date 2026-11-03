@@ -1484,7 +1484,7 @@ export default function InvestigationWorkbench({ focus = null }) {
   return (
     <div className="workbench">
       <aside className="alert-inbox">
-        <span className="eyebrow">Agent v1</span>
+        <span className="eyebrow">Bounded agent</span>
         <h2>Investigation Workbench</h2>
         <p className="muted">Alert-first, read-only workflow for mapping operational signals to topology, owners, impact, evidence, and safe next checks.</p>
         <div className="demo-hint">

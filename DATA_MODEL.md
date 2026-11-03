@@ -29,7 +29,7 @@ layer for integration metadata.
 | `relationships` | The single store for typed graph edges, with evidence and confidence | depends_on, supports_process, transforms_to |
 | `source_records` | Raw imported metadata, exports, and alerts | Inventory export, lineage catalog row, Alertmanager alert |
 | `operational_knowledge` | Runbooks, incident notes, business context | ERP timeout triage note |
-| `investigation_cases` | Persisted Agent v1 case memory | Timeline, evidence, follow-up Q&A |
+| `investigation_cases` | Persisted case memory | Timeline, evidence, follow-up Q&A |
 | `lineage_flows` | Lineage flows defined as data | Order to Cash, Procure to Pay: identifier, entity order, path |
 | `message_events` | Sample B2B tracking events keyed by business identifiers | PO-4500012388 failed at order-create; lot L-2291 shipped to 3 hospitals |
 
@@ -205,7 +205,7 @@ Searchable operational memory for the Workbench. Key fields: `key`, `type`,
 
 ### `investigation_cases`
 
-Persisted Agent v1 case memory. Each case stores an alert snapshot, investigation
+Persisted case memory. Each case stores an alert snapshot, investigation
 summary, likely fault domain, evidence, recommended checks, timeline events, and
 grounded follow-up Q&A.
 
@@ -267,7 +267,7 @@ This lets a typo like `hosptial` still return **Hospital Order 850**, and `invoc
 
 `/api/recalls/:recallId` reads the recall notice from `source_records`, finds every `message_events` record carrying its `lot_number` across both flows, and groups them by customer (`ship_to`) to report receipts, shipments, on-hand quantity, and affected hospitals. Lot coverage reads the mapping effective on `as_of`, so receipts posted before the supplier 856 v2 mapping (for example `GR-51877`) are reported as untraceable by lot. Recommended actions are read-only.
 
-### Agent v1 case memory
+### Case memory
 
 `/api/cases/investigate/:sourceRecordKey` runs deterministic alert correlation,
 retrieves related runbooks/prior incidents from `operational_knowledge`, stores

@@ -1,6 +1,6 @@
 # Find the Failure
 
-**An EDI Integration Impact Explorer** — a bounded Agent v1 PoC/demo with a
+**An EDI Integration Impact Explorer** — a bounded-agent PoC/demo with a
 searchable, relationship-aware context layer over an integration landscape. It
 answers *"What's affected, who owns it, and what happens next?"* in seconds
 instead of hours.
@@ -114,7 +114,7 @@ and steward decisions preserve auditable memory.
   recent failures.
 - **Modernization what-if** — "What breaks if we replace this system?" returns
   affected interfaces, owners to coordinate, and migration dependencies.
-- **Agent v1 Investigation Workbench** — alert-first supervised workflow with
+- **Investigation Workbench** — alert-first supervised workflow with
   topology mapping, related runbook/incident retrieval, evidence, likely
   fault-domain ranking, grounded follow-up, case memory, a grouped investigation
   playbook, alert deduplication/noise reduction, local alert lifecycle tracking,

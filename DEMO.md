@@ -139,7 +139,7 @@ Hospital 123 → EDI Gateway → X12 Translator → Integration API → Apex ERP
    escalation was sent.
 7. In the same **Operator action** panel, mark the case **Resolved**,
    **Monitoring**, or **Transferred**. The top stats update the **Case outcome**.
-8. Review the safe next checks. No remediation is executed in Agent v1; the
+8. Review the safe next checks. No remediation is executed by the agent; the
     guardrail reminds the audience that action requires operator approval.
 
 > "In seconds we know what broke, what's downstream, who owns it, and what

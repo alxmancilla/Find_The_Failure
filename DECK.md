@@ -197,7 +197,7 @@ supplier 810 → three-way match → supplier payment.
 **Sample data, by design**
 - Fictional company, seeded exports and alerts
 - Order, supplier PO, and lot tracking events are seeded, not a live feed
-- Agent v1 is deterministic and read-only; no LLM tool orchestration
+- The agent workflow is deterministic and read-only; no LLM tool orchestration
 - Single-tenant data; not load-tested at production volume
 
 ---
