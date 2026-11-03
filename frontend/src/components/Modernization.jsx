@@ -48,6 +48,7 @@ export default function Modernization({ systemKey: initialSystemKey = "x12-trans
     setSystemKeyState(key);
     onSystemChange?.(key);
   };
+  useEffect(() => setSystemKeyState(initialSystemKey), [initialSystemKey]);
 
   const loadSystems = () => api.systems().then(setSystems).catch(() => setError("Unable to load systems."));
 

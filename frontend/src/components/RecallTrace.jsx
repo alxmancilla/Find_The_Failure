@@ -59,9 +59,14 @@ function TraceLink({ flow, value, onOpenLineage }) {
 
 const joinNodes = (nodes) => nodes.flatMap((node, i) => (i ? [", ", node] : [node]));
 
-export default function RecallTrace({ onOpenLineage }) {
+export default function RecallTrace({ recallKey = "", onRecallChange, onOpenLineage }) {
   const [recalls, setRecalls] = useState([]);
-  const [recallId, setRecallId] = useState("");
+  const [recallId, setRecallId] = useState(recallKey);
+  const selectRecall = (key) => {
+    setRecallId(key);
+    onRecallChange?.(key);
+  };
+  useEffect(() => { if (recallKey) setRecallId(recallKey); }, [recallKey]);
   const [asOf, setAsOf] = useState("");
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -105,7 +110,7 @@ export default function RecallTrace({ onOpenLineage }) {
         <div className="recall-toolbar">
           <label>
             <span>Recall notice</span>
-            <select value={recallId} onChange={(e) => setRecallId(e.target.value)}>
+            <select value={recallId} onChange={(e) => selectRecall(e.target.value)}>
               {recalls.map((r) => <option key={r.key} value={r.key}>{r.key} · {r.product} · lot {r.lot_number}</option>)}
             </select>
           </label>

@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Explorer from "./components/Explorer.jsx";
 import InvestigationWorkbench from "./components/InvestigationWorkbench.jsx";
 import DemoConsole from "./components/DemoConsole.jsx";
 import Modernization from "./components/Modernization.jsx";
 import Ingestion from "./components/Ingestion.jsx";
-import Investigation from "./components/Investigation.jsx";
 import RecallTrace from "./components/RecallTrace.jsx";
+import { buildHash, parseHash } from "./routes.js";
 
 const NAV_GROUPS = [
   { label: "Operations", items: [{ id: "workbench", label: "Investigation Workbench", hint: "Alert to impact, owner, and safe next check" }] },
@@ -20,33 +20,31 @@ const NAV_GROUPS = [
   { label: "Platform", items: [{ id: "ingestion", label: "Context Ingestion", hint: "How source records become trusted context" }] },
 ];
 
-const MORE_ITEMS = [
-  { id: "demo", label: "Presenter Console" },
-  { id: "investigation", label: "Classic Investigation" },
-];
+const MORE_ITEMS = [{ id: "demo", label: "Presenter Console" }];
+const DEFAULT_SYSTEM = "x12-translator";
 
 export default function App() {
-  const [tab, setTab] = useState("workbench");
-  const [modernizationSystem, setModernizationSystem] = useState("x12-translator");
-  const [catalogTarget, setCatalogTarget] = useState(null);
-  const [workbenchFocus, setWorkbenchFocus] = useState(null);
-  const goTo = (id) => {
-    setCatalogTarget(null);
-    setWorkbenchFocus(null);
-    setTab(id);
+  const [route, setRoute] = useState(() => parseHash(window.location.hash));
+  useEffect(() => {
+    const onHashChange = () => setRoute(parseHash(window.location.hash));
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+  const navigate = (view, params) => {
+    const next = buildHash(view, params);
+    if (window.location.hash !== next) window.location.hash = next;
+    setRoute(parseHash(next));
   };
-  const planChange = (systemKey) => {
-    setModernizationSystem(systemKey);
-    goTo("modernization");
-  };
-  const openLineage = (target) => {
-    goTo("explorer");
-    setCatalogTarget({ ...target, nonce: Date.now() });
-  };
-  const investigateInterface = (interfaceKey, context) => {
-    goTo("workbench");
-    setWorkbenchFocus({ interfaceKey, context, nonce: Date.now() });
-  };
+
+  const { view: tab, params } = route;
+  const catalogTarget = tab === "explorer" && (params.flow || params.entity || params.transaction)
+    ? { flow: params.flow, entity: params.entity, transaction: params.transaction }
+    : null;
+  const workbenchFocus = tab === "workbench" && params.interface ? { interfaceKey: params.interface, context: params.from } : null;
+  const goTo = (id) => navigate(id);
+  const planChange = (systemKey) => navigate("modernization", { system: systemKey });
+  const openLineage = (target) => navigate("explorer", { flow: target.flow, entity: target.entity, transaction: target.transaction });
+  const investigateInterface = (interfaceKey, context) => navigate("workbench", { interface: interfaceKey, from: context });
 
   return (
     <div className="app">
@@ -90,13 +88,12 @@ export default function App() {
           </nav>
         </div>
       </header>
-      {tab === "workbench" && <InvestigationWorkbench focus={workbenchFocus} />}
+      {tab === "workbench" && <InvestigationWorkbench key={params.interface || "workbench"} focus={workbenchFocus} />}
       {tab === "demo" && <DemoConsole />}
-      {tab === "explorer" && <Explorer key={catalogTarget?.nonce || "explorer"} target={catalogTarget} onPlanChange={planChange} onInvestigate={investigateInterface} />}
-      {tab === "modernization" && <Modernization systemKey={modernizationSystem} onSystemChange={setModernizationSystem} onOpenLineage={openLineage} />}
-      {tab === "recall" && <RecallTrace onOpenLineage={openLineage} />}
+      {tab === "explorer" && <Explorer key={catalogTarget ? JSON.stringify(catalogTarget) : "explorer"} target={catalogTarget} onPlanChange={planChange} onInvestigate={investigateInterface} />}
+      {tab === "modernization" && <Modernization systemKey={params.system || DEFAULT_SYSTEM} onSystemChange={(system) => navigate("modernization", { system })} onOpenLineage={openLineage} />}
+      {tab === "recall" && <RecallTrace recallKey={params.notice || ""} onRecallChange={(notice) => navigate("recall", { notice })} onOpenLineage={openLineage} />}
       {tab === "ingestion" && <Ingestion />}
-      {tab === "investigation" && <Investigation />}
     </div>
   );
 }

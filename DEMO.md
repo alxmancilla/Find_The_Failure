@@ -448,7 +448,8 @@ flowchart LR
 Use **Operations → Investigation Workbench** as the primary story. For
 architecture audiences, follow **Architecture → Catalog & Lineage →
 Modernization → Recall Trace**. **Platform → Context Ingestion** shows where context comes
-from; Presenter Console and Classic Investigation live under **More…**.
+from; Presenter Console lives under **More…**. Each screen has a URL (for
+example `#/recall`), so a step can be bookmarked and Back returns to the previous one.
 
 ### Key endpoints
 | Method | Path | Purpose |

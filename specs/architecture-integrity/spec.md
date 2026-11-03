@@ -2,10 +2,11 @@
 status: validated
 owner: demo-team
 created: 2026-10-26
-updated: 2026-10-26
+updated: 2026-11-03
 release_type: architecture review follow-up
 baseline_tag: architecture-integrity-2026-10-26
 amends: [operational-lineage]
+amended_by: [navigation-routing]
 ---
 
 # Architecture Integrity Spec
@@ -143,3 +144,9 @@ architect path.
 
 - Move curated dependency edges to an ingested catalog export as well —
   delivered in [`lineage-governance`](../lineage-governance/spec.md).
+
+## 18. Amendments
+
+| Requirement here | Changed by | Now |
+|---|---|---|
+| Non-goal "No removal of Presenter Console or Classic Investigation"; grouped navigation with both under More | [`navigation-routing`](../navigation-routing/spec.md) REQ-006 | Classic Investigation is removed; **More…** lists only Presenter Console |

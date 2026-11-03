@@ -78,4 +78,15 @@ describe("RecallTrace", () => {
     expect(await screen.findByText("No recall notices")).toBeTruthy();
     expect(api.recall).not.toHaveBeenCalled();
   });
+
+  it("[navigation-routing:REQ-005] loads the notice from the URL and reports a new selection", async () => {
+    api.recalls.mockResolvedValueOnce({ recalls: [{ key: "RCL-1", product: "IV Set", lot_number: "L-1" }, { key: "RCL-2", product: "Gauze", lot_number: "L-2" }] });
+    const onRecallChange = vi.fn();
+    render(<RecallTrace recallKey="RCL-2" onRecallChange={onRecallChange} />);
+    await screen.findByText(/cannot be traced by lot/);
+    expect(api.recall).toHaveBeenCalledWith("RCL-2", "");
+    expect(api.recall).not.toHaveBeenCalledWith("RCL-1", "");
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "RCL-1" } });
+    expect(onRecallChange).toHaveBeenCalledWith("RCL-1");
+  });
 });

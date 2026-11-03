@@ -62,7 +62,11 @@ Navigation is grouped into two presenter paths plus the platform view:
   selected.
 - **Platform** — **Context Ingestion**: how raw CMDB, catalog, observability, and
   lineage exports become trusted context.
-- **More…** — **Presenter Console** and **Classic Investigation** (legacy views).
+- **More…** — **Presenter Console**.
+
+Every screen has its own URL (`#/workbench`, `#/lineage`, `#/modernization`,
+`#/recall`, `#/ingestion`, `#/presenter`), including the selection passed by
+cross-screen links, so Back/Forward work and links can be bookmarked or shared.
 
 ---
 
@@ -433,6 +437,7 @@ Find_The_Failure/
     └── src/
         ├── api.js        # API client
         ├── App.jsx       # grouped navigation shell
+        ├── routes.js     # hash URLs for screens and cross-screen links
         └── components/   # InvestigationWorkbench, Explorer, LineageView,
                           # LineageGovernance, RecallTrace, Modernization, Ingestion,
                           # DependencyGraph, SearchBar, InterfaceDetails, ...
