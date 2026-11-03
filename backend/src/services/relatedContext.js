@@ -5,21 +5,32 @@ import { AUTO_EMBED_MODEL, INDEX_NAME, KNOWLEDGE_VECTOR_INDEX } from "./searchIn
 const RERANK_MODEL = "rerank-2.5-lite";
 const LIMIT = 5;
 const CANDIDATES = 10;
+const VECTOR_ENGINE = "auto-embed-vector-rerank";
 
 export async function findRelatedContext(alert, iface, impact) {
   const query = buildRelatedContextQuery(alert, iface, impact);
   const attempts = retrievalAttempts(ATLAS_RETRIEVAL_MODE, query);
+  const hit = await runRetrievalAttempts(attempts, (pipeline) => OperationalKnowledge.aggregate(pipeline));
+  if (hit) return relatedContextResult(query, hit.attempt.engine, hit.attempt.pipeline, hit.documents);
+  return relatedContextResult(query, "local-keyword-fallback", null, await keywordFallback(query));
+}
 
-  for (const attempt of attempts) {
+// An empty vector result (e.g. embeddings still being generated) falls through
+// to the next attempt, like an error does.
+export async function runRetrievalAttempts(attempts, run) {
+  for (const [i, attempt] of attempts.entries()) {
     try {
-      const documents = await OperationalKnowledge.aggregate(attempt.pipeline);
-      return relatedContextResult(query, attempt.engine, attempt.pipeline, documents);
+      const documents = await run(attempt.pipeline);
+      if (!documents.length && attempt.engine === VECTOR_ENGINE && i < attempts.length - 1) {
+        console.warn(`[retrieval] ${attempt.engine} returned no documents, falling back`);
+        continue;
+      }
+      return { attempt, documents };
     } catch (err) {
       console.warn(`[retrieval] ${attempt.engine} unavailable, falling back: ${err.message}`);
     }
   }
-
-  return relatedContextResult(query, "local-keyword-fallback", null, await keywordFallback(query));
+  return null;
 }
 
 export function buildRelatedContextQuery(alert, iface, impact) {

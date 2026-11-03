@@ -1,5 +1,5 @@
 ---
-status: draft
+status: implemented
 owner: demo-team
 created: 2026-11-03
 updated: 2026-11-03
@@ -130,12 +130,12 @@ Console output only. Example lines:
 
 ## 14. Implementation tasks
 
-- [ ] `relatedContext.js`: treat 0 vector results as "try next attempt".
-- [ ] `searchIndex.js`: retry transient creation errors; auto-embed readiness probe; configurable timeouts.
-- [ ] `config.js` / `.env.example`: the two timeout variables.
-- [ ] `scripts/demo.sh`: port-owner check; wait for container `healthy`.
-- [ ] Backend tests for REQ-001–REQ-004.
-- [ ] README quick start and DECK-dev.md "Try it" note.
+- [x] `relatedContext.js`: treat 0 vector results as "try next attempt".
+- [x] `searchIndex.js`: retry transient creation errors; auto-embed readiness probe; configurable timeouts.
+- [x] `config.js` / `.env.example`: the two timeout variables.
+- [x] `scripts/demo.sh`: port-owner check; wait for container `healthy`.
+- [x] Backend tests for REQ-001–REQ-004.
+- [x] README quick start and DECK-dev.md "Try it" note.
 
 ## 15. Decisions
 

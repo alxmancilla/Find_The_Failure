@@ -126,7 +126,7 @@ Specs below are `validated` unless marked otherwise.
 - [`bounded-history-arrays`](./bounded-history-arrays/spec.md) — `$slice` caps on every history array
 - [`business-key-attribute-pattern`](./business-key-attribute-pattern/spec.md) — one `{k, v}` index for every business identifier in `message_events` (amends `lineage-governance`, `product-recall-traceability`)
 - [`requirement-test-backfill`](./requirement-test-backfill/spec.md) — tagged smoke assertions, backend test suite, list of untested requirements and why
-- [`local-demo-startup`](./local-demo-startup/spec.md) — search-index retry, auto-embedding readiness, empty-vector fallback, port 27017 check (`draft`)
+- [`local-demo-startup`](./local-demo-startup/spec.md) — search-index retry, auto-embedding readiness, empty-vector fallback, port 27017 check (`implemented`; fresh-clone check pending)
 
 ## Change discipline
 

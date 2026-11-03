@@ -186,6 +186,11 @@ npm run demo
 This starts MongoDB Atlas Local, installs dependencies, seeds the data, and
 launches the backend (`:4000`) and frontend (`:5173`).
 
+Port 27017 must be free: `npm run demo` stops with a message if another MongoDB
+holds it. The first start pulls the Atlas Local image and waits for its search
+engine, which can take a few minutes; the backend logs
+`[search] all search indexes are queryable` when search is ready.
+
 Then open **http://localhost:5173**.
 
 - Stop servers: `Ctrl+C`
@@ -224,7 +229,15 @@ MONGO_URI=mongodb://localhost:27017/find_the_failure?directConnection=true
 PORT=4000
 ATLAS_RETRIEVAL_MODE=atlas-search
 ENABLE_ATLAS_AUTO_EMBED_INDEX=false
+SEARCH_INDEX_TIMEOUT_MS=120000
+AUTO_EMBED_READY_TIMEOUT_MS=180000
 ```
+
+On startup the backend retries search-index creation until the search service
+answers (`SEARCH_INDEX_TIMEOUT_MS`), and with auto-embedding on it waits until a
+test vector query returns documents (`AUTO_EMBED_READY_TIMEOUT_MS`). If either
+wait times out, the server still starts and logs the fallback in use. A vector
+query that returns nothing falls back to Atlas Search.
 
 It is loaded by `backend/src/config.js` (resolved relative to the module, so it
 works regardless of the working directory). `directConnection=true` is required

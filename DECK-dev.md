@@ -89,11 +89,11 @@ before the writes. Operations on one session must be sequential (no `Promise.all
 ## How we know it works
 
 - `npm run smoke` — end-to-end API run, resets the demo afterwards
-- `cd backend && npm test` — 21 tests against the database: rollback leaves
+- `cd backend && npm test` — 31 tests, 21 against the database: rollback leaves
   nothing behind, caps hold, validators flag bad documents, `explain()` uses
   the intended index
 - `npm run spec:check` — every spec requirement ID is matched to the tests
-  that reference it: **131 of 181** covered; the rest are listed with a reason
+  that reference it: **135 of 188** covered; the rest are listed with a reason
 
 ```js
 it("[mongodb-transactions:REQ-005] rolls back every write when the flow fails", ...)
@@ -112,6 +112,7 @@ npm run smoke       # in a second terminal
 
 Open `http://localhost:5173` → **Architecture → Recall Trace**.
 Atlas Local includes Atlas Search; no cloud account needed.
+Port 27017 must be free; the first start pulls the image and takes a few minutes.
 
 Code: `backend/src/services/lineage.js` (Pattern 1) ·
 `backend/src/models.js` (Pattern 2) · `backend/src/db.js`,

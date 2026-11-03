@@ -15,3 +15,5 @@ export const MONGO_MAX_POOL_SIZE = Number(process.env.MONGO_MAX_POOL_SIZE) || 20
 export const MONGO_SERVER_SELECTION_TIMEOUT_MS = Number(process.env.MONGO_SERVER_SELECTION_TIMEOUT_MS) || 10000;
 export const ATLAS_RETRIEVAL_MODE = process.env.ATLAS_RETRIEVAL_MODE || "atlas-search";
 export const ENABLE_ATLAS_AUTO_EMBED_INDEX = process.env.ENABLE_ATLAS_AUTO_EMBED_INDEX === "true";
+export const SEARCH_INDEX_TIMEOUT_MS = Number(process.env.SEARCH_INDEX_TIMEOUT_MS) || 120000;
+export const AUTO_EMBED_READY_TIMEOUT_MS = Number(process.env.AUTO_EMBED_READY_TIMEOUT_MS) || 180000;
