@@ -41,7 +41,7 @@ async function measureTargets() {
   return timings;
 }
 
-const seconds = (ms) => `${(ms / 1000).toFixed(ms < 1000 ? 2 : 1)} s`;
+const seconds = (ms) => (ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`);
 function reportTargets(timings) {
   console.log("[targets] " + Object.entries(timings).map(([q, ms]) => `${q} ${seconds(ms)} (budget ${seconds(TARGET_BUDGETS_MS[q])})`).join(" · "));
   for (const [q, ms] of Object.entries(timings)) {

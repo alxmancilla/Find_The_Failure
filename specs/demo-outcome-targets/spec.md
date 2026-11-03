@@ -108,7 +108,7 @@ retrieval as served from the configured cluster.
 ## 14. Implementation tasks
 
 - [x] Measure the baseline on Atlas (2 runs × 5 calls) and count clicks per question.
-- [ ] Measure the baseline on Atlas Local.
+- [x] Measure the baseline on Atlas Local (fresh clone, 2 first-run starts).
 - [x] Fill section 15; get the numbers approved before enforcing them.
 - [x] Smoke timings (warm-up call, median of 3), budget warnings.
 - [x] Click-path tests for Q1–Q3.
@@ -117,7 +117,9 @@ retrieval as served from the configured cluster.
 ## 15. Decisions
 
 - Baseline, Atlas, 2026-11-03 (warm median of 5 calls, 2 runs): Q1 2.0–2.2 s,
-  Q2 0.33–0.36 s, Q3 0.45–0.47 s. Clicks from the landing screen (Workbench):
+  Q2 0.33–0.36 s, Q3 0.45–0.47 s. Atlas Local (same machine, keyword search,
+  no embeddings): Q1 ~0.1 s, Q2 ~4 ms, Q3 ~3 ms, so the budgets are set by Atlas
+  network latency, not the database work. Clicks from the landing screen (Workbench):
   Q1 1 (**Open investigation case**), Q2 1 (**Recall Trace**), Q3 4
   (**Catalog & Lineage**, **Data view**, **Trace**, pick the order).
 - Targets (approved 2026-11-03): API budgets Q1 4.5 s · Q2 0.75 s · Q3 1 s
