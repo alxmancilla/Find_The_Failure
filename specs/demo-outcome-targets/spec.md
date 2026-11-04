@@ -1,10 +1,10 @@
 ---
-status: implemented
+status: validated
 owner: demo-team
 created: 2026-11-03
 updated: 2026-11-03
 release_type: product measurement
-baseline_tag: none
+baseline_tag: demo-outcome-targets-2026-11-03
 depends_on: []
 amends: []
 ---
@@ -87,8 +87,8 @@ retrieval as served from the configured cluster.
 - [x] REQ-002 — automated: `scripts/full-smoke.mjs` prints `[targets]`
 - [x] REQ-003 — automated: `scripts/full-smoke.mjs` budget check tagged per question (warning only)
 - [x] REQ-004 — automated: `InvestigationWorkbench.test.jsx`, `RecallTrace.test.jsx`, `LineageView.test.jsx`
-- [ ] REQ-005 — manual: `DEMO.md` reviewed, by demo-team
-- [ ] REQ-006 — manual: `specs/template.md` reviewed, by demo-team
+- [x] REQ-005 — manual: `DEMO.md` reviewed 2026-11-03, by demo-team
+- [x] REQ-006 — manual: `specs/template.md` reviewed 2026-11-03, by demo-team
 
 ## 12. Product risks
 

@@ -126,9 +126,9 @@ Specs below are `validated` unless marked otherwise.
 - [`bounded-history-arrays`](./bounded-history-arrays/spec.md) — `$slice` caps on every history array
 - [`business-key-attribute-pattern`](./business-key-attribute-pattern/spec.md) — one `{k, v}` index for every business identifier in `message_events` (amends `lineage-governance`, `product-recall-traceability`)
 - [`requirement-test-backfill`](./requirement-test-backfill/spec.md) — tagged smoke assertions, backend test suite, list of untested requirements and why
-- [`local-demo-startup`](./local-demo-startup/spec.md) — search-index retry, auto-embedding readiness, empty-vector fallback, port 27017 check (`implemented`; all checks pass except the docs review, REQ-007)
-- [`navigation-routing`](./navigation-routing/spec.md) — hash URLs for every screen and cross-screen link, Back/Forward, remove Classic Investigation; amends `architecture-integrity` (`implemented`; manual Back/Forward check pending)
-- [`demo-outcome-targets`](./demo-outcome-targets/spec.md) — click targets and API time budgets for the three hero questions, warnings in smoke (`implemented`; Atlas Local baseline and doc review pending)
+- [`local-demo-startup`](./local-demo-startup/spec.md) — search-index retry, auto-embedding readiness, empty-vector fallback, port 27017 check
+- [`navigation-routing`](./navigation-routing/spec.md) — hash URLs for every screen and cross-screen link, Back/Forward, remove Classic Investigation; amends `architecture-integrity`
+- [`demo-outcome-targets`](./demo-outcome-targets/spec.md) — click targets and API time budgets for the three hero questions, warnings in smoke
 
 ## Change discipline
 

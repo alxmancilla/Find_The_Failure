@@ -1,10 +1,10 @@
 ---
-status: implemented
+status: validated
 owner: demo-team
 created: 2026-11-03
 updated: 2026-11-03
 release_type: reliability
-baseline_tag: none
+baseline_tag: local-demo-startup-2026-11-03
 depends_on: []
 amends: []
 ---
@@ -111,7 +111,7 @@ Console output only. Example lines:
 - [x] REQ-004 — automated: `backend/test/search-index.test.mjs` (timeout path)
 - [x] REQ-005 — manual: fresh clone with `fle-demo-mongodb` on 27017 exited 1 naming that container, no `ftf-mongo` created (2026-11-03), by demo-team
 - [x] REQ-006 — manual: fresh clone, empty volume, `npm run demo` then `npm run smoke` passed first time (2026-11-03), by demo-team
-- [ ] REQ-007 — manual: README and DECK-dev.md reviewed, by demo-team
+- [x] REQ-007 — manual: README and DECK-dev.md reviewed 2026-11-03, by demo-team
 
 ## 12. Product risks
 

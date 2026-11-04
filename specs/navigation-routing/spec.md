@@ -1,10 +1,10 @@
 ---
-status: implemented
+status: validated
 owner: demo-team
 created: 2026-11-03
 updated: 2026-11-03
 release_type: UX
-baseline_tag: none
+baseline_tag: navigation-routing-2026-11-03
 depends_on: []
 amends: [architecture-integrity]
 ---
@@ -96,7 +96,7 @@ None.
 
 - [x] REQ-001 — automated: `frontend/src/App.test.jsx` (clicking a screen sets the hash)
 - [x] REQ-002 — automated: `frontend/src/App.test.jsx` (initial hash renders that screen; unknown hash renders Workbench)
-- [ ] REQ-003 — automated: `frontend/src/App.test.jsx` (`hashchange` switches screen); manual: Back/Forward in Chrome, by demo-team
+- [x] REQ-003 — automated: `frontend/src/App.test.jsx` (`hashchange` switches screen); manual: Back/Forward in Chrome checked 2026-11-03, by demo-team
 - [x] REQ-004 — automated: `frontend/src/App.test.jsx` (cross-screen link writes selection to the hash)
 - [x] REQ-005 — automated: `frontend/src/components/RecallTrace.test.jsx`, `frontend/src/App.test.jsx`
 - [x] REQ-006 — automated: `npm run spec:check` plus a test that **More…** lists only Presenter Console
