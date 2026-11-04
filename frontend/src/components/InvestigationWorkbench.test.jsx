@@ -45,6 +45,37 @@ describe("InvestigationWorkbench", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Gateway lag" })).toBeTruthy();
   });
 
+  it("[workbench-answer-first:REQ-001,REQ-002,REQ-005] puts the answer card first in the main column and not in the rail", async () => {
+    const { container } = render(<InvestigationWorkbench />);
+    await screen.findByRole("heading", { level: 2, name: "Gateway lag" });
+    const summaries = screen.getAllByRole("heading", { name: "Investigation summary" });
+    expect(summaries).toHaveLength(1);
+    const card = summaries[0].closest("section");
+    expect(card.parentElement.classList.contains("workbench-main")).toBe(true);
+    const graph = container.querySelector(".workbench-graph");
+    expect(card.compareDocumentPosition(graph) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(card.compareDocumentPosition(container.querySelector(".case-stats")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(card).getByRole("button", { name: "Open investigation case" })).toBeTruthy();
+    expect(container.querySelector(".workbench-right .investigation-summary-card")).toBeNull();
+  });
+
+  it("[workbench-answer-first:REQ-003] shows exactly one primary Open investigation case button", async () => {
+    render(<InvestigationWorkbench />);
+    await screen.findByRole("heading", { level: 2, name: "Gateway lag" });
+    const buttons = screen.getAllByRole("button", { name: "Open investigation case" });
+    expect(buttons.filter((b) => b.classList.contains("primary"))).toHaveLength(1);
+  });
+
+  it("[workbench-answer-first:REQ-004] keeps the recommended flow in a collapsed Presenter guide", async () => {
+    const { container } = render(<InvestigationWorkbench />);
+    await screen.findByRole("heading", { level: 2, name: "Gateway lag" });
+    const guide = container.querySelector("details.presenter-guide");
+    expect(guide.open).toBe(false);
+    expect(within(guide).getByText("Presenter guide")).toBeTruthy();
+    expect(guide.querySelector(".demo-hint")).toBeTruthy();
+    expect(container.querySelectorAll(".next-best-panel")).toHaveLength(1);
+  });
+
   it("[demo-outcome-targets:REQ-004] Q1: impact, owner, and next safe check in 1 click from the landing screen", async () => {
     const investigation = {
       alert: alert("a1", "if-gateway-x12", "Gateway lag"),

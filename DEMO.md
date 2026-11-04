@@ -46,7 +46,7 @@ Before presenting:
    (table below); warm up or check the cluster before presenting.
 5. Open `http://localhost:5173` or `http://127.0.0.1:5173`.
 6. Start in **Operations → Investigation Workbench**. Use the top **Next best
-   action** coach and the left-side **Recommended flow** as the presenter guide.
+   action** coach; the **Recommended flow** is in the inbox under **Presenter guide**.
    For an architecture audience, start in **Architecture → Catalog & Lineage**
    (section "Operational lineage for architects" below).
 
@@ -72,13 +72,16 @@ Open **Investigation Workbench**. The current hero flow is guided by three cues:
 
 - the top **Next best action** card, which tells the operator exactly what to do
   next, and
-- the left-side **Recommended flow**, which tracks replay context, select alert,
-  open case, review evidence, and approve/close, and
+- the **Recommended flow** (inbox → **Presenter guide**, collapsed by default),
+  which tracks replay context, select alert, open case, review evidence, and
+  approve/close, and
 - **Presenter Mode**, which keeps the default view summary-first while leaving
   proof panels available on demand.
 
-The right rail has two steps: **1. Triage** (summary and supporting evidence)
-and **2. Case** (handoff preview, follow-up Q&A, approval, closure, and audit
+The **Investigation summary** card sits at the top of the main column, under the
+Next best action card, and holds the one primary **Open investigation case**
+button. The right rail has two steps: **1. Triage** (supporting evidence) and
+**2. Case** (handoff preview, follow-up Q&A, approval, closure, and audit
 trail). The Case step unlocks once a case is open.
 
 Let the agent playbook populate topology, evidence, handoff, and local closure
@@ -91,8 +94,7 @@ state while you narrate the business value.
 2. Select an external Alertmanager inbox item such as **ERP order API timeout**.
 3. Say: "We are starting where operations starts: a rejected purchase order, not
    a static architecture diagram."
-4. Click **Open investigation case** from either the selected-alert card or the
-   top **Next best action** card.
+4. Click **Open investigation case** in the **Investigation summary** card.
 
 ### Act 2 — Let the summary lead
 Presenter Mode keeps the audience focused on one consolidated **Investigation

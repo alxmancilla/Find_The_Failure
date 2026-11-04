@@ -391,7 +391,7 @@ function SelectedAlertPanel({ alert, busy, lifecycleBusy, activeCase, isHiddenBy
         ))}
       </div>
       <small className="lifecycle-note">Demo-safe lifecycle only; no page, ticket, or remediation is sent.</small>
-      <button type="button" className="primary full" disabled={busy} onClick={onInvestigate}>
+      <button type="button" className="full" disabled={busy} onClick={onInvestigate}>
         {busy ? "Investigating…" : activeCase?.key ? "Run fresh investigation" : "Open investigation case"}
       </button>
     </section>
@@ -428,6 +428,7 @@ function NextBestActionPanel({ hasEnterpriseContext, selectedAlert, activeCase, 
       cta: "Open investigation case",
       onClick: onInvestigate,
       disabled: busy,
+      secondary: true,
     };
   } else if (busy) {
     action = { status: "Running", title: "Agent is investigating", detail: "Follow the playbook timeline as the agent maps impact, evidence, changes, and recommendations." };
@@ -439,6 +440,7 @@ function NextBestActionPanel({ hasEnterpriseContext, selectedAlert, activeCase, 
       cta: "Run investigation",
       onClick: onInvestigate,
       disabled: busy,
+      secondary: true,
     };
   } else if (approvalStatus === "pending") {
     action = { status: "Review", title: "Record the operator decision", detail: "In the Case step, approve, defer, or reject the handoff preview locally.", cta: "Open case step", onClick: onOpenCase };
@@ -455,7 +457,7 @@ function NextBestActionPanel({ hasEnterpriseContext, selectedAlert, activeCase, 
         <h3>{action.title}</h3>
         <p>{action.detail}</p>
       </div>
-      {action.cta && <button type="button" className="primary" disabled={action.disabled} onClick={action.onClick}>{action.cta}</button>}
+      {action.cta && <button type="button" className={action.secondary ? "" : "primary"} disabled={action.disabled} onClick={action.onClick}>{action.cta}</button>}
     </section>
   );
 }
@@ -1487,10 +1489,13 @@ export default function InvestigationWorkbench({ focus = null }) {
         <span className="eyebrow">Bounded agent</span>
         <h2>Investigation Workbench</h2>
         <p className="muted">Alert-first, read-only workflow for mapping operational signals to topology, owners, impact, evidence, and safe next checks.</p>
-        <div className="demo-hint">
-          <strong>Recommended flow</strong>
-          <GuidedPath steps={guidedPath} />
-        </div>
+        <details className="sidebar-disclosure presenter-guide">
+          <summary>Presenter guide <span>recommended flow</span></summary>
+          <div className="demo-hint">
+            <strong>Recommended flow</strong>
+            <GuidedPath steps={guidedPath} />
+          </div>
+        </details>
         <PresenterModePanel enabled={presenterMode} onToggle={() => setPresenterMode((enabled) => !enabled)} />
         <div className={`replay-card ${hasEnterpriseContext ? "ready" : ""}`}>
           <strong>{hasEnterpriseContext ? "Enterprise context is loaded" : "Start here"}</strong>
@@ -1553,6 +1558,7 @@ export default function InvestigationWorkbench({ focus = null }) {
           onInvestigate={startInvestigation}
           onOpenCase={() => setWorkStep("case")}
         />
+        <InvestigationSummaryCard selectedAlert={selectedAlert} activeCase={activeCase} result={result} busy={busy} onInvestigate={startInvestigation} />
         <section className="workbench-header">
           <div>
             <span className="eyebrow">Active case</span>
@@ -1620,7 +1626,6 @@ export default function InvestigationWorkbench({ focus = null }) {
             <div id="wb-panel" role="tabpanel" aria-labelledby={workStep === "case" ? "wb-tab-case" : "wb-tab-triage"}>
               {workStep === "triage" || !activeCase ? (
                 <>
-                  <InvestigationSummaryCard selectedAlert={selectedAlert} activeCase={activeCase} result={result} busy={busy} onInvestigate={startInvestigation} />
                   <details className="detail-stack">
                     <summary>Supporting evidence <span>{result ? "Available" : "Pending"}</span></summary>
                     <OperationalPriorityPanel selectedAlert={selectedAlert} result={result} />

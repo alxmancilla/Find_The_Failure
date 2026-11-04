@@ -1,5 +1,5 @@
 ---
-status: draft
+status: implemented
 owner: demo-team
 created: 2026-11-03
 updated: 2026-11-03
@@ -89,11 +89,11 @@ Unchanged; the MongoDB proof stays one click away.
 
 ## 11. Acceptance criteria
 
-- [ ] REQ-001 — automated: `InvestigationWorkbench.test.jsx` (answer card precedes the graph in document order)
-- [ ] REQ-002 — automated: `InvestigationWorkbench.test.jsx`
-- [ ] REQ-003 — automated: `InvestigationWorkbench.test.jsx` (one primary "Open investigation case")
-- [ ] REQ-004 — automated: `InvestigationWorkbench.test.jsx` (guide collapsed by default)
-- [ ] REQ-005 — automated: `InvestigationWorkbench.test.jsx`
+- [x] REQ-001 — automated: `InvestigationWorkbench.test.jsx` (answer card precedes the graph in document order)
+- [x] REQ-002 — automated: `InvestigationWorkbench.test.jsx`
+- [x] REQ-003 — automated: `InvestigationWorkbench.test.jsx` (one primary "Open investigation case")
+- [x] REQ-004 — automated: `InvestigationWorkbench.test.jsx` (guide collapsed by default)
+- [x] REQ-005 — automated: `InvestigationWorkbench.test.jsx`
 - [ ] REQ-006 — manual: 1280 × 800 visual check, by demo-team
 
 ## 12. Product risks
@@ -111,10 +111,10 @@ Unchanged; the MongoDB proof stays one click away.
 
 ## 14. Implementation tasks
 
-- [ ] Move `InvestigationSummaryCard` to the top of `workbench-center`.
-- [ ] Single primary CTA; secondary style elsewhere.
-- [ ] Collapse demo hint + `GuidedPath` into a "Presenter guide" disclosure.
-- [ ] Update tests and `DEMO.md` hero path wording.
+- [x] Move `InvestigationSummaryCard` to the top of the main column (under Next best action, above the case header and graph).
+- [x] Single primary CTA; secondary style elsewhere.
+- [x] Collapse demo hint + `GuidedPath` into a "Presenter guide" disclosure.
+- [x] Update tests and `DEMO.md` hero path wording.
 
 ## 15. Decisions
 

@@ -402,6 +402,8 @@ select { padding: 8px; border-radius: 8px; background: var(--panel-2); color: va
 .investigation-summary-card { background: linear-gradient(180deg, rgba(15, 42, 30, 0.78), rgba(20, 26, 46, 0.96)); }
 .summary-lead { margin: 8px 0 12px; color: var(--text); font-size: 13px; line-height: 1.5; }
 .summary-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 10px 0 12px; }
+.workbench-main > .investigation-summary-card { margin-bottom: 14px; }
+.workbench-main > .investigation-summary-card .summary-field-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .summary-field { padding: 10px; border: 1px solid var(--border); border-radius: 11px; background: rgba(11, 16, 32, 0.5); }
 .summary-field span { display: block; color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
 .summary-field strong { display: block; margin-top: 5px; font-size: 12px; line-height: 1.35; }
@@ -530,7 +532,7 @@ select { padding: 8px; border-radius: 8px; background: var(--panel-2); color: va
   .next-best-panel { grid-template-columns: 1fr; align-items: stretch; }
   .ingestion-pipeline { grid-template-columns: 1fr; }
   .impact-metric-grid { grid-template-columns: 1fr; }
-  .summary-field-grid { grid-template-columns: 1fr; }
+  .summary-field-grid, .workbench-main > .investigation-summary-card .summary-field-grid { grid-template-columns: 1fr; }
   .priority-grid { grid-template-columns: 1fr; }
   .handoff-field-grid { grid-template-columns: 1fr; }
   .approval-actions { grid-template-columns: 1fr; }
