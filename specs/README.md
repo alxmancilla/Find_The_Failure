@@ -128,7 +128,11 @@ Specs below are `validated` unless marked otherwise.
 - [`requirement-test-backfill`](./requirement-test-backfill/spec.md) — tagged smoke assertions, backend test suite, list of untested requirements and why
 - [`local-demo-startup`](./local-demo-startup/spec.md) — search-index retry, auto-embedding readiness, empty-vector fallback, port 27017 check
 - [`navigation-routing`](./navigation-routing/spec.md) — hash URLs for every screen and cross-screen link, Back/Forward, remove Classic Investigation; amends `architecture-integrity`
-- [`demo-outcome-targets`](./demo-outcome-targets/spec.md) — click targets and API time budgets for the three hero questions, warnings in smoke
+- [`demo-outcome-targets`](./demo-outcome-targets/spec.md) — click targets and API time budgets for the three hero questions, warnings in smoke (amended by `order-trace-shortcut`)
+- [`workbench-answer-first`](./workbench-answer-first/spec.md) — answer card first in the main column, one primary action, one guidance element (`draft`)
+- [`order-trace-shortcut`](./order-trace-shortcut/spec.md) — "Trace an order" on Catalog & Lineage; Q3 from 4 to 2 clicks (`draft`)
+- [`recall-actions`](./recall-actions/spec.md) — per-hospital notification drafts, quarantine summary, CSV export; read-only (`draft`)
+- [`retrieval-transparency`](./retrieval-transparency/spec.md) — plain-language retrieval source and fallbacks, header readiness status (`draft`)
 
 ## Change discipline
 

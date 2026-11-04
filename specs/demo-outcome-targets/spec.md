@@ -7,6 +7,7 @@ release_type: product measurement
 baseline_tag: demo-outcome-targets-2026-11-03
 depends_on: []
 amends: []
+amended_by: [order-trace-shortcut]
 ---
 
 # Demo Outcome Targets Spec
@@ -140,3 +141,9 @@ retrieval as served from the configured cluster.
 ## 17. Follow-ups
 
 - Show per-question timing in Presenter Console.
+
+## 18. Amendments
+
+| Requirement here | Changed by | Now |
+|---|---|---|
+| Q3 click target (≤ 4) in section 15 | [`order-trace-shortcut`](../order-trace-shortcut/spec.md) REQ-004 (`draft`) | Proposed: Q3 ≤ 2 clicks once that spec is validated |
